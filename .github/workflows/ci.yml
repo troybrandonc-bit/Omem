@@ -73,6 +73,29 @@ jobs:
           echo "$out" | grep -qi "SKIP" && { echo "::error::PG suite skipped in the PG job"; exit 1; }
           exit 0
 
+  encrypted-at-rest:
+    name: server / encryption on
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      # cryptography, because content encryption REFUSES to run without real
+      # AEAD rather than falling back to the stdlib HMAC keystream.
+      - run: pip install hypothesis cryptography
+      # The whole suite with content encryption enabled. Encrypting a column
+      # means every read of it has to decrypt, and the failure mode for a missed
+      # read site is json.loads choking on a "v1g." token — or worse, one of the
+      # two scanner sites that swallow exceptions skipping the row in silence.
+      # Running the existing 1300+ checks against ciphertext is what catches
+      # that, so a future column read added without a decrypt fails here.
+      - name: Run every suite against encrypted storage
+        working-directory: server
+        env:
+          OMEM_ENCRYPT_AT_REST: "1"
+          OMEM_MASTER_KEY: ci-encryption-key-not-the-development-default
+        run: python run_tests.py
+
   auth-modes:
     name: server / auth modes
     runs-on: ubuntu-latest
@@ -80,6 +103,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
+      - run: pip install cryptography
       - name: Password mode
         working-directory: server
         run: python tests_auth_password.py
@@ -92,6 +116,13 @@ jobs:
             echo "::error::local mode accepted a non-loopback bind"; exit 1
           fi
           echo "refused, as it should"
+      - name: TLS, audit chain, encryption and the writer lock
+        working-directory: server
+        # An indented heredoc would reach python with its leading spaces intact
+        # and die on IndentationError; the suite covers all of this properly
+        # anyway, including that a second writer is refused.
+        run: python tests_hardening_p11.py
+
       - name: Password mode refuses the default master key
         working-directory: server
         run: |

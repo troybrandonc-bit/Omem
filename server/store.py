@@ -12,6 +12,7 @@ import hmac
 import json
 import os
 import secrets
+import socket
 import sqlite3
 import threading
 import time
@@ -44,8 +45,118 @@ CREATE TABLE IF NOT EXISTS keys(
 """
 
 
+from secrets_provider import (  # noqa: E402
+    decrypt_content, encrypt_content,
+)
+
+
 def _now() -> float:
     return time.time()
+
+
+class WriterLock:
+    """One writer per database, enforced instead of documented.
+
+    THE HAZARD. The engine is authoritative IN MEMORY and rebuilt by replaying
+    the ops log at boot. Two API processes against one database therefore hold
+    two independent engines: writes through process A are invisible to process B
+    until B restarts, and both keep appending to the same ops log. Nothing
+    errors. Both answer `believes()` confidently and differently, and the
+    disagreement survives into whatever the agents did about it. For a system
+    whose entire claim is that the same question has the same answer, silently
+    returning two answers is the worst failure available to it.
+
+    Running a second replica or a rolling deploy did exactly this, and the only
+    thing standing between an operator and it was a sentence in DEPLOYMENT.md.
+    Now the second process refuses to start and says why. That is not high
+    availability — it is the honest version of not having it, and it converts a
+    silent correctness failure into a loud startup failure.
+
+    Ownership is host:pid, so re-opening the database in the SAME process (which
+    the restart-replay tests do) re-acquires rather than deadlocking, while a
+    genuinely separate process is refused.
+
+    Takeover is a compare-and-swap on the heartbeat the holder was last seen at,
+    so if two processes both find a stale lock exactly one of them wins.
+    """
+
+    STALE_AFTER = 90.0     # missed heartbeats before a holder is presumed dead
+    HEARTBEAT_EVERY = 20.0
+
+    def __init__(self, db):
+        self.db = db
+        self.owner = f"{socket.gethostname()}:{os.getpid()}"
+        self.held = False
+        db.executescript(
+            "CREATE TABLE IF NOT EXISTS writer_lock("
+            "  id INTEGER PRIMARY KEY, owner TEXT NOT NULL,"
+            "  acquired REAL NOT NULL, heartbeat REAL NOT NULL)")
+        db.commit()
+
+    def current(self):
+        r = self.db.execute("SELECT * FROM writer_lock WHERE id=1").fetchone()
+        return dict(r) if r else None
+
+    def acquire(self) -> None:
+        if os.environ.get("OMEM_ALLOW_MULTIPLE_WRITERS"):
+            # Deliberately not a silent option: whoever sets this is choosing the
+            # divergence described above, and should see it said out loud.
+            print("  WARNING: OMEM_ALLOW_MULTIPLE_WRITERS is set. Two processes on "
+                  "one database keep two different engines and will disagree.")
+            return
+        now = _now()
+        held = self.current()
+        if held is None:
+            self.db.execute(
+                "INSERT INTO writer_lock(id,owner,acquired,heartbeat) VALUES(1,?,?,?)",
+                (self.owner, now, now))
+            self.db.commit()
+            self.held = True
+            return
+        if held["owner"] == self.owner:
+            self.beat()
+            self.held = True
+            return
+        age = now - held["heartbeat"]
+        if age < self.STALE_AFTER:
+            raise SystemExit(
+                f"OMEM refuses to start: {held['owner']} is already serving this "
+                f"database (last seen {age:.0f}s ago).\n"
+                "The engine is authoritative in memory, so a second process would "
+                "hold a second copy of it and the two would answer differently "
+                "without either of them erroring.\n"
+                "  Stop the other process first, or point this one at another "
+                "OMEM_DB / OMEM_DATABASE_URL.")
+        # Stale. Take it, but only if nobody else took it in the meantime.
+        self.db.execute(
+            "UPDATE writer_lock SET owner=?, acquired=?, heartbeat=? "
+            "WHERE id=1 AND owner=? AND heartbeat=?",
+            (self.owner, now, now, held["owner"], held["heartbeat"]))
+        self.db.commit()
+        if (self.current() or {}).get("owner") != self.owner:
+            raise SystemExit(
+                "OMEM refuses to start: another process claimed this database "
+                "while we were taking over a stale lock. Retry.")
+        print(f"  writer lock: took over from {held['owner']} "
+              f"(stale for {age:.0f}s)")
+        self.held = True
+
+    def beat(self) -> None:
+        if not self.held and not os.environ.get("OMEM_ALLOW_MULTIPLE_WRITERS"):
+            return
+        self.db.execute("UPDATE writer_lock SET heartbeat=? WHERE id=1 AND owner=?",
+                        (_now(), self.owner))
+        self.db.commit()
+
+    def release(self) -> None:
+        """Hand the lock back on a clean shutdown so a redeploy does not have to
+        wait out STALE_AFTER. A crash skips this, which is what the staleness
+        timeout is for."""
+        if not self.held:
+            return
+        self.db.execute("DELETE FROM writer_lock WHERE id=1 AND owner=?", (self.owner,))
+        self.db.commit()
+        self.held = False
 
 
 def _id(prefix: str) -> str:
@@ -192,6 +303,10 @@ class Store:
                             ("v1-baseline", __import__("time").time()))
         self.db.commit()
         self._apply_migrations()
+        # Constructed, not acquired. Building a Store to read (tests, scripts,
+        # restore verification) must not claim the writer lock; only the process
+        # that actually serves does, in main().
+        self.writer_lock = WriterLock(self.db)
 
     # Columns added after the original schema. CREATE TABLE IF NOT EXISTS never
     # alters an existing table, so databases created by earlier versions must be
@@ -213,6 +328,13 @@ class Store:
         # yet. `verify_login` treats NULL as "cannot sign in", never as "any
         # password works" — the difference between the two is the whole point.
         ("users", "pw_hash", "TEXT"),
+        # Audit hash chain. Rows written before this existed keep NULL here and
+        # are reported as "predates hashing" rather than as a broken chain —
+        # claiming to verify what was never hashed would be the same overstatement
+        # the chain exists to remove.
+        ("audit_events", "seq", "INTEGER"),
+        ("audit_events", "prev_hash", "TEXT"),
+        ("audit_events", "hash", "TEXT"),
     ]
 
     def _existing_columns(self, table):
@@ -524,15 +646,21 @@ class Store:
         return org is not None
 
     # ── ops log (durability = replay through the engine) ─────────────
+    # `args` is the memory itself — propositions, subjects, labels, agents — and
+    # this log is the source of truth the engine is rebuilt from. It is the row
+    # that matters most if someone reads the database file, so it is the row
+    # OMEM_ENCRYPT_AT_REST covers first. `kind` and `clock` stay clear: they are
+    # structure, they carry no content, and replay needs to order by them.
     def record_op(self, project_id: str, kind: str, args: dict, clock: int):
         self.db.execute("INSERT INTO ops(project_id,kind,args,clock,ts) VALUES(?,?,?,?,?)",
-                        (project_id, kind, json.dumps(args), clock, _now()))
+                        (project_id, kind, encrypt_content(json.dumps(args)), clock, _now()))
         self.db.commit()
 
     def ops_for(self, project_id: str) -> list[dict]:
         rows = self.db.execute(
             "SELECT kind, args, clock FROM ops WHERE project_id=? ORDER BY seq", (project_id,))
-        return [{"kind": r["kind"], "args": json.loads(r["args"]), "clock": r["clock"]} for r in rows]
+        return [{"kind": r["kind"], "args": json.loads(decrypt_content(r["args"])),
+                 "clock": r["clock"]} for r in rows]
 
     # ── api keys ─────────────────────────────────────────────────────
     def create_key(self, project_id: str, name: str, role: str = "developer",

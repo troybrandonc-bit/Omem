@@ -7,7 +7,9 @@ layers around it. What is deleted vs. what remains as immutable engine history i
 documented in delete_project() and retention_sweep().
 """
 from __future__ import annotations
+import hashlib
 import json
+import threading
 import time
 import uuid
 
@@ -18,7 +20,10 @@ CREATE TABLE IF NOT EXISTS memberships(
 CREATE TABLE IF NOT EXISTS audit_events(
   id TEXT PRIMARY KEY, org_id TEXT, project_id TEXT, actor TEXT,
   action TEXT NOT NULL, resource TEXT, metadata TEXT, correlation_id TEXT,
-  ts REAL NOT NULL);
+  ts REAL NOT NULL,
+  -- tamper-evidence: each row commits to the one before it (see audit()).
+  seq INTEGER, prev_hash TEXT, hash TEXT);
+CREATE INDEX IF NOT EXISTS audit_chain ON audit_events(org_id, seq);
 CREATE INDEX IF NOT EXISTS audit_org ON audit_events(org_id, ts);
 CREATE TABLE IF NOT EXISTS usage_events(
   id INTEGER PRIMARY KEY AUTOINCREMENT, project_id TEXT NOT NULL,
@@ -89,11 +94,42 @@ def role_allows(role: str, permission: str) -> bool:
     return _RANK[role] <= _RANK[need]
 
 
+# Chain domain separation: hashed into every row so a row lifted from another
+# system, or from a different chain version, cannot be replayed into this one.
+AUDIT_CHAIN_V = "omem.audit.v1"
+
+
+def _audit_digest(prev_hash: str, row: dict) -> str:
+    """The hash a row commits to.
+
+    Canonical JSON with sorted keys, so the digest depends on the VALUES and not
+    on dict ordering — otherwise the same row rehashed by a different Python
+    version could fail to verify and look like tampering.
+    """
+    payload = json.dumps({
+        "v": AUDIT_CHAIN_V,
+        "prev": prev_hash,
+        "id": row["id"], "seq": row["seq"], "org_id": row["org_id"],
+        "project_id": row["project_id"], "actor": row["actor"],
+        "action": row["action"], "resource": row["resource"],
+        "metadata": row["metadata"], "correlation_id": row["correlation_id"],
+        "ts": repr(row["ts"]),   # repr, not float->str: round-trips exactly
+    }, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
 class Enterprise:
     def __init__(self, db):
         self.db = db
         db.executescript(ENTERPRISE_SCHEMA)
         db.commit()
+        # Appending has to read the previous row's hash and write the next one
+        # atomically, or two concurrent writers both chain onto the same parent
+        # and one of them is silently orphaned. The API is threaded, so this is a
+        # real race, not a theoretical one. A process lock is sufficient because
+        # a second writer PROCESS is refused outright (see store.WriterLock);
+        # were that ever relaxed, this would need to become a DB-level lock.
+        self._audit_lock = threading.Lock()
 
     # -- memberships / RBAC --
     def set_role(self, org_id, user_id, role):
@@ -120,12 +156,85 @@ class Enterprise:
     # -- audit log (append-only; no update/delete methods exist by design) --
     def audit(self, action, actor=None, org_id=None, project_id=None,
               resource=None, metadata=None, correlation_id=None):
-        self.db.execute(
-            "INSERT INTO audit_events(id,org_id,project_id,actor,action,resource,metadata,correlation_id,ts) "
-            "VALUES(?,?,?,?,?,?,?,?,?)",
-            (uuid.uuid4().hex, org_id, project_id, actor, action, resource,
-             json.dumps(metadata or {}), correlation_id, time.time()))
-        self.db.commit()
+        """Append one audit row, chained to the previous row for its org.
+
+        The log was append-only by convention: nothing stopped anyone with
+        database access from editing or deleting a row, and the security page
+        nevertheless advertised a "hash-chained audit stream". Now each row
+        commits to its predecessor, so altering or removing one breaks every
+        hash after it and `verify_audit_chain` says exactly where.
+
+        This is tamper-EVIDENCE, not tamper-proofing. Someone with write access
+        can still rewrite the whole chain from the edit forward. Detecting that
+        needs the head hash anchored somewhere OMEM does not control — export it
+        (`GET /v1/audit/verify` returns it) and keep it elsewhere.
+
+        Chains are per-org so that a tenant can verify their own exported log
+        without needing rows belonging to anybody else.
+        """
+        key = org_id or ""
+        with self._audit_lock:
+            last = self.db.execute(
+                "SELECT seq, hash FROM audit_events WHERE COALESCE(org_id,'')=? "
+                "AND seq IS NOT NULL ORDER BY seq DESC LIMIT 1", (key,)).fetchone()
+            seq = (last["seq"] + 1) if last else 1
+            prev_hash = (last["hash"] if last else "") or ""
+            row = {"id": uuid.uuid4().hex, "seq": seq, "org_id": org_id,
+                   "project_id": project_id, "actor": actor, "action": action,
+                   "resource": resource, "metadata": json.dumps(metadata or {}),
+                   "correlation_id": correlation_id, "ts": time.time()}
+            row["prev_hash"] = prev_hash
+            row["hash"] = _audit_digest(prev_hash, row)
+            self.db.execute(
+                "INSERT INTO audit_events(id,org_id,project_id,actor,action,resource,"
+                "metadata,correlation_id,ts,seq,prev_hash,hash) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                (row["id"], org_id, project_id, actor, action, resource,
+                 row["metadata"], correlation_id, row["ts"], seq,
+                 row["prev_hash"], row["hash"]))
+            self.db.commit()
+        return row["hash"]
+
+    def verify_audit_chain(self, org_id, limit=None):
+        """Recompute the chain and report the first row that does not match.
+
+        Returns the head hash, which is what you anchor off-system: keeping a
+        copy of it turns "the chain is internally consistent" into "the chain is
+        the one that existed when I last looked".
+        """
+        key = org_id or ""
+        rows = self.db.execute(
+            "SELECT * FROM audit_events WHERE COALESCE(org_id,'')=? "
+            "AND seq IS NOT NULL ORDER BY seq ASC" + (" LIMIT ?" if limit else ""),
+            (key, limit) if limit else (key,)).fetchall()
+        unhashed = self.db.execute(
+            "SELECT COUNT(*) c FROM audit_events WHERE COALESCE(org_id,'')=? AND seq IS NULL",
+            (key,)).fetchone()["c"]
+
+        prev_hash, expect_seq, checked = "", 1, 0
+        for r in rows:
+            d = dict(r)
+            if d["seq"] != expect_seq:
+                return {"ok": False, "checked": checked,
+                        "broken_at": {"id": d["id"], "seq": d["seq"], "ts": d["ts"]},
+                        "reason": f"sequence jumps to {d['seq']}, expected {expect_seq} "
+                                  "— a row was deleted",
+                        "predates_chain": unhashed, "head": prev_hash or None}
+            if (d["prev_hash"] or "") != prev_hash:
+                return {"ok": False, "checked": checked,
+                        "broken_at": {"id": d["id"], "seq": d["seq"], "ts": d["ts"]},
+                        "reason": "row does not link to its predecessor",
+                        "predates_chain": unhashed, "head": prev_hash or None}
+            if _audit_digest(prev_hash, d) != d["hash"]:
+                return {"ok": False, "checked": checked,
+                        "broken_at": {"id": d["id"], "seq": d["seq"], "ts": d["ts"]},
+                        "reason": "row contents do not match its hash — it was altered",
+                        "predates_chain": unhashed, "head": prev_hash or None}
+            prev_hash = d["hash"]
+            expect_seq += 1
+            checked += 1
+        return {"ok": True, "checked": checked, "broken_at": None, "reason": None,
+                "predates_chain": unhashed, "head": prev_hash or None}
 
     def audit_log(self, org_id, limit=100):
         rows = self.db.execute(

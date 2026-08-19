@@ -13,6 +13,7 @@ provenance -> recall/why -> trace back to the original issue URL.
 import os
 import sys
 import json
+from secrets_provider import decrypt_content  # noqa: E402
 import threading
 import time
 import urllib.request
@@ -127,7 +128,7 @@ st, w = call("GET", f"/v1/assertions/{aid}/why?project={PID}", None, KEY)
 check("why: grounded with event provenance",
       w["grounded"] and any(n["kind"] == "event" for n in w["provenance"]["nodes"]))
 st, src = call("GET", f"/v1/assertions/{aid}/source?project={PID}", None, KEY)
-payload = json.loads(src["payload"])
+payload = json.loads(decrypt_content(src["payload"]))
 check("traces to the original GitHub issue", payload["repo"] == "psf/requests" and payload["issue_number"])
 check("source retains the issue URL", payload["url"].startswith("https://github.com/psf/requests/issues/"))
 

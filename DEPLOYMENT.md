@@ -32,6 +32,10 @@ Set `OMEM_DB` per environment to isolate data:
 | `OMEM_LLM_API_KEY` / `OMEM_LLM_BASE_URL` / `OMEM_LLM_MODEL` | real LLM extraction (any OpenAI-compatible endpoint) | rule/mock extractor |
 | `STRIPE_SECRET_KEY` | real billing (test mode) | checkout returns 503 (no fake success) |
 | `OMEM_HOST` | bind address (0.0.0.0 in containers) | 127.0.0.1 |
+| `OMEM_AUTH=password` | real accounts | local mode, loopback-only |
+| `OMEM_TLS_CERT` / `OMEM_TLS_KEY` | HTTPS directly | plaintext HTTP |
+| `OMEM_ENCRYPT_AT_REST` | memory content encrypted (needs `cryptography`) | content stored in the clear |
+| `OMEM_MASTER_KEY` | required by both of the above | development default, refused by both |
 
 `python api.py` prints which integrations are CONFIGURED vs falling back.
 
@@ -108,16 +112,82 @@ boundary in password mode.
 
 The server speaks plain HTTP. Terminate TLS at a proxy in front of it.
 
+## TLS (built in)
+`OMEM_TLS_CERT` + `OMEM_TLS_KEY` makes the server speak HTTPS directly, TLS 1.2
+floor (1.3 negotiated where both ends support it). Setting only one is a startup
+error rather than a silent fall back to plaintext, and a missing file is caught
+at boot rather than on the first request. On a non-loopback bind with no
+certificate, the server says out loud that it is serving plaintext.
+
+A terminating proxy is still better at scale — renewal, OCSP, session resumption
+— but running without one no longer means running in the clear.
+
+## Encryption of memory content at rest
+**Install the AEAD library first:** `pip install "omem-infrastructure[encryption]"`
+(or `pip install cryptography`). Content encryption refuses to start without it
+rather than falling back to the stdlib HMAC keystream used for OAuth tokens —
+that is not what an entire memory store should be encrypted with. The Docker
+image ships `python3-cryptography`, so it works there out of the box.
+
+`OMEM_ENCRYPT_AT_REST=1` encrypts, with AES-GCM under `OMEM_MASTER_KEY`:
+- `ops.args` — the operations log, which is the memory itself and the thing the
+  engine is rebuilt from
+- `source_records.payload` — ingested third-party content
+- `assertion_evidence.evidence` — the quoted text behind each memory
+
+Stored OAuth tokens are encrypted regardless. Before enabling:
+- **Lose the key and you lose the data.** There is no recovery path, by design.
+- **No rotation tooling.** Rotating means decrypting and re-encrypting by hand.
+- **Encrypted columns cannot be filtered in SQL.** The one query that did
+  (`classifier.relationship_stats`) now scans and decrypts in Python, bounded at
+  2000 rows — slower on large mailboxes, and it degrades rather than lying.
+- The content key is derived ONCE per process, not per row. `LocalSecretsProvider`
+  salts every value and so runs PBKDF2 per value — ~336 ms each, fine for a
+  handful of OAuth tokens and ruinous for content, where it would have made a
+  10,000-operation boot replay take most of an hour. Steady state is ~53 us to
+  encrypt and ~36 us to decrypt.
+- Plaintext rows stay readable, so this can be switched on for an existing
+  database: old rows keep working and new rows are encrypted. Detection is by
+  ciphertext prefix, not by the setting, so switching it back off still reads
+  what was written while it was on.
+
+## Tamper-evident audit log
+Every audit row commits to its predecessor (SHA-256 over canonical JSON,
+chained per organization). Editing or deleting a row breaks every hash after it.
+`GET /v1/audit/verify` recomputes the chain and reports the first bad row, the
+reason, and the head hash; `GET /v1/export/audit` carries the same block.
+
+This is tamper-EVIDENCE, not tamper-proofing: someone with write access can
+rewrite the chain from the edit forward. **Anchor the head hash somewhere OMEM
+does not control** — that is what turns the log into evidence. Rows written
+before hashing existed are reported as `predates_chain`, not as a break.
+
+## One writer per database (enforced)
+The engine is authoritative in memory and rebuilt by replaying the ops log at
+boot, so two processes against one database hold two independent engines: writes
+through one are invisible to the other, both keep appending to the same log, and
+nothing errors. They simply answer the same question differently.
+
+A second process therefore refuses to start and names the holder. Ownership is
+`host:pid` with a heartbeat; a holder unseen for 90s is presumed dead and taken
+over via compare-and-swap, so exactly one of two racing starters wins. Clean
+shutdown releases the lock so a redeploy does not wait out the timeout.
+
+**This is not high availability. It is the honest absence of it** — a loud
+startup failure instead of silent divergence. Horizontal scaling would need the
+engine's authoritative state moved out of process, which is a re-architecture,
+not a setting. `OMEM_ALLOW_MULTIPLE_WRITERS=1` overrides the refusal and is
+almost always the wrong answer.
+
 ## What is NOT yet production infrastructure
 - The in-process scheduler remains for zero-setup dev; production should run
   `worker.py` processes instead (the API still enqueues via the same tables).
 - No object storage, no CDN, no secrets manager wired (env vars only).
-- No TLS in the server itself; a terminating proxy is mandatory.
-- Memory content is not encrypted at rest — only stored OAuth tokens are. Use
-  disk or database encryption underneath if that matters.
-- The engine is authoritative IN PROCESS and rebuilt by replaying the ops log at
-  boot, so a second API replica would not see the first one's writes. One process
-  only: no horizontal scaling, no rolling deploys, and boot time grows with total
-  history (there is no snapshot or log compaction).
-- The audit log is append-only by convention, not hash-chained.
+- One process only: no horizontal scaling and no rolling deploy. This is now
+  enforced rather than merely documented (see above), but enforcement is not
+  availability — a restart is a gap in service, and it replays the whole ops log
+  before serving, with no snapshotting or compaction.
+- No key rotation tooling for `OMEM_MASTER_KEY`.
+- The audit chain detects tampering; it cannot prevent it, and detection depends
+  on the head hash being anchored outside OMEM.
 - No SSO/OIDC/SAML/SCIM.

@@ -19,6 +19,7 @@ class Scheduler:
         self.min_gap = min_project_gap    # min seconds between runs of one project
         self._last_run: dict[str, float] = {}
         self.backup_manager = None  # set by app
+        self.writer_lock = None     # set by app; heartbeats in tick()
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self.runs = 0
@@ -41,6 +42,15 @@ class Scheduler:
                 pass  # a bad connector must never kill the scheduler
 
     def tick(self) -> dict:
+        # Heartbeat the writer lock. Without this the holder looks dead after
+        # STALE_AFTER and a second process would take the database from a
+        # perfectly healthy server. Set by app; absent in tests that drive the
+        # scheduler directly.
+        if getattr(self, "writer_lock", None) is not None:
+            try:
+                self.writer_lock.beat()
+            except Exception:
+                pass
         try:
             self.ingestor.recover_stale()
         except Exception:

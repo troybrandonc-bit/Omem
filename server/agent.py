@@ -7,6 +7,9 @@ agent turn has it in context. The agent never writes engine state directly; it
 goes through the same connector/ingestion path as any other source.
 """
 from __future__ import annotations
+
+from secrets_provider import decrypt_content  # noqa: E402
+
 import json
 import time
 
@@ -31,7 +34,7 @@ class SupportAgent:
                     if source is None:
                         src = self.ingestor.source_for_assertion(self.p.id, a.id)
                         if src:
-                            source = json.loads(src["payload"]).get("subject") or src["external_id"]
+                            source = json.loads(decrypt_content(src["payload"])).get("subject") or src["external_id"]
         memory_used = ", ".join(recalled) if recalled else "no prior memory"
         # a real agent would feed memory_used into its LLM prompt; here we just
         # surface the decision inputs so the loop is inspectable.

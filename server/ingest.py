@@ -20,6 +20,10 @@ already flips proposition_state to CONTRADICTED when a competing token is open.
 We surface that; we do not compute it.
 """
 from __future__ import annotations
+
+from secrets_provider import (  # noqa: E402
+    decrypt_content, encrypt_content,
+)
 import hashlib
 import json
 import time
@@ -269,7 +273,7 @@ class Ingestor:
         ).fetchall()
         for r in pending:
             try:
-                pl = json.loads(r["payload"])
+                pl = json.loads(decrypt_content(r["payload"]))
             except Exception:
                 continue
             self.db.execute(
@@ -336,6 +340,10 @@ class Ingestor:
         queued = 0
         for external_id, payload in items:
             body = json.dumps(payload, sort_keys=True)
+            # content_hash is computed over the PLAINTEXT below, so dedup keeps
+            # working: encrypting is randomised (fresh salt+nonce per row), so a
+            # hash of ciphertext would differ every time and re-ingest everything.
+            stored_body = encrypt_content(body)
             chash = _hash(body)
             srid = "src_" + hashlib.sha1(f"{cid}{external_id}".encode()).hexdigest()[:10]
             exists = self.db.execute(
@@ -345,7 +353,7 @@ class Ingestor:
                 continue  # source-level dedup: never re-ingest the same item
             self.db.execute(
                 "INSERT INTO source_records(id,project_id,connector_id,external_id,payload,content_hash,received,thread_id,from_addr) VALUES(?,?,?,?,?,?,?,?,?)",
-                (srid, conn["project_id"], cid, external_id, body, chash, _now(),
+                (srid, conn["project_id"], cid, external_id, stored_body, chash, _now(),
                  payload.get("thread_id"),
                  _addr_of_sender(payload)))
             self.db.execute(
@@ -394,7 +402,7 @@ class Ingestor:
                         (time.time(), time.time(), job["id"]))
         self.db.commit()
         try:
-            payload = json.loads(sr["payload"])
+            payload = json.loads(decrypt_content(sr["payload"]))
             inst = self._instance(conn)
 
             # ── STAGE 1: business relevance ────────────────────────────────
@@ -590,7 +598,7 @@ class Ingestor:
                 # the ACTUAL text that produced this memory (never regenerated)
                 self.db.execute(
                     "INSERT OR REPLACE INTO assertion_evidence VALUES(?,?,?,?,?,?,?)",
-                    (aid, p.id, sr["id"], f.get("evidence"), f.get("confidence"),
+                    (aid, p.id, sr["id"], encrypt_content(f.get("evidence")), f.get("confidence"),
                      type(getattr(inst, "extractor", None) or inst).__name__, _now()))
                 produced_ids.append(aid)
 
@@ -788,7 +796,15 @@ class Ingestor:
         r = self.db.execute(
             "SELECT * FROM assertion_evidence WHERE project_id=? AND assertion_id=?",
             (project_id, assertion_id)).fetchone()
-        return dict(r) if r else None
+        if not r:
+            return None
+        # SELECT * hands back the stored column, so the decryption has to happen
+        # here rather than at each caller — this row goes straight to the "why"
+        # surface, where ciphertext would be displayed as if it were the quoted
+        # evidence that produced the memory.
+        d = dict(r)
+        d["evidence"] = decrypt_content(d.get("evidence"))
+        return d
 
     def source_for_assertion(self, project_id, assertion_id):
         """Reverse provenance: which source record produced this belief."""

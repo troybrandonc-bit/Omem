@@ -15,22 +15,23 @@ export const metadata = { title: "Security / OMEM" };
 const CONTROLS = [
   { k: "AUTHENTICATION", d: "Two modes, and the server picks neither for you. Local mode has no login and refuses to bind anything but loopback. Password mode (OMEM_AUTH=password) stores PBKDF2-SHA256 password hashes, and signup will not issue a session for an address that already has one." },
   { k: "SECOND FACTOR", d: "TOTP (RFC 6238), enforced at session creation and on claiming an account. Sessions expire after 30 days and can be revoked; expired and revoked tokens stop working immediately." },
+  { k: "TLS", d: "Set OMEM_TLS_CERT and OMEM_TLS_KEY and the server speaks HTTPS directly, TLS 1.2 floor. A terminating proxy is still the better answer at scale — it renews and resumes better than this does — but OMEM no longer requires one to avoid plaintext." },
+  { k: "ENCRYPTION AT REST", d: "OMEM_ENCRYPT_AT_REST encrypts memory content with AES-GCM: the operations log the engine is rebuilt from, ingested source payloads, and the quoted evidence behind each memory. Stored OAuth tokens are encrypted regardless. Lose the master key and you lose the data — there is no recovery path, by design." },
   { k: "ACCESS CONTROL", d: "Role-based, enforced per organization and per project. API keys are scoped to one project, carry their own role, can be bound to a single agent, and are revocable. Key secrets are shown once and stored hashed." },
-  { k: "AUDIT", d: "An append-only audit log of writes and sensitive reads — actor, org, project, resource, correlation id — exportable as JSON from /v1/export/audit." },
+  { k: "TAMPER-EVIDENT AUDIT", d: "Every audit row commits to the one before it, per organization. Editing or deleting a row breaks every hash after it, and GET /v1/audit/verify says which row and why. Anchor the head hash somewhere OMEM does not control and the log becomes evidence rather than assertion." },
   { k: "DATA RIGHTS", d: "GDPR/CCPA export and erasure are endpoints, not a process: /v1/export/memories exports a project, and tenant erasure removes every project-scoped row. Backups taken before an erasure still contain the data until they age out." },
-  { k: "SECRETS AT REST", d: "Stored OAuth tokens are encrypted with AES-GCM. Password mode refuses to start on the development master key, because that value is published in this repository." },
   { k: "ABUSE CONTROL", d: "Per-IP limits on the auth endpoints and per-tenant limits on data endpoints, keyed by project and credential so one key cannot starve another tenant." },
+  { k: "ONE WRITER", d: "The engine is authoritative in memory, so a second process against the same database would answer the same question differently. The second process refuses to start and says so, rather than diverging quietly." },
   { k: "DEPLOYMENT", d: "Self-hosted, on SQLite or PostgreSQL. MIT licensed, so the engine that decides what your agents believe is one you can read, fork, and keep." },
 ];
 
 const NOT_YET = [
-  ["TLS", "The server speaks plain HTTP. Terminate TLS at a reverse proxy in front of it; do not expose it directly."],
-  ["Encryption of memory content", "Assertions, evidence and source records are stored in the clear. Only OAuth tokens are encrypted. Use disk or database encryption underneath."],
+  ["Tamper-PROOFING", "The audit chain detects edits; it cannot prevent them. Anyone with write access can rewrite the chain from the edit forward. Detecting that requires keeping the head hash somewhere else — export it."],
   ["SSO and SCIM", "No OIDC, SAML or SCIM. Accounts are email and password."],
-  ["Tamper-evident audit", "The audit log is append-only by convention, not hash-chained. A database administrator can alter it without leaving a trace."],
+  ["Key rotation", "There is one master key and no re-encryption tooling. Rotating it today means decrypting and re-encrypting by hand."],
   ["Data residency", "No region pinning. Your data is wherever you run it."],
   ["Certifications", "No SOC 2, ISO 27001 or HIPAA BAA. None are in progress."],
-  ["High availability", "The engine is authoritative in one process, so there is no multi-replica deployment and no uptime SLA."],
+  ["High availability", "One writer per database, enforced. That makes divergence impossible, not uptime possible: there is no second replica, no rolling deploy, and a restart replays the operations log before serving."],
 ];
 
 export default function Security() {

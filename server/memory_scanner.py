@@ -23,6 +23,8 @@ Classification outcomes:
   UNKNOWN        - could not determine (scan error, ambiguous state)
 """
 from __future__ import annotations
+
+from secrets_provider import decrypt_content  # noqa: E402
 import json
 import time
 import hashlib
@@ -444,7 +446,7 @@ class MemoryScanner:
             return self._evaluate_from_source(a, src, evidence=None)
 
         evidence_row = dict(evidence_row)
-        original_evidence = evidence_row.get("evidence") or ""
+        original_evidence = decrypt_content(evidence_row.get("evidence")) or ""
         extractor_name = evidence_row.get("extractor") or ""
         confidence = evidence_row.get("confidence")
         source_record_id = evidence_row.get("source_record_id")
@@ -478,7 +480,7 @@ class MemoryScanner:
                                extractor_name: str = "", confidence: float | None = None) -> dict:
         """Evaluate an assertion given its source record payload."""
         try:
-            payload = json.loads(src["payload"])
+            payload = json.loads(decrypt_content(src["payload"]))
         except Exception:
             return {
                 "classification": "STALE",
@@ -747,7 +749,7 @@ class MemoryScanner:
             row = dict(row)
             srid = row["id"]
             try:
-                payload = json.loads(row["payload"])
+                payload = json.loads(decrypt_content(row["payload"]))
             except Exception:
                 continue
 

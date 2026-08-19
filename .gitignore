@@ -14,6 +14,8 @@ build/
 !.env.example
 server/data/*.db
 server/data/*.db-*
+server/data/*.crt
+server/data/*.csr
 *.key
 *.pem
 

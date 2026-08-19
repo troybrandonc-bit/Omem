@@ -101,8 +101,29 @@ export OMEM_MASTER_KEY="$(python3 -c 'import secrets;print(secrets.token_urlsafe
 omem-server
 ```
 
-The server speaks plain HTTP either way. Put a TLS-terminating proxy in front of
-anything that is not on your own machine.
+### TLS
+
+Point `OMEM_TLS_CERT` and `OMEM_TLS_KEY` at a certificate and the server speaks
+HTTPS itself (TLS 1.2 floor). Setting only one is a startup error, not a quiet
+fall back to plaintext. A terminating proxy is still better at scale, but
+running without one no longer means running in the clear.
+
+### Encrypting memory at rest
+
+```bash
+pip install "omem-infrastructure[encryption]"
+export OMEM_ENCRYPT_AT_REST=1
+export OMEM_MASTER_KEY="$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')"
+```
+
+Encrypts the operations log, ingested source payloads and the quoted evidence
+behind each memory with AES-GCM. Existing plaintext rows keep working, so it can
+be switched on for a database that already has data. It refuses to start on the
+development master key, and refuses to run without a real AEAD library rather
+than falling back to the stdlib keystream used for OAuth tokens.
+
+**Lose the key and the data is gone** — there is no recovery path, and no
+rotation tooling yet.
 
 ## What is in this repo
 
@@ -128,10 +149,12 @@ Free, and free while it stays in beta — no plans, no card, no quota.
 
 This is early software under active development. It is meant for testing and
 feedback right now. `web/app/(marketing)/security/page.tsx` lists what it
-protects and, just as importantly, what it does not yet: no TLS of its own, no
-encryption of memory content at rest, no SSO, no certifications, and one process
-holding authoritative state so there is no HA story. Read that before you plan
-around it. If you try it and something breaks or feels wrong, that feedback is
+protects and, just as importantly, what it does not yet: no SSO, no
+certifications, no key rotation, an audit chain that detects tampering rather
+than preventing it, and one process holding authoritative state — enforced now,
+so a second one refuses to start rather than diverging, but that is the honest
+absence of high availability rather than the presence of it. Read that before
+you plan around it. If you try it and something breaks or feels wrong, that feedback is
 exactly what is useful at this stage.
 
 ## License

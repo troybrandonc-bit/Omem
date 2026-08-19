@@ -52,6 +52,11 @@ dev = ["pytest>=7", "hypothesis>=6"]
 # EXTRA, not a dependency, because the SQLite default must keep installing with
 # no compiler and no wheels: `pip install "omem-infrastructure[postgres]"`.
 postgres = ["psycopg2-binary>=2.9"]
+# OMEM_ENCRYPT_AT_REST needs real AEAD. The stdlib fallback used for OAuth
+# tokens is a hand-rolled HMAC-SHA256 keystream, which is not what an entire
+# memory store should be encrypted with, so content encryption refuses to run
+# without this rather than quietly using it.
+encryption = ["cryptography>=42"]
 
 # hatch_build.py copies ../../server into omem/_server at build time, for both
 # targets. Without it `omem-server` installs broken, and a committed copy would

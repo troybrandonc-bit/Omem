@@ -169,6 +169,97 @@ class KMSSecretsProvider(SecretsProvider):
         return AESGCM(data_key).decrypt(nonce, ct, None).decode()
 
 
+# ── encryption of memory content at rest ────────────────────────────────────
+# Only stored OAuth tokens were ever encrypted; the memories themselves —
+# propositions, subjects, labels, quoted evidence, raw source payloads — sat in
+# the clear, while the security page advertised "per-tenant envelope encryption
+# at rest". This closes that for the content columns.
+#
+# OPT-IN, because it is not free and not reversible by accident:
+#   * Lose OMEM_MASTER_KEY and you lose the data. There is no recovery path and
+#     there should not be one.
+#   * Encrypted columns cannot be filtered in SQL. Anything that did has been
+#     moved into Python (see classifier.relationship_stats).
+# Existing plaintext rows keep working: the read path detects a ciphertext token
+# by its version prefix, so a database can be half-migrated and still correct.
+
+# Ciphertext written by the OAuth-token provider (v1g/v1h) is still readable;
+# content written here uses v2c. See _content_key for why they differ.
+_CIPHERTEXT_PREFIXES = ("v1g.", "v1h.", "v2c.")
+_CONTENT_PREFIX = "v2c."
+
+# Fixed, documented context string instead of a per-row salt. THIS IS THE WHOLE
+# PERFORMANCE STORY: LocalSecretsProvider salts every value it encrypts, so it
+# runs PBKDF2 (100,000 iterations) once PER ROW. Measured, that is ~336 ms per
+# encrypt — correct for a handful of long-lived OAuth tokens, and ruinous for
+# content, where it would cost 336 ms on every memory written and 336 ms per
+# operation on every boot replay. A project with 10,000 operations would take
+# most of an hour to start.
+#
+# The key is therefore derived ONCE from the master key and cached, and each row
+# gets a fresh random 96-bit nonce, which is what AES-GCM actually needs for
+# safety. Per-row salting bought nothing here anyway: the master key is the same
+# for every row, so re-deriving from it merely repeated the same work.
+_CONTENT_CONTEXT = b"omem.content.v2"
+_content_key_cache: dict[str, bytes] = {}
+
+
+def _content_key() -> bytes:
+    master = os.environ.get("OMEM_MASTER_KEY", "dev-master-key-change-me")
+    key = _content_key_cache.get(master)
+    if key is None:
+        key = hashlib.pbkdf2_hmac("sha256", master.encode(), _CONTENT_CONTEXT,
+                                  200_000, dklen=32)
+        _content_key_cache[master] = key
+    return key
+
+
+def content_encryption_enabled() -> bool:
+    return bool(os.environ.get("OMEM_ENCRYPT_AT_REST"))
+
+
+def _require_aead() -> None:
+    if not _HAVE_AESGCM:
+        raise SystemExit(
+            "OMEM_ENCRYPT_AT_REST needs real authenticated encryption, and the "
+            "'cryptography' package is not installed.\n"
+            "  pip install 'omem-infrastructure[encryption]'"
+            "   (or: pip install cryptography)\n"
+            "The stdlib fallback used for OAuth tokens is a hand-rolled "
+            "HMAC-SHA256 keystream. That is not something to encrypt an entire "
+            "memory store with, so this refuses rather than quietly using it.")
+
+
+def encrypt_content(plaintext):
+    """Encrypt a text column if content encryption is on, else pass it through."""
+    if plaintext is None or not content_encryption_enabled():
+        return plaintext
+    if isinstance(plaintext, str) and plaintext.startswith(_CIPHERTEXT_PREFIXES):
+        return plaintext                      # already encrypted; do not double-wrap
+    _require_aead()
+    nonce = _secrets.token_bytes(12)
+    ct = AESGCM(_content_key()).encrypt(nonce, plaintext.encode("utf-8"), None)
+    return _CONTENT_PREFIX + base64.b64encode(nonce).decode() + "." +         base64.b64encode(ct).decode()
+
+
+def decrypt_content(stored):
+    """Decrypt if it looks encrypted, else return as-is.
+
+    Detection is by prefix rather than by whether the feature is switched on, so
+    turning encryption OFF still reads rows written while it was on. Deciding by
+    config instead would make a toggle hand back ciphertext as if it were data.
+    """
+    if not isinstance(stored, str) or not stored.startswith(_CIPHERTEXT_PREFIXES):
+        return stored
+    if stored.startswith(_CONTENT_PREFIX):
+        _require_aead()
+        _, nonce_b64, ct_b64 = stored.split(".", 2)
+        return AESGCM(_content_key()).decrypt(
+            base64.b64decode(nonce_b64), base64.b64decode(ct_b64), None).decode("utf-8")
+    # v1g/v1h — written by the OAuth-token provider before this existed.
+    return get_secrets_provider().decrypt(stored)
+
+
 def get_secrets_provider() -> SecretsProvider:
     kid = os.environ.get("OMEM_KMS_KEY_ID")
     if kid:

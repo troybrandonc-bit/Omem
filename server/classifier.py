@@ -24,6 +24,11 @@ Design rules taken from the product brief:
 The frozen engine is untouched: this layer only decides what gets proposed.
 """
 from __future__ import annotations
+
+from secrets_provider import (  # noqa: E402
+    content_encryption_enabled, decrypt_content,
+)
+
 import json
 import re
 import time
@@ -512,7 +517,7 @@ def thread_context_for(db, project_id, thread_id, exclude_source_id=None, limit=
         if exclude_source_id and r["id"] == exclude_source_id:
             continue
         try:
-            p = json.loads(r["payload"])
+            p = json.loads(decrypt_content(r["payload"]))
         except Exception:
             continue
         parts.append(f"{p.get('subject','')} {p.get('body','')}"[:1500])
@@ -538,16 +543,30 @@ def relationship_history(db, project_id, counterparty_email: str) -> dict:
         inbound += 1
         if r["thread_id"]:
             threads[r["thread_id"]] = threads.get(r["thread_id"], 0) + 1
-    # outbound: the address appears in the payload's To — pre-filter in C
-    # (LIKE) and only parse the small candidate set
-    like = f'%{counterparty_email}%'
-    for r in db.execute(
+    # outbound: the address appears in the payload's To.
+    #
+    # Normally pre-filtered in C with LIKE, parsing only the small candidate set.
+    # That is impossible once the column is encrypted — ciphertext contains no
+    # substring of the plaintext, so the LIKE would match nothing and this would
+    # report zero outbound messages while looking like it worked. So when
+    # encryption is on, the filter moves into Python: more rows are read and each
+    # is decrypted, which is slower, and the scan is bounded so it stays bounded.
+    if content_encryption_enabled():
+        rows = db.execute(
+            "SELECT payload, thread_id FROM source_records "
+            "WHERE project_id=? AND (from_addr IS NULL OR from_addr!=?) "
+            "ORDER BY id DESC LIMIT 2000",
+            (project_id, counterparty_email))
+    else:
+        like = f'%{counterparty_email}%'
+        rows = db.execute(
             "SELECT payload, thread_id FROM source_records "
             "WHERE project_id=? AND (from_addr IS NULL OR from_addr!=?) AND payload LIKE ? "
             "ORDER BY id DESC LIMIT 200",
-            (project_id, counterparty_email, like)):
+            (project_id, counterparty_email, like))
+    for r in rows:
         try:
-            p = json.loads(r["payload"])
+            p = json.loads(decrypt_content(r["payload"]))
         except Exception:
             continue
         if counterparty_email not in (p.get("to") or "").lower():

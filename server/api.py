@@ -13,6 +13,9 @@ for the Next.js dev frontend.
 
 from __future__ import annotations
 
+from secrets_provider import decrypt_content  # noqa: E402
+
+
 import hashlib
 import json
 import re
@@ -286,7 +289,8 @@ def source_view(src, connector=None):
     if not src:
         return None
     from connectors import readable_body
-    payload = json.loads(src["payload"]) if isinstance(src["payload"], str) else src["payload"]
+    payload = (json.loads(decrypt_content(src["payload"]))
+               if isinstance(src["payload"], str) else src["payload"])
     # Legacy records were stored before MIME/HTML handling existed, so clean the
     # body at read time too. Never mutates the immutable source record.
     body = readable_body(payload.get("body") or "")
@@ -1004,6 +1008,10 @@ METRICS = _Metrics()
 MAX_TEXT_CHARS = int(os.environ.get("OMEM_MAX_TEXT_CHARS", str(100_000)))
 BACKUPS = BackupManager(STORE.db)
 SCHEDULER.backup_manager = BACKUPS
+# The scheduler tick is the only thing running on a quiet server, so it is what
+# keeps the writer lock alive; otherwise an idle-but-healthy holder would look
+# dead after 90s and lose its database to the next process that started.
+SCHEDULER.writer_lock = STORE.writer_lock
 STORE.apply_hardening()  # all module schemas now exist; FKs/indexes can apply
 
 
@@ -1659,7 +1667,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {})
             conn = INGEST.connector(src["connector_id"])
             return self._send(200, {**src, "view": source_view(src, conn),
-                                    "payload_json": json.loads(src["payload"])})
+                                    "payload_json": json.loads(decrypt_content(src["payload"]))})
         if parts == ["v1", "intelligence"]:
             return self._send(200, self._intelligence(qs.get("project", ["demo"])[0]))
 
@@ -1756,8 +1764,22 @@ class Handler(BaseHTTPRequestHandler):
             oid = STORE.org_for_user(auth["user"]["id"])["id"] if isinstance(auth, dict) and "user" in auth else None
             if not oid or not self._require(auth, "audit.read", oid):
                 return self._err(403, "permission", "Requires admin.")
+            # The chain state travels with the export: a log you cannot verify
+            # is a log you are taking on trust, which is the thing it exists to
+            # replace. `head` is what to keep off-system.
             return self._send(200, {"org": oid, "exported_at": time.time(),
+                                    "chain": ENT.verify_audit_chain(oid),
                                     "events": ENT.audit_log(oid, limit=10000)})
+        # GET /v1/audit/verify — recompute the chain and report where it breaks
+        if parts == ["v1", "audit", "verify"]:
+            oid = STORE.org_for_user(auth["user"]["id"])["id"] if isinstance(auth, dict) and "user" in auth else None
+            if not oid or not self._require(auth, "audit.read", oid):
+                return self._err(403, "permission", "Requires admin.")
+            res = ENT.verify_audit_chain(oid)
+            # 200 either way: "the chain is broken" is a successful answer to the
+            # question asked, and an HTTP error would make a real finding look
+            # like a failed request.
+            return self._send(200, res)
         if parts == ["v1", "billing", "events"]:
             oid = STORE.org_for_user(auth["user"]["id"])["id"] if isinstance(auth, dict) and "user" in auth else None
             if not oid or not self._require(auth, "billing.manage", oid):
@@ -2018,7 +2040,7 @@ class Handler(BaseHTTPRequestHandler):
                     "SELECT payload FROM source_records WHERE id=?", (r["latest_id"],)).fetchone()
                 if pr:
                     try:
-                        name = json.loads(pr["payload"]).get("from_name") or None
+                        name = json.loads(decrypt_content(pr["payload"])).get("from_name") or None
                     except Exception:
                         name = None
                 dom = frm.split("@")[-1]
@@ -2051,7 +2073,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(404, {"error": "source record not found"})
             sr = dict(sr)
             try:
-                payload = json.loads(sr["payload"])
+                payload = json.loads(decrypt_content(sr["payload"]))
             except Exception:
                 payload = {}
             conn_row = STORE.db.execute("SELECT * FROM connectors WHERE id=?",
@@ -2089,7 +2111,7 @@ class Handler(BaseHTTPRequestHandler):
                 a = p.engine.store.assertion(r["assertion_id"])
                 assertions.append({
                     "assertion_id": r["assertion_id"],
-                    "evidence": r["evidence"], "confidence": r["confidence"],
+                    "evidence": decrypt_content(r["evidence"]), "confidence": r["confidence"],
                     "extractor": r["extractor"],
                     "open": bool(a and p.engine.ledger.is_open_at(a, p.now())),
                     "proposition": a.proposition if a else None,
@@ -2362,7 +2384,7 @@ class Handler(BaseHTTPRequestHandler):
                 "source": (lambda sr: {
                     "id": sr["id"], "external_id": sr["external_id"],
                     "connector_id": sr["connector_id"], "received": sr["received"],
-                    "payload": json.loads(sr["payload"]),
+                    "payload": json.loads(decrypt_content(sr["payload"])),
                     "view": source_view(sr, INGEST.connector(sr["connector_id"]))} if sr else None)(
                         INGEST.source_for_assertion(p.id, aid)),
                 "contradictions": contradictory,
@@ -3661,7 +3683,7 @@ class Handler(BaseHTTPRequestHandler):
                         "assertion_time": a.assertion_time,
                         "grounded": grounded == "GROUNDED" or grounded is True,
                         "provenance_count": len(prov_ids),
-                        "source": (json.loads(src["payload"]).get("subject") if src else None),
+                        "source": (json.loads(decrypt_content(src["payload"])).get("subject") if src else None),
                     })
             return self._send(200, {"about": about, "memories": memories,
                                     "count": len(memories),
@@ -3942,6 +3964,47 @@ def validate_env():
 LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost", ""}
 
 
+def wrap_tls(srv) -> bool:
+    """Serve HTTPS directly when a certificate is configured. Returns whether it did.
+
+    The server spoke plaintext HTTP and nothing else, so every deployment needed
+    a terminating proxy in front of it and the docs had to say so in four places.
+    A proxy is still the right answer at scale — it does OCSP, session resumption
+    and renewal better than this will — but "you must run nginx" is a strange
+    prerequisite for a thing whose selling point is that it installs with no
+    dependencies, and it left the honest answer to "does OMEM do TLS" as "no".
+
+    TLS 1.2 is the floor. 1.3 is negotiated wherever both ends support it; naming
+    1.3 as the minimum would refuse clients that are still perfectly acceptable,
+    and the marketing page that used to claim "TLS 1.3" is the reason to be
+    careful about what gets promised here.
+    """
+    cert = os.environ.get("OMEM_TLS_CERT")
+    key = os.environ.get("OMEM_TLS_KEY")
+    if not cert and not key:
+        return False
+    if not (cert and key):
+        raise SystemExit(
+            "OMEM_TLS_CERT and OMEM_TLS_KEY must be set together "
+            f"(got {'only OMEM_TLS_CERT' if cert else 'only OMEM_TLS_KEY'}).")
+    for label, path in (("OMEM_TLS_CERT", cert), ("OMEM_TLS_KEY", key)):
+        if not os.path.isfile(path):
+            raise SystemExit(f"{label}={path} does not exist.")
+
+    import ssl
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    try:
+        ctx.load_cert_chain(certfile=cert, keyfile=key)
+    except ssl.SSLError as ex:
+        raise SystemExit(f"OMEM could not load the TLS certificate/key: {ex}")
+    # Fail at startup rather than on the first request: a server that boots and
+    # then refuses every connection looks like a network problem for an hour.
+    srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
+    print(f"  TLS: on ({os.path.basename(cert)}, TLS 1.2+)")
+    return True
+
+
 def enforce_auth_safety(host: str):
     """Refuse the two configurations that quietly hand the server away.
 
@@ -3954,6 +4017,19 @@ def enforce_auth_safety(host: str):
 
     Raising SystemExit rather than warning is the point: a warning scrolls past.
     """
+    # Encrypting with a key published in this repository is theatre: anyone who
+    # can read the database can read the key that protects it. Same refusal as
+    # password mode, for the same reason.
+    if os.environ.get("OMEM_ENCRYPT_AT_REST"):
+        m = os.environ.get("OMEM_MASTER_KEY", "")
+        if not m or m == "dev-master-key-change-me":
+            raise SystemExit(
+                "OMEM refuses to start: OMEM_ENCRYPT_AT_REST is on but "
+                "OMEM_MASTER_KEY is unset or still the development default, "
+                "which is public in this repository.\n"
+                "  Set one:  OMEM_MASTER_KEY=$(python3 -c "
+                "'import secrets;print(secrets.token_urlsafe(32))')\n"
+                "  And keep it: losing it loses the data.")
     if PASSWORD_MODE:
         master = os.environ.get("OMEM_MASTER_KEY", "")
         if not master or master == "dev-master-key-change-me":
@@ -3978,7 +4054,7 @@ def main(port=8787):
     import signal
     host = os.environ.get("OMEM_HOST", "127.0.0.1")
     enforce_auth_safety(host)
-    print(f"OMEM Cloud API starting on http://{host}:{port}")
+    print(f"OMEM Cloud API starting on {host}:{port}")
     if PASSWORD_MODE:
         print("  auth: password (accounts require a password; signup will not "
               "reissue one for a registered address)")
@@ -3994,14 +4070,30 @@ def main(port=8787):
         print("  env file: none found (looked for server/.env.local, .env, repo .env*)")
     print("  engine: authoritative reference, CTS 29/29")
     validate_env()
+    # Before anything is served: one writer per database. See store.WriterLock —
+    # a second process would hold a second in-memory engine, and the two would
+    # answer the same question differently with nothing erroring.
+    STORE.writer_lock.acquire()
     SCHEDULER.start()
     Handler.timeout = 60          # a hung/half-open socket frees its thread
     srv = ThreadingHTTPServer((host, port), Handler)
     srv.daemon_threads = True     # in-flight handlers never block shutdown
+    scheme = "https" if wrap_tls(srv) else "http"
+    print(f"  listening on {scheme}://{host}:{port}")
+    if scheme == "http" and host not in LOOPBACK_HOSTS:
+        print("  TLS: OFF — this is plaintext HTTP on a non-loopback address.")
+        print("       Terminate TLS at a proxy, or set OMEM_TLS_CERT/OMEM_TLS_KEY.")
 
     def shutdown(*_):
         print("\n  graceful shutdown: stopping scheduler + server")
         SCHEDULER.stop()
+        # Hand the writer lock back so a redeploy starts immediately instead of
+        # waiting out STALE_AFTER. A crash skips this, which is what the
+        # staleness timeout exists for.
+        try:
+            STORE.writer_lock.release()
+        except Exception:
+            pass
         srv.shutdown()
     signal.signal(signal.SIGTERM, shutdown)
     signal.signal(signal.SIGINT, shutdown)

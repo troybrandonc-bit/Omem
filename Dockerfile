@@ -12,8 +12,17 @@ RUN npm run build
 
 # ── Stage 2: runtime with Python server + built web ─────────────────────────
 FROM node:20-slim AS runtime
-# Python 3 for the OMEM server (stdlib-only: no pip install needed)
-RUN apt-get update && apt-get install -y --no-install-recommends python3 \
+# Python 3 for the OMEM server (stdlib-only: no pip install needed).
+#
+# python3-cryptography as well, so OMEM_ENCRYPT_AT_REST actually works here:
+# content encryption refuses to run on the stdlib HMAC fallback, and without
+# this the feature would be unavailable in the deployment most likely to want
+# it. The distro package keeps pip and a compiler out of the runtime layer.
+#
+# NOTE: no PostgreSQL driver. This image is SQLite-only; add psycopg2-binary
+# yourself if you point it at OMEM_DATABASE_URL.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3 python3-cryptography \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

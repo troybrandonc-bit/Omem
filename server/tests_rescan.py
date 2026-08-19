@@ -16,6 +16,7 @@ Covers:
 """
 import base64
 import json
+from secrets_provider import decrypt_content  # noqa: E402
 import os
 import sys
 import threading
@@ -494,7 +495,7 @@ api2 = importlib.import_module("api")
 ops = api2.STORE.db.execute(
     "SELECT args FROM ops WHERE project_id=? AND kind='retract' ORDER BY seq",
     (PID,)).fetchall()
-retract_args = [json.loads(r["args"]) for r in ops]
+retract_args = [json.loads(decrypt_content(r["args"])) for r in ops]
 scanner_retractions = [a for a in retract_args if a.get("agent") == "scanner:system"]
 check("scanner retractions in audit log after restart",
       len(scanner_retractions) >= 1,
