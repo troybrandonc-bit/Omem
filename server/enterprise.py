@@ -391,8 +391,13 @@ class Enterprise:
 
 
 # Plans are configurable data, not scattered constants.
+# OMEM is free while it is in beta, so the default plan has no ceiling. The
+# quota machinery below is untouched and still enforced — flipping these two
+# values back to numbers is all it takes to meter the free tier again. Leaving
+# the old 1,000-memory cap in place would have been the more surprising choice:
+# every account would hit a paywall-shaped wall with nothing to buy.
 PLANS = {
-    "free":     {"name": "Free",     "price": 0,    "quota_memories": 1000,   "quota_sources": 1},
+    "free":     {"name": "Free",     "price": 0,    "quota_memories": None,   "quota_sources": None},
     "pro":      {"name": "Pro",      "price": 49,   "quota_memories": 50000,  "quota_sources": 10},
     "business": {"name": "Business", "price": 499,  "quota_memories": 500000, "quota_sources": 50},
     "enterprise": {"name": "Enterprise", "price": None, "quota_memories": None, "quota_sources": None},

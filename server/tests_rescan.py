@@ -82,11 +82,11 @@ SESS = acct["token"]
 p = api.PROJECTS[PID]
 
 MAILBOX = [
-    # 1. Business email → will become a VALID memory
+    # 1. Business email -> will become a VALID memory
     raw_msg("m1", "Jane <jane@acme.com>", "Re: contract renewal",
             "Hi, we agreed the annual contract will be EUR 24,000 "
             "and renews every January. Payment terms Net 30. Regards"),
-    # 2. Supplier pricing → VALID
+    # 2. Supplier pricing -> VALID
     raw_msg("m2", "li@factory.cn", "Re: quotation",
             "Hello, our unit price is USD 3.90 for 10000 units, "
             "MOQ 5000, lead time 25 days. Regards"),
@@ -98,7 +98,7 @@ MAILBOX = [
     raw_msg("m4", "news@saas.io", "Product newsletter",
             "Webinar recap. Unsubscribe here. Limited time 20% off.",
             extra_headers="List-Unsubscribe: <u>\r"),
-    # 5. Customer cancellation intent → VALID
+    # 5. Customer cancellation intent -> VALID
     raw_msg("m5", "ops@client.com", "Re: account",
             "Hello, we plan to cancel our subscription at end of term. Regards"),
 ]
@@ -359,7 +359,7 @@ check("idempotent: open count unchanged on second apply", after_open == after_op
 
 
 # ────────────────────────────────────────────────────────────────────────────
-print("\n== LOW_VALUE → review queue ==")
+print("\n== LOW_VALUE -> review queue ==")
 # ────────────────────────────────────────────────────────────────────────────
 
 api.record(p, "entity", {"id": "customer:lowval", "type": "person"})
@@ -433,7 +433,7 @@ api.STORE.db.execute(
          "headers": {}, "at": "now",
      }),
      "hash_unc1", time.time()))
-# No message_classification row → was_in_pipeline=False
+# No message_classification row -> was_in_pipeline=False
 api.STORE.db.commit()
 
 # Insert one that was included but is now noise
@@ -586,7 +586,7 @@ st, rq = call2("GET", f"/v1/memory/review-queue?project={PID2}", key=SESS2)
 check("GET /v1/memory/review-queue 200", st == 200, str(st))
 check("review queue has data key", "data" in rq, str(list(rq.keys())))
 
-# POST /v1/memory/gmail-rescan (no connector_id → scans all gmail connectors)
+# POST /v1/memory/gmail-rescan (no connector_id -> scans all gmail connectors)
 st, gr = call2("POST", f"/v1/memory/gmail-rescan?project={PID2}", {}, KEY2)
 check("POST /v1/memory/gmail-rescan 200", st == 200, str(st))
 check("gmail rescan response has sources_examined", "sources_examined" in gr, str(gr))

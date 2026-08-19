@@ -77,7 +77,7 @@ _schema = _schema.replace("""  created REAL NOT NULL, last_used REAL, revoked IN
   expires REAL, agent_id TEXT);""", "  created REAL NOT NULL, last_used REAL, revoked INTEGER NOT NULL DEFAULT 0);")
 _d = _sq.connect(_legacy)
 _d.executescript(_schema)
-_d.execute("INSERT INTO users VALUES('u_leg','leg@corp.com',?)", (time.time(),))
+_d.execute("INSERT INTO users(id,email,created) VALUES('u_leg','leg@corp.com',?)", (time.time(),))
 _d.execute("INSERT INTO sessions VALUES('omem_sess_leg','u_leg',?)", (time.time(),))
 _d.commit()
 _pre = {r[1] for r in _d.execute("PRAGMA table_info(sessions)")}

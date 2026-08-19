@@ -8,6 +8,7 @@ API keys (hashed, reveal-once).
 """
 from __future__ import annotations
 import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -17,7 +18,8 @@ import time
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users(
-  id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, created REAL NOT NULL);
+  id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, created REAL NOT NULL,
+  pw_hash TEXT);
 CREATE TABLE IF NOT EXISTS sessions(
   token TEXT PRIMARY KEY, user_id TEXT NOT NULL, created REAL NOT NULL,
   expires REAL, revoked INTEGER NOT NULL DEFAULT 0);
@@ -52,6 +54,47 @@ def _id(prefix: str) -> str:
 
 def hash_key(secret: str) -> str:
     return hashlib.sha256(secret.encode()).hexdigest()
+
+
+# ── password hashing ────────────────────────────────────────────────────────
+# PBKDF2-HMAC-SHA256, stdlib only, because "zero third-party dependencies" is a
+# product promise and bcrypt/argon2 would break it.
+#
+# 210,000 iterations rather than OWASP's 600,000 for SHA-256: this server is a
+# single Python process, and a password hash is the one endpoint an unauthenticated
+# caller can force it to run. Measured here, 600k costs 857 ms of CPU per attempt —
+# a dozen concurrent sign-in attempts would stall every other request in the
+# process. 210k costs ~300 ms, which is still a serious brute-force cost when
+# combined with the per-IP limiter on the auth routes, and leaves the server
+# able to answer anyone else. Raise it if you put OMEM behind more CPU.
+PBKDF2_ITERATIONS = 210_000
+MIN_PASSWORD_LENGTH = 10
+
+
+def hash_password(password: str, *, iterations: int = PBKDF2_ITERATIONS) -> str:
+    """Returns 'pbkdf2_sha256$<iterations>$<salt_hex>$<hash_hex>'.
+
+    The iteration count travels with the hash so raising it later does not
+    invalidate existing passwords: verification uses whatever each row records.
+    """
+    salt = secrets.token_bytes(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+    return f"pbkdf2_sha256${iterations}${salt.hex()}${dk.hex()}"
+
+
+def verify_password(password: str, stored: str | None) -> bool:
+    """Constant-time check. A missing or malformed hash is False, never True."""
+    if not stored or not password:
+        return False
+    try:
+        algo, iters, salt_hex, want_hex = stored.split("$", 3)
+        if algo != "pbkdf2_sha256":
+            return False
+        dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"),
+                                 bytes.fromhex(salt_hex), int(iters))
+    except (ValueError, TypeError):
+        return False
+    return hmac.compare_digest(dk.hex(), want_hex)
 
 
 class _ThreadSafeSqlite:
@@ -165,6 +208,11 @@ class Store:
         ("connectors", "cursor", "TEXT"),
         ("connectors", "last_run", "REAL"),
         ("oauth_creds", "status", "TEXT NOT NULL DEFAULT 'connected'"),
+        # Password authentication. Nullable on purpose: rows created before
+        # passwords existed, and rows created by an invite, have no credential
+        # yet. `verify_login` treats NULL as "cannot sign in", never as "any
+        # password works" — the difference between the two is the whole point.
+        ("users", "pw_hash", "TEXT"),
     ]
 
     def _existing_columns(self, table):
@@ -309,7 +357,8 @@ class Store:
             user_id = row["id"]
         else:
             user_id = _id("usr")
-            self.db.execute("INSERT INTO users VALUES(?,?,?)", (user_id, email, _now()))
+            self.db.execute("INSERT INTO users(id,email,created) VALUES(?,?,?)",
+                            (user_id, email, _now()))
             self.db.execute("INSERT INTO orgs VALUES(?,?,?,?)",
                             (_id("org"), org_name or email.split("@")[0], user_id, _now()))
         token = "omem_sess_" + secrets.token_hex(24)
@@ -318,6 +367,86 @@ class Store:
         return {"user_id": user_id, "email": email, "token": token, "existing": bool(row)}
 
     SESSION_TTL = 30 * 86400  # 30 days
+
+    # ── password-mode accounts (OMEM_AUTH=password) ─────────────────────────
+    # `signup` above is the LOCAL-mode path: it identifies a user by email alone
+    # and hands back a session. That is safe only when the server is reachable
+    # solely from the machine it runs on, which local mode enforces at bind time.
+    # Everything below is the path used when the server is exposed, where a
+    # bare email is a username and never a credential.
+
+    def new_session(self, user_id: str) -> str:
+        token = "omem_sess_" + secrets.token_hex(24)
+        self.db.execute(
+            "INSERT INTO sessions(token,user_id,created,expires) VALUES(?,?,?,?)",
+            (token, user_id, _now(), _now() + self.SESSION_TTL))
+        self.db.commit()
+        return token
+
+    def ensure_user(self, email: str) -> dict:
+        """Create a credential-less user + org if the email is unknown. Mints NO
+        session — that is what separates inviting somebody from becoming them.
+        (`signup` returning a token is exactly why an invite could hand out a
+        live session for the invitee's account.)"""
+        email = email.strip().lower()
+        row = self.db.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+        if row:
+            return {"user_id": row["id"], "email": email, "existing": True}
+        user_id = _id("usr")
+        self.db.execute("INSERT INTO users(id,email,created) VALUES(?,?,?)",
+                        (user_id, email, _now()))
+        self.db.execute("INSERT INTO orgs VALUES(?,?,?,?)",
+                        (_id("org"), email.split("@")[0], user_id, _now()))
+        self.db.commit()
+        return {"user_id": user_id, "email": email, "existing": False}
+
+    def has_password(self, email: str) -> bool:
+        r = self.db.execute("SELECT pw_hash FROM users WHERE email=?",
+                            (email.strip().lower(),)).fetchone()
+        return bool(r and r["pw_hash"])
+
+    def set_password(self, user_id: str, password: str) -> None:
+        self.db.execute("UPDATE users SET pw_hash=? WHERE id=?",
+                        (hash_password(password), user_id))
+        self.db.commit()
+
+    def create_account(self, email: str, password: str, org_name: str = "") -> dict | None:
+        """Register an email with a password. None when the address already has
+        one — the caller turns that into 409 rather than a session, so signup can
+        never be used as a way in to somebody else's account.
+
+        An address that exists WITHOUT a password (invited, or created before
+        passwords) is claimed here instead. That grants nothing new: such an
+        account was already reachable by anyone who knew the address, and after
+        this it is not. Real deployments should still verify the address by
+        email before handing it over; OMEM has no mail transport, so this is
+        documented as a limitation rather than pretended away."""
+        email = email.strip().lower()
+        row = self.db.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+        if row and row["pw_hash"]:
+            return None
+        if row:
+            user_id, existing = row["id"], True
+        else:
+            user_id, existing = _id("usr"), False
+            self.db.execute("INSERT INTO users(id,email,created) VALUES(?,?,?)",
+                            (user_id, email, _now()))
+            self.db.execute("INSERT INTO orgs VALUES(?,?,?,?)",
+                            (_id("org"), org_name or email.split("@")[0], user_id, _now()))
+        self.db.execute("UPDATE users SET pw_hash=? WHERE id=?",
+                        (hash_password(password), user_id))
+        self.db.commit()
+        return {"user_id": user_id, "email": email, "existing": existing,
+                "token": self.new_session(user_id)}
+
+    def verify_login(self, email: str, password: str) -> dict | None:
+        """The user row when the password matches, else None. A user with no
+        pw_hash always fails: `verify_password` rejects a NULL hash outright."""
+        row = self.db.execute("SELECT * FROM users WHERE email=?",
+                              (email.strip().lower(),)).fetchone()
+        if not row or not verify_password(password, row["pw_hash"]):
+            return None
+        return dict(row)
 
     def user_by_email(self, email: str):
         r = self.db.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()

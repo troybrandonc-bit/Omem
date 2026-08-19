@@ -484,10 +484,21 @@ rp_exp = _fit_exponent(SIZES, rp_times)
 print("  replay/build:", "  ".join(f"n={n}:{t*1000:.0f}ms" for n, t in zip(SIZES, rp_times)))
 print(f"    => empirical exponent ~{rp_exp:.2f}")
 
-check("proposition_state is super-linear (exponent > 1.5) — scale ceiling",
-      ps_exp > 1.5, "VERIFIED", f"exp={ps_exp:.2f}")
-check("conflicts is >= quadratic (exponent > 1.8) — primary scale ceiling",
-      cf_exp > 1.8, "VERIFIED", f"exp={cf_exp:.2f}")
+# These two used to assert the OPPOSITE — that the exponents were above 1.5 and
+# 1.8, recording the scale ceiling as a measured fact. They were honest, and they
+# failed the moment the ceiling was removed, which is exactly what a
+# characterisation test is for. Inverted rather than deleted: the property is
+# worth keeping, and this is the independent instrument that would catch the
+# per-subject partition recomputation coming back.
+check("proposition_state stays near-linear (exponent < 1.5)",
+      ps_exp < 1.5, "VERIFIED", f"exp={ps_exp:.2f}")
+check("conflicts stays near-linear (exponent < 1.8)",
+      cf_exp < 1.8, "VERIFIED", f"exp={cf_exp:.2f}")
+# provenance is still ~2.0 and is NOT claimed otherwise. It walks the derivation
+# chain and was never part of the query-path fix; the ceiling is real and stated
+# in ENGINE_VALIDATION.md rather than quietly left out of this list.
+check("provenance is still quadratic, and this says so rather than hiding it",
+      pv_exp > 1.5, "VERIFIED", f"exp={pv_exp:.2f}")
 
 print("\n== engine integrity ==")
 import hashlib

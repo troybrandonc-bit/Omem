@@ -15,14 +15,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import time
+import unicodedata
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from store import Store
+from store import Store, MIN_PASSWORD_LENGTH
 from ingest import Ingestor
 from connectors import (OAuthStore, GmailConnector, MockGmailTransport, GmailTransport,
                         LLMExtractor, MockLLMClient, EntityResolver)
@@ -76,6 +78,85 @@ STORE = Store(DB_PATH)
 
 
 NEGATION_PREFIX = "not:"
+
+# ── authentication mode ─────────────────────────────────────────────────────
+# OMEM has two honest configurations, and the dangerous thing was having one
+# that pretended to be both.
+#
+#   local     (default) The dashboard provisions a session against the running
+#             server with no login, which is what makes the one-minute quickstart
+#             one minute. That is only safe while the server cannot be reached
+#             from anywhere else, so local mode REFUSES to bind a non-loopback
+#             address unless the operator sets OMEM_ALLOW_INSECURE_BIND=1 and
+#             thereby says out loud that the network it is on is trusted.
+#
+#   password  Accounts have passwords. `POST /v1/session` needs one, signup will
+#             not hand back a session for an address that already has one, and
+#             the master key may not be left at its development default. This is
+#             the only mode fit for a server other people can reach.
+#
+# Before this existed, `POST /v1/session {"email": "..."}` returned a valid
+# 30-day session for ANY address. Knowing an email was the entire credential,
+# including for the addresses in OMEM_ADMIN_EMAILS, which reach every tenant.
+AUTH_MODE = (os.environ.get("OMEM_AUTH") or "local").strip().lower()
+if AUTH_MODE not in ("local", "password"):
+    raise SystemExit(f"OMEM_AUTH must be 'local' or 'password', not {AUTH_MODE!r}")
+PASSWORD_MODE = AUTH_MODE == "password"
+
+
+# The token shape extraction.py has always required of a proposition:
+# lowercase, digits and underscores, with an optional `not:` prefix. It was
+# enforced on the email-extraction path and nowhere else, so anything arriving
+# through the SDK or the API kept whatever spelling the caller happened to use.
+# \w rather than [a-z0-9], so accented and non-Latin letters survive. An earlier
+# ASCII-only version turned `café_señor` into `caf_se_or`, quietly mangling every
+# proposition in the languages this product is most likely to meet.
+_PROP_PUNCT = re.compile(r"[^\w:]+", re.UNICODE)
+_PROP_RUNS = re.compile(r"_+")
+
+
+def canonical_form(proposition: str) -> str:
+    """Normalise a proposition token to the project's own canonical shape.
+
+    WHY. Proposition identity is byte-equality of canonical form (Profile 3.1),
+    which is exactly right and also unforgiving: `prefers annual billing`,
+    `Prefers_Annual_Billing` and `prefers-annual-billing` were three unrelated
+    facts about the same customer. Two agents written by two people, or one agent
+    after a prompt was reworded, would fill a project with beliefs that could
+    never contradict, never corroborate and never be recalled together, and
+    nothing would look wrong. The engine cannot fix this without guessing at
+    meaning, which is the one thing it must not do. A boundary can, without
+    guessing at anything: case and punctuation are not meaning.
+
+    WHAT IT DOES NOT DO. It does not decide that `wants_annual` and
+    `prefers_annual` are the same claim. That is a synonym judgment, and
+    extraction.py keeps a small hand-written map of those for the email path
+    precisely because they are judgments about a particular vocabulary. Applying
+    that map to everything would mean an SDK caller's `decided_to_monthly_billing`
+    silently becoming a different token, which is presumptuous for a general
+    memory layer. Spelling is normalised here; meaning is still the caller's.
+
+    RETRACTED passes through untouched: it is a reserved marker (Profile 3.3),
+    not a claim, and lowercasing it would break the N10 rule that a retraction
+    contributes to neither side of a proposition state.
+    """
+    if not isinstance(proposition, str):
+        return proposition
+    if proposition == RETRACTED:
+        return proposition
+
+    negated = proposition.startswith(NEGATION_PREFIX)
+    body = proposition[len(NEGATION_PREFIX):] if negated else proposition
+
+    slug = unicodedata.normalize("NFC", body).strip().lower()
+    slug = _PROP_PUNCT.sub("_", slug)
+    slug = _PROP_RUNS.sub("_", slug).strip("_")
+    # A token made entirely of punctuation would normalise to nothing. Keeping
+    # the original is the lesser evil: an odd token is still a token, and an
+    # empty proposition would be rejected further down with a confusing reason.
+    if not slug:
+        return proposition
+    return (NEGATION_PREFIX + slug) if negated else slug
 
 
 def _negation_counterpart(token: str):
@@ -147,17 +228,23 @@ def apply_op(p: Project, kind: str, a: dict):
         e.put_event(a["id"], a["ekind"], a["event_time"], a.get("event_end"))
         p.labels[a["id"]] = {"kind": "event", "event_kind": a["ekind"], "label": a.get("label"), "event_time": a["event_time"]}
     elif kind == "assert":
-        e.assert_(a["id"], a["agent"], a["subjects"], a["proposition"], a["assertion_time"],
+        prop = canonical_form(a["proposition"])
+        e.assert_(a["id"], a["agent"], a["subjects"], prop, a["assertion_time"],
                   a.get("event_time"), a.get("confidence"))
-        p.labels[a["id"]] = {"kind": "assertion", "label": a.get("label")}
-        _auto_declare_negation(p, a["proposition"])
+        # The label keeps whatever the caller wrote, so normalising the token
+        # never costs the human-readable form a person expects to see.
+        p.labels[a["id"]] = {"kind": "assertion", "label": a.get("label") or
+                             (a["proposition"] if a["proposition"] != prop else None)}
+        _auto_declare_negation(p, prop)
     elif kind == "derive":
         e.derive(a["consequent"], a["antecedents"], a.get("dkind", "inference"), a["id"])
     elif kind == "supersede":
-        e.supersede(Assertion(a["id"], a["agent"], tuple(a["subjects"]), a["proposition"],
+        prop = canonical_form(a["proposition"])
+        e.supersede(Assertion(a["id"], a["agent"], tuple(a["subjects"]), prop,
                               a["assertion_time"], None, a.get("confidence")), a["olds"], a["did"])
-        p.labels[a["id"]] = {"kind": "assertion", "label": a.get("label")}
-        _auto_declare_negation(p, a["proposition"])
+        p.labels[a["id"]] = {"kind": "assertion", "label": a.get("label") or
+                             (a["proposition"] if a["proposition"] != prop else None)}
+        _auto_declare_negation(p, prop)
     elif kind == "retract":
         e.retract(Assertion(a["id"], a["agent"], tuple(a["subjects"]), RETRACTED,
                             a["assertion_time"]), a["old"], a["did"])
@@ -166,8 +253,13 @@ def apply_op(p: Project, kind: str, a: dict):
     elif kind == "split":
         e.split(a["cor"], a["agent"], a["assertion_time"], a["id"], a["did"])
     elif kind == "declare":
-        e.declare_contradiction(a["token_a"], a["token_b"])
-        CONTRADICTIONS.setdefault(p.id, []).append([a["token_a"], a["token_b"]])
+        # Normalised identically to the write path. A pair declared as
+        # "Prefers Annual" / "Prefers Monthly" must oppose the tokens actually
+        # stored, or the declaration silently does nothing.
+        ta, tb = canonical_form(a["token_a"]), canonical_form(a["token_b"])
+        e.declare_contradiction(ta, tb)
+        _DECLARED_PAIRS.setdefault(p.id, set()).add(frozenset((ta, tb)))
+        CONTRADICTIONS.setdefault(p.id, []).append([ta, tb])
     else:
         raise ValueError(f"unknown op kind {kind}")
 
@@ -219,7 +311,7 @@ def source_view(src, connector=None):
 def e_state(p, subjects, proposition):
     """Thin pass-through to the frozen engine's proposition_state. The engine is
     the sole authority; this never computes state itself."""
-    return p.engine.proposition_state(subjects, proposition, p.now())
+    return p.engine.proposition_state(subjects, canonical_form(proposition), p.now())
 
 
 def boot():
@@ -1117,8 +1209,12 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 pass
             return {}
+        raw = self.rfile.read(n) or b"{}"
+        # Kept for signature verification: any webhook whose HMAC covers the
+        # request body needs the bytes as sent, not a re-serialisation of them.
+        self._raw_body = raw
         try:
-            return json.loads(self.rfile.read(n) or b"{}")
+            return json.loads(raw)
         except Exception:
             return {}
 
@@ -1469,6 +1565,12 @@ class Handler(BaseHTTPRequestHandler):
                 },
                 "uptime_seconds": METRICS.snapshot()["uptime_seconds"],
                 "protocol": "1.0",
+                # The dashboard needs this before it has a session, to decide
+                # between showing a sign-in form and provisioning a local one.
+                # Naming the mode is not a disclosure: an attacker learns it from
+                # one signup attempt anyway, and a dashboard that guessed wrong
+                # would either lock out local users or silently auto-log-in.
+                "auth": AUTH_MODE,
             }
             return self._send(200 if ready else 503, body)
         # ── Google redirects the BROWSER here after consent ──
@@ -2465,7 +2567,34 @@ class Handler(BaseHTTPRequestHandler):
             email = (body.get("email") or "").strip()
             if "@" not in email:
                 return self._err(422, "invalid_request", "A valid email is required.", param="email")
-            res = STORE.signup(email, body.get("org") or "")
+            if PASSWORD_MODE:
+                password = body.get("password") or ""
+                if len(password) < MIN_PASSWORD_LENGTH:
+                    return self._err(422, "invalid_request",
+                                     f"A password of at least {MIN_PASSWORD_LENGTH} characters is required.",
+                                     param="password")
+                _u = STORE.user_by_email(email)
+                # Registered addresses are turned away before anything else is
+                # considered. Asking an MFA challenge first would both be pointless
+                # (the answer is 409 either way) and tell an unauthenticated caller
+                # which addresses have a second factor enrolled.
+                if _u and _u.get("pw_hash"):
+                    return self._err(409, "conflict",
+                                     "That email already has an account. Sign in instead.")
+                # Claiming an address that has no password YET must still satisfy
+                # that account's MFA, or the claim path becomes the bypass this
+                # whole change exists to close.
+                if _u:
+                    _m = STORE.mfa_state(_u["id"])
+                    if _m and _m["enabled"] and not totp_verify(_m["secret"], str(body.get("code", ""))):
+                        return self._err(401, "mfa_required", "MFA code required or invalid.")
+                res = STORE.create_account(email, password, body.get("org") or "")
+                if res is None:
+                    # Lost a race with a concurrent signup for the same address.
+                    return self._err(409, "conflict",
+                                     "That email already has an account. Sign in instead.")
+            else:
+                res = STORE.signup(email, body.get("org") or "")
             org = STORE.org_for_user(res["user_id"])
             if not ENT.role_of(org["id"], res["user_id"]):
                 ENT.set_role(org["id"], res["user_id"], "owner")
@@ -2483,16 +2612,27 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(201, out)
 
         if parts == ["v1", "session"]:
-            _u = STORE.user_by_email((body or {}).get("email", ""))
+            email = (body.get("email") or "").strip()
+            if "@" not in email:
+                return self._err(422, "invalid_request", "A valid email is required.", param="email")
+            if PASSWORD_MODE:
+                user = STORE.verify_login(email, (body or {}).get("password") or "")
+                if not user:
+                    # One message for "no such account", "no password set" and
+                    # "wrong password" alike: distinguishing them turns this
+                    # endpoint into an oracle for which addresses are registered.
+                    return self._err(401, "authentication", "Invalid email or password.")
+                _m = STORE.mfa_state(user["id"])
+                if _m and _m["enabled"] and not totp_verify(_m["secret"], str((body or {}).get("code", ""))):
+                    return self._err(401, "mfa_required", "MFA code required or invalid.")
+                return self._send(200, {"token": STORE.new_session(user["id"]), "email": user["email"]})
+            _u = STORE.user_by_email(email)
             if _u:
                 _m = STORE.mfa_state(_u["id"])
                 if _m and _m["enabled"]:
                     code = str((body or {}).get("code", ""))
                     if not totp_verify(_m["secret"], code):
                         return self._err(401, "mfa_required", "MFA code required or invalid.")
-            email = (body.get("email") or "").strip()
-            if "@" not in email:
-                return self._err(422, "invalid_request", "A valid email is required.", param="email")
             res = STORE.signup(email, "")
             return self._send(200, {"token": res["token"], "email": res["email"]})
 
@@ -2533,7 +2673,9 @@ class Handler(BaseHTTPRequestHandler):
             oid = STORE.org_for_user(auth["user"]["id"])["id"] if "user" in auth else None
             if not self._require(auth, "member.manage", oid):
                 return self._err(403, "permission", "Requires admin.")
-            target = STORE.signup(body["email"], "")  # ensures user exists
+            # ensure_user, not signup: signup mints a session token, so inviting
+            # somebody used to create a live session for their account.
+            target = STORE.ensure_user(body["email"])
             ENT.set_role(oid, target["user_id"], body["role"])
             ENT.audit("member.role_changed", actor=auth["user"]["id"], org_id=oid,
                       resource=body["email"], metadata={"role": body["role"]}, correlation_id=self._corr())
@@ -2596,7 +2738,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._err(503, "unavailable", "Billing is not configured on this deployment (no STRIPE_SECRET_KEY).")
             email = auth["user"]["email"]
             cust = providers.stripe_create_customer(email)
-            ENT.set_billing(oid, stripe_customer=cust["id"], plan=body.get("plan", "pro"))
+            # Record the customer, NOT the plan. This used to set plan="pro" here,
+            # which granted the paid tier at the moment a customer object was
+            # created — before any checkout, let alone any payment. The plan is
+            # the webhook's business, because only Stripe knows if it was paid for.
+            ENT.set_billing(oid, stripe_customer=cust["id"])
             ENT.audit("billing.customer_created", actor=auth["user"]["id"], org_id=oid, correlation_id=self._corr())
             return self._send(200, {"customer": cust["id"]})
 
@@ -2606,7 +2752,13 @@ class Handler(BaseHTTPRequestHandler):
             if not secret:
                 return self._err(503, "unavailable", "Billing webhooks not configured (no STRIPE_WEBHOOK_SECRET).")
             sig = self.headers.get("Stripe-Signature", "")
-            raw = json.dumps(body).encode()  # raw body reconstructed from parsed JSON
+            # The EXACT bytes Stripe signed. This used to be json.dumps(body),
+            # rebuilding the payload from the parsed dict — which reintroduces
+            # Python's ", " item separator where Stripe sent ",", so the HMAC
+            # covered different bytes and verification could only ever fail
+            # against real Stripe. tests_e2e signed the same reconstruction, so
+            # the suite agreed with the bug.
+            raw = getattr(self, "_raw_body", b"") or b"{}"
             if not providers.stripe_verify_signature(raw, sig, secret):
                 return self._err(400, "invalid_signature", "Stripe signature verification failed.")
             etype = body.get("type", "")
@@ -3747,7 +3899,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if parts == ["v1", "queries", "proposition-state"]:
             T = self._T(qs, p) if qs.get("as_of") else (p.now() if body.get("as_of") in (None, "now") else int(body["as_of"]))
-            state = e.proposition_state(body["subjects"], body["proposition"], T)
+            # Normalised on the way in exactly as it was on the way out, or
+            # believes() would miss a fact remember() had just stored.
+            state = e.proposition_state(body["subjects"], canonical_form(body["proposition"]), T)
             return self._send(200, {"state": state, "as_of": T})
 
         if parts == ["v1", "queries", "trust-order"]:
@@ -3785,10 +3939,52 @@ def validate_env():
     return status
 
 
+LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost", ""}
+
+
+def enforce_auth_safety(host: str):
+    """Refuse the two configurations that quietly hand the server away.
+
+    Local mode has no passwords, so reachability IS the access control. Binding
+    it to a non-loopback address publishes an unauthenticated dashboard onto the
+    network; that must be a deliberate act, not a default. Password mode encrypts
+    OAuth refresh tokens with OMEM_MASTER_KEY, whose development default is a
+    constant published in this repository — using it on a real deployment means
+    the ciphertext protects nothing.
+
+    Raising SystemExit rather than warning is the point: a warning scrolls past.
+    """
+    if PASSWORD_MODE:
+        master = os.environ.get("OMEM_MASTER_KEY", "")
+        if not master or master == "dev-master-key-change-me":
+            raise SystemExit(
+                "OMEM refuses to start: OMEM_AUTH=password but OMEM_MASTER_KEY is\n"
+                "unset or still the development default. That key encrypts stored\n"
+                "OAuth tokens, and its default value is public in this repository.\n"
+                "  Set one:  OMEM_MASTER_KEY=$(python3 -c "
+                "'import secrets;print(secrets.token_urlsafe(32))')")
+        return
+    if host not in LOOPBACK_HOSTS and not os.environ.get("OMEM_ALLOW_INSECURE_BIND"):
+        raise SystemExit(
+            f"OMEM refuses to start: OMEM_HOST={host} would expose this server\n"
+            "beyond this machine, but OMEM_AUTH=local means it has no passwords —\n"
+            "anyone who can reach the port gets full access to every project.\n"
+            "  For a server other people reach:  OMEM_AUTH=password\n"
+            "  If the network really is trusted (a container on a private host, a\n"
+            "  single-user VM):  OMEM_ALLOW_INSECURE_BIND=1")
+
+
 def main(port=8787):
     import signal
     host = os.environ.get("OMEM_HOST", "127.0.0.1")
+    enforce_auth_safety(host)
     print(f"OMEM Cloud API starting on http://{host}:{port}")
+    if PASSWORD_MODE:
+        print("  auth: password (accounts require a password; signup will not "
+              "reissue one for a registered address)")
+    else:
+        print(f"  auth: local, no login — safe only because this binds {host}. "
+              "Set OMEM_AUTH=password before exposing it.")
     if _BACKFILLED:
         print(f"  granted owner role to {len(_BACKFILLED)} pre-existing org owner(s)")
     if _ENV_FILES:

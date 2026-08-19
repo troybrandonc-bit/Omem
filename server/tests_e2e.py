@@ -43,6 +43,19 @@ def check(n, c, d=""):
         FAIL += 1; print(f"  FAIL {n}  {d}")
 
 
+def call_raw(m, path, raw: bytes, headers=None):
+    """POST exact bytes. Stripe signs the body it transmits, so a webhook test
+    that re-serialises the payload on the way out is testing its own round-trip
+    rather than the signature."""
+    req = urllib.request.Request(BASE + path, method=m, data=raw,
+        headers={"Content-Type": "application/json", **(headers or {})})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return r.status, json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        return e.code, json.loads(e.read())
+
+
 def call(m, path, body=None, key=None, headers=None):
     req = urllib.request.Request(BASE + path, method=m,
         data=json.dumps(body).encode() if body is not None else None,
@@ -150,9 +163,12 @@ OID = api.STORE.org_for_user(api.STORE.user_for_session(SESS)["id"])["id"]
 event = {"type": "customer.subscription.created",
          "data": {"object": {"status": "active", "customer": "cus_123",
                              "metadata": {"org_id": OID, "plan": "pro"}}}}
-raw = json.dumps(event).encode()
+# Compact separators, the way Stripe actually sends it. With the old
+# json.dumps(body) reconstruction on the server this line alone fails, because
+# the rebuilt bytes carry ", " where Stripe sent ",".
+raw = json.dumps(event, separators=(",", ":")).encode()
 good_sig = providers.stripe_sign_payload(raw, "whsec_test_secret")
-st, r = call("POST", "/v1/billing/webhook", event, headers={"Stripe-Signature": good_sig})
+st, r = call_raw("POST", "/v1/billing/webhook", raw, headers={"Stripe-Signature": good_sig})
 check("valid signature accepted", st == 200 and r["received"])
 check("billing state updated from verified event",
       api.ENT.billing(OID)["subscription_status"] == "active" and api.ENT.billing(OID)["plan"] == "pro")
