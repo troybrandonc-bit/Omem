@@ -25,10 +25,18 @@ const config: Config = {
         mono: ["'IBM Plex Mono'", "ui-monospace", "SF Mono", "Menlo", "monospace"],
         serif: ["'IBM Plex Serif'", "Georgia", "serif"],
       },
-      // 1.25 ratio from a 13px base, rounded to whole pixels
+      // 1.25 ratio from a 13px base, rounded to whole pixels. Each entry carries
+      // its own line-height because overriding a key here discards Tailwind's
+      // paired leading — leaving it out would silently inherit body leading.
       fontSize: {
-        "2xs": "11px", xs: "12px", sm: "13px", base: "13px",
-        md: "16px", lg: "20px", xl: "25px", "2xl": "31px",
+        "2xs": ["11px", { lineHeight: "16px" }],
+        xs:    ["12px", { lineHeight: "18px" }],
+        sm:    ["13px", { lineHeight: "20px" }],
+        base:  ["13px", { lineHeight: "20px" }],
+        md:    ["16px", { lineHeight: "22px" }],
+        lg:    ["20px", { lineHeight: "26px", letterSpacing: "-0.012em" }],
+        xl:    ["25px", { lineHeight: "30px", letterSpacing: "-0.018em" }],
+        "2xl": ["31px", { lineHeight: "34px", letterSpacing: "-0.022em" }],
       },
       // small and concentric: outer 6, inner 4. A register is squared off.
       borderRadius: { xl: "10px", lg: "8px", md: "6px", DEFAULT: "4px", sm: "3px", pill: "999px" },
