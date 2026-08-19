@@ -3964,6 +3964,58 @@ def validate_env():
 LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost", ""}
 
 
+# The identity the dashboard provisions for itself in local mode. The CLI
+# bootstrap below uses the SAME one deliberately: a developer who signs up under
+# their own address gets a project the dashboard cannot see, writes memories into
+# it through the SDK, opens the dashboard and finds it empty. One local machine,
+# one local workspace.
+LOCAL_EMAIL = "local@omem.dev"
+
+
+def bootstrap_local_workspace():
+    """Give a first-run local server a project and a key, and print them.
+
+    Before this, `omem-server` started an API and stopped. Getting to a first
+    memory meant reading the README, POSTing to /v1/signup by hand, and digging
+    the key out of the response — for a product whose pitch is that setup takes
+    a minute. Now the thing you need is on screen when it boots.
+
+    Only in local mode, and only when the database has no projects yet. A server
+    with real accounts must not mint an unauthenticated workspace, and a restart
+    must not print a new key every time.
+    """
+    if PASSWORD_MODE or PROJECTS:
+        return None
+    res = STORE.signup(LOCAL_EMAIL, "Local")
+    org = STORE.org_for_user(res["user_id"])
+    if not ENT.role_of(org["id"], res["user_id"]):
+        ENT.set_role(org["id"], res["user_id"], "owner")
+    pr = STORE.create_project(org["id"], "My workspace")
+    PROJECTS[pr["id"]] = Project(pr["id"], pr["name"], pr["env"], org["id"])
+    CONTRADICTIONS[pr["id"]] = []
+    _DECLARED_PAIRS[pr["id"]] = set()
+    key = STORE.create_key(pr["id"], "Development key")
+    return {"project": pr["id"], "key": key["secret"]}
+
+
+def print_local_quickstart(ws, host, port, scheme):
+    base = f"{scheme}://{host}:{port}"
+    print()
+    print("  Your workspace is ready. The key is shown once:")
+    print()
+    print(f"    project   {ws['project']}")
+    print(f"    api key   {ws['key']}")
+    print()
+    print("    from omem import Memory")
+    print(f'    mem = Memory(api_key="{ws["key"]}",')
+    print(f'                 base_url="{base}", project="{ws["project"]}")')
+    print('    mem.remember(agent="my-agent", about="customer:1",')
+    print('                 claim="prefers_annual_billing")')
+    print('    mem.believes(about="customer:1", claim="prefers_annual_billing")')
+    print()
+
+
+
 def wrap_tls(srv) -> bool:
     """Serve HTTPS directly when a certificate is configured. Returns whether it did.
 
@@ -4080,9 +4132,14 @@ def main(port=8787):
     srv.daemon_threads = True     # in-flight handlers never block shutdown
     scheme = "https" if wrap_tls(srv) else "http"
     print(f"  listening on {scheme}://{host}:{port}")
+    # First run in local mode: hand over a project and a key rather than leaving
+    # the developer to POST /v1/signup by hand before they can write anything.
+    _ws = bootstrap_local_workspace()
     if scheme == "http" and host not in LOOPBACK_HOSTS:
         print("  TLS: OFF — this is plaintext HTTP on a non-loopback address.")
         print("       Terminate TLS at a proxy, or set OMEM_TLS_CERT/OMEM_TLS_KEY.")
+    if _ws:
+        print_local_quickstart(_ws, host, port, scheme)
 
     def shutdown(*_):
         print("\n  graceful shutdown: stopping scheduler + server")

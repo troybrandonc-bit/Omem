@@ -131,6 +131,30 @@ jobs:
           fi
           echo "refused, as it should"
 
+  package:
+    name: wheel / pip install and quickstart
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.9" }        # the floor we advertise
+      - run: pip install build
+      - name: Build the wheel
+        working-directory: sdk/python
+        run: python -m build --wheel
+      # Install it the way a developer would — from the wheel, into a clean
+      # environment, with nothing else present. The bundled server is generated
+      # at build time, so "it works from the repo" says nothing about whether
+      # `pip install omem-infrastructure` works.
+      - name: Install it clean
+        run: pip install sdk/python/dist/*.whl
+      - name: Run QUICKSTART.md, exactly as written
+        # A script rather than an inline heredoc: an indented heredoc body
+        # reaches python with its leading spaces intact and dies on
+        # IndentationError. It is also runnable locally, which a YAML block
+        # is not.
+        run: python scripts/verify_quickstart.py --port 8787
+
   dashboard:
     name: dashboard / web
     runs-on: ubuntu-latest

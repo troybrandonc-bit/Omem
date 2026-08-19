@@ -39,17 +39,23 @@ pip install omem-infrastructure
 omem-server
 ```
 
-That starts the server on http://127.0.0.1:8787. Your agent code then talks to
-it through the SDK:
+That starts the server on http://127.0.0.1:8787 and, on first run, prints a
+project id and an API key — no signup call, no dashboard visit, nothing to
+configure. Paste them straight in:
 
 ```python
 from omem import Memory
 
-mem = Memory(api_key="...", base_url="http://127.0.0.1:8787", project="...")
+mem = Memory(api_key="omem_sk_...", base_url="http://127.0.0.1:8787",
+             project="proj_...")
 mem.remember(agent="support", about="customer:1", claim="prefers_annual_billing")
 print(mem.believes(about="customer:1", claim="prefers_annual_billing"))
 # -> BELIEVED_TRUE
 ```
+
+**[QUICKSTART.md](QUICKSTART.md)** takes that to a contradiction and a provenance
+chain in about five minutes, which is where the difference from a vector store
+actually shows.
 
 **Option 2: run from this repo.**
 

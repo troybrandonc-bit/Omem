@@ -13,7 +13,8 @@ What a tester sees (cleaned for testing)
 - All dashboard numbers are real (fetched from the API). When there is no data
   for something, it shows an empty state — never a random number.
 
-Setup stays ~1 minute, zero dependencies (see QUICKSTART.md).
+Setup stays ~1 minute, zero dependencies — see QUICKSTART.md, which now
+exists (this line pointed at a missing file).
 
 Note: the web dashboard is optional and requires `npm install && npm run dev`
 in web/. The core testing path (server + `pip install omem-infrastructure` +
