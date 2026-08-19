@@ -28,9 +28,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/omem/omem"
-Documentation = "https://github.com/omem/omem#readme"
-Source = "https://github.com/omem/omem"
+Homepage = "https://github.com/troybrandonc-bit/Omem"
+Documentation = "https://github.com/troybrandonc-bit/Omem#readme"
+Source = "https://github.com/troybrandonc-bit/Omem"
 
 [project.scripts]
 # `omem-mcp` starts the MCP server over stdio, so any MCP client can launch it.

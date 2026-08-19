@@ -33,9 +33,22 @@ EXPOSE 8787 3000
 # The server must bind 0.0.0.0 inside the container (not 127.0.0.1) so the
 # dashboard process and the host can reach it.
 ENV OMEM_HOST=0.0.0.0
+# In local mode the server refuses a non-loopback bind, because local mode has no
+# passwords and reachability is therefore the whole access control. Inside a
+# container that bind is unavoidable and says nothing about exposure — what the
+# port is published to does, which is why docker-compose.yml publishes to
+# 127.0.0.1. Acknowledge it here so the container starts; set OMEM_AUTH=password
+# (and OMEM_MASTER_KEY) if you publish these ports to a network.
+ENV OMEM_ALLOW_INSECURE_BIND=1
 # The dashboard's server-side rewrite target (server is on localhost in-container)
 ENV OMEM_API_URL=http://127.0.0.1:8787
 # Demo data stays OFF (testers see only their own real data)
 ENV OMEM_SEED_DEMO=0
+
+# Not root. The server writes only to its data directory and the dashboard needs
+# nothing writable at all, so there is no reason for a compromise here to start
+# with uid 0.
+RUN useradd --system --create-home --uid 10001 omem && mkdir -p /app/server/data && chown -R omem:omem /app
+USER omem
 
 CMD ["/app/start.sh"]

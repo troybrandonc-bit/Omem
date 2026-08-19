@@ -78,7 +78,30 @@ workers run concurrently with zero double-claims (verified with 2 workers /
 stale-job recovery come from the existing job machine. Env: `WORKER_ID`,
 `WORKER_ONCE=1` for drain-and-exit.
 
+## Authentication (required reading before exposing this)
+`OMEM_AUTH=local` (default) has no passwords; the dashboard provisions a session
+against whatever server it reaches. The server therefore refuses to bind a
+non-loopback address in local mode unless `OMEM_ALLOW_INSECURE_BIND=1` is set.
+
+For a deployment other people reach, set `OMEM_AUTH=password` and a real
+`OMEM_MASTER_KEY` (the server will not start on the development default).
+Accounts then use PBKDF2-SHA256 passwords, signup returns 409 rather than a
+session for an already-registered address, and TOTP is enforced where enrolled.
+`OMEM_ADMIN_EMAILS` gates `/v1/admin/*`, which spans every tenant — it is only a
+boundary in password mode.
+
+The server speaks plain HTTP. Terminate TLS at a proxy in front of it.
+
 ## What is NOT yet production infrastructure
 - The in-process scheduler remains for zero-setup dev; production should run
   `worker.py` processes instead (the API still enqueues via the same tables).
 - No object storage, no CDN, no secrets manager wired (env vars only).
+- No TLS in the server itself; a terminating proxy is mandatory.
+- Memory content is not encrypted at rest — only stored OAuth tokens are. Use
+  disk or database encryption underneath if that matters.
+- The engine is authoritative IN PROCESS and rebuilt by replaying the ops log at
+  boot, so a second API replica would not see the first one's writes. One process
+  only: no horizontal scaling, no rolling deploys, and boot time grows with total
+  history (there is no snapshot or log compaction).
+- The audit log is append-only by convention, not hash-chained.
+- No SSO/OIDC/SAML/SCIM.

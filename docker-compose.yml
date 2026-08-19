@@ -2,13 +2,28 @@ services:
   omem:
     build: .
     image: omem
+    # Published on loopback ONLY. A container has to bind 0.0.0.0 internally for
+    # the dashboard process and the host to reach it, so the container's bind
+    # address says nothing about who can connect — the published port does.
+    # "8787:8787" would put an OMEM in local mode, which has no passwords, on
+    # every interface of the host. If you want other machines to reach this,
+    # drop the 127.0.0.1 prefix AND set OMEM_AUTH/OMEM_MASTER_KEY below.
     ports:
-      - "3000:3000"   # dashboard
-      - "8787:8787"   # API
+      - "127.0.0.1:3000:3000"   # dashboard
+      - "127.0.0.1:8787:8787"   # API
     environment:
       OMEM_HOST: "0.0.0.0"
       OMEM_API_URL: "http://127.0.0.1:8787"
       OMEM_SEED_DEMO: "0"
+      # Acknowledges the 0.0.0.0 bind above. Safe here because the ports are
+      # published to loopback; remove the acknowledgement, not the guard, if you
+      # change that.
+      OMEM_ALLOW_INSECURE_BIND: "1"
+      # ── To serve people other than yourself, uncomment both and republish the
+      # ports without the 127.0.0.1 prefix. Password mode refuses to start on the
+      # default master key, so this cannot be half-done.
+      # OMEM_AUTH: "password"
+      # OMEM_MASTER_KEY: "${OMEM_MASTER_KEY:?set OMEM_MASTER_KEY in .env}"
     # persist memory across restarts (SQLite db lives here)
     volumes:
       - omem-data:/app/server/data

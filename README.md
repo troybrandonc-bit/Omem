@@ -62,8 +62,9 @@ Same server, started from source. Setup takes about a minute either way.
 
 ## The dashboard (optional)
 
-There is a web dashboard for looking at memory, conflicts, the belief graph, and
-logs. It is a separate app:
+The dashboard lives in `web/` — it is the only UI in this repository, and the
+server itself returns JSON and never HTML. It shows memory, conflicts, the belief
+graph, the timeline, logs and the audit trail:
 
 ```bash
 cd web
@@ -71,9 +72,37 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000. It connects to the running server automatically, with
-no login. If it says it is waiting for the server, start the server first and
-refresh.
+Open http://localhost:3000. In local mode (the default) it connects to the
+running server automatically with no login. If it says it is waiting for the
+server, start the server first and refresh. On a server running `OMEM_AUTH=password`
+it shows a sign-in form instead.
+
+## Authentication
+
+OMEM runs in one of two modes, and the difference matters before you put it
+anywhere other than your own machine.
+
+**`OMEM_AUTH=local`** — the default, and what makes the quickstart a minute.
+There is no login: the dashboard provisions a session against the server it can
+see. That is only safe while nothing else can reach the server, so local mode
+**refuses to bind a non-loopback address**. If you mean it (a container whose
+ports are published to `127.0.0.1`, a single-user VM), set
+`OMEM_ALLOW_INSECURE_BIND=1`.
+
+**`OMEM_AUTH=password`** — required for a server other people can reach.
+Accounts have passwords, hashed with PBKDF2-SHA256. Signing up with an address
+that already has a password returns 409 rather than a session, TOTP is enforced
+where it is enrolled, and the server refuses to start unless `OMEM_MASTER_KEY`
+is set to something other than its development default.
+
+```bash
+export OMEM_AUTH=password
+export OMEM_MASTER_KEY="$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')"
+omem-server
+```
+
+The server speaks plain HTTP either way. Put a TLS-terminating proxy in front of
+anything that is not on your own machine.
 
 ## What is in this repo
 
@@ -93,11 +122,17 @@ stdio, so MCP clients like Claude Desktop can use OMEM as a memory tool:
 OMEM_API_KEY=... OMEM_BASE_URL=http://127.0.0.1:8787 OMEM_AGENT=support omem-mcp
 ```
 
-## Status
+## Status and price
 
-This is early software and under active development. It is meant for testing and
-feedback right now, not production. If you try it and something breaks or feels
-wrong, that feedback is exactly what is useful at this stage.
+Free, and free while it stays in beta — no plans, no card, no quota.
+
+This is early software under active development. It is meant for testing and
+feedback right now. `web/app/(marketing)/security/page.tsx` lists what it
+protects and, just as importantly, what it does not yet: no TLS of its own, no
+encryption of memory content at rest, no SSO, no certifications, and one process
+holding authoritative state so there is no HA story. Read that before you plan
+around it. If you try it and something breaks or feels wrong, that feedback is
+exactly what is useful at this stage.
 
 ## License
 
