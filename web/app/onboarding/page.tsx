@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, setSession, ApiError, type SignupResult } from "@/lib/api";
+import { api, setSession, ApiError, type SignupResult, type AuthMode } from "@/lib/api";
 import { useApp } from "@/components/providers";
 import { Share2, Copy, Check, ArrowRight } from "lucide-react";
 
@@ -15,6 +15,13 @@ export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [email, setEmail] = useState("");
   const [org, setOrg] = useState("");
+  const [password, setPassword] = useState("");
+  // A password server rejects a signup without one, so the field has to appear
+  // before the request rather than after the 422 explaining it.
+  const [mode, setMode] = useState<AuthMode>("local");
+  useEffect(() => {
+    api.health().then(h => setMode(h.auth === "password" ? "password" : "local")).catch(() => {});
+  }, []);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [acct, setAcct] = useState<SignupResult | null>(null);
@@ -24,7 +31,8 @@ export default function Onboarding() {
   async function doSignup() {
     setBusy(true); setErr(null);
     try {
-      const res = await api.signup({ email, org: org || undefined, project: "My first project" });
+      const res = await api.signup({ email, org: org || undefined, project: "My first project",
+                                     ...(mode === "password" ? { password } : {}) });
       setSession(res.token);
       setAcct(res);
       if (res.project) setProject(res.project.id);
@@ -69,11 +77,17 @@ export default function Onboarding() {
           <label className="mt-5 block text-2xs text-muted">Email</label>
           <input value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" type="email"
             className="mt-1 w-full rounded-md border bg-panel px-3 py-2 text-sm outline-none focus:border-accent" />
+          {mode === "password" && (<>
+            <label className="mt-3 block text-2xs text-muted">Password</label>
+            <input value={password} onChange={e => setPassword(e.target.value)} type="password"
+              autoComplete="new-password" minLength={10} placeholder="at least 10 characters"
+              className="mt-1 w-full rounded-md border bg-panel px-3 py-2 text-sm outline-none focus:border-accent" />
+          </>)}
           <label className="mt-3 block text-2xs text-muted">Organization (optional)</label>
           <input value={org} onChange={e => setOrg(e.target.value)} placeholder="Acme"
             className="mt-1 w-full rounded-md border bg-panel px-3 py-2 text-sm outline-none focus:border-accent" />
           {err && <div className="mt-3 rounded-md border border-conflict/40 bg-conflictBg px-3 py-2 text-2xs text-conflict">{err}</div>}
-          <button onClick={doSignup} disabled={busy || !email.includes("@")}
+          <button onClick={doSignup} disabled={busy || !email.includes("@") || (mode === "password" && password.length < 10)}
             className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 text-[14px] font-semibold text-white transition-opacity hover:opacity-[0.88] disabled:opacity-40">
             {busy ? "Creating…" : "Continue"} <ArrowRight className="h-4 w-4" />
           </button>

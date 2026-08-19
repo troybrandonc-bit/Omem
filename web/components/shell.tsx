@@ -10,7 +10,7 @@ import {
   ScrollText, Gauge, Settings, Share2, ChevronDown, Search, Sun, Moon, User, Activity, Users, ShieldCheck, HeartPulse, Stethoscope,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getSession, setSession } from "@/lib/api";
+import { getSession, setSession, ApiError, type AuthMode } from "@/lib/api";
 
 const NAV = [
   { group: null, items: [
@@ -48,28 +48,37 @@ export function Shell({ children }: { children: React.ReactNode }) {
     window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h);
   }, []);
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const [mode, setMode] = useState<AuthMode | null>(null);
   useEffect(() => {
     if (isMarketing || path?.startsWith("/onboarding")) return;
-    // No login screen: if there's no session yet, silently provision a local one
-    // against the running server so the dashboard opens straight onto the agent's
-    // memory. (The server still requires auth for every call; we just create the
-    // session automatically instead of showing a signup form.)
+    // Which of the two modes the server is in decides what happens here, and the
+    // server is the only one who knows. In local mode it is bound to loopback and
+    // has no passwords, so provisioning a session silently is what makes the
+    // quickstart a quickstart. In password mode it is reachable by other people,
+    // so the only correct thing to show is a sign-in form. Auto-provisioning
+    // there was the dashboard half of "an email address is the whole credential".
     let cancelled = false;
     (async () => {
-      if (getSession()) { if (!cancelled) setAuthed(true); return; }
       try {
+        const h = await api.health();
+        const m: AuthMode = h.auth === "password" ? "password" : "local";
+        if (cancelled) return;
+        setMode(m);
+        if (getSession()) { setAuthed(true); return; }
+        if (m === "password") { setAuthed(false); return; }
         const res = await api.signup({ email: "local@omem.dev", project: "My workspace" });
         setSession(res.token);
         if (!cancelled) setAuthed(true);
       } catch {
-        // server not reachable yet — retry shortly rather than bouncing to a page
-        if (!cancelled) setAuthed(false);
+        // server not reachable yet — say so rather than bouncing to a page
+        if (!cancelled) { setMode(null); setAuthed(false); }
       }
     })();
     return () => { cancelled = true; };
   }, [path, isMarketing]);
   if (isMarketing || path?.startsWith("/onboarding")) return <>{children}</>;
   if (authed === null) return null;
+  if (!authed && mode === "password") return <SignIn onDone={() => setAuthed(true)} />;
   if (!authed) return (
     <div style={{ padding: "3rem", fontFamily: "system-ui", color: "#64748b" }}>
       Waiting for the OMEM server… make sure it&apos;s running, then refresh.
@@ -193,6 +202,95 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+
+/** Sign-in for password mode. Shown only when the server reports auth:"password",
+ *  which is also the only mode in which a password exists to ask for. */
+function SignIn({ onDone }: { onDone: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [needsCode, setNeedsCode] = useState(false);
+  const [register, setRegister] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true); setErr(null);
+    try {
+      if (register) {
+        const res = await api.signup({ email, password, code: code || undefined, project: "My workspace" });
+        setSession(res.token);
+      } else {
+        const res = await api.login(email, password, code || undefined);
+        setSession(res.token);
+      }
+      onDone();
+    } catch (e2) {
+      const ae = e2 as ApiError;
+      // A second factor is a prompt, not a failure: ask for the code instead of
+      // making the person guess why a correct password was rejected.
+      if (ae.reason_code === "mfa_required" || /MFA/i.test(ae.message)) {
+        setNeedsCode(true);
+        setErr(code ? "That code was not accepted. Try the current one." : null);
+      } else {
+        setErr(ae.message);
+      }
+    }
+    setBusy(false);
+  }
+
+  return (
+    <div className="grid min-h-screen place-items-center px-6">
+      <form onSubmit={submit} className="w-full max-w-sm">
+        <div className="mb-8 flex items-center gap-2">
+          <span className="grid h-6 w-6 place-items-center rounded-pill bg-accent text-white">
+            <Share2 className="h-3 w-3" />
+          </span>
+          <span className="text-sm font-medium">OMEM</span>
+        </div>
+        <h1 className="text-lg font-medium">{register ? "Create an account" : "Sign in"}</h1>
+        <p className="mt-1 text-sm text-muted">
+          This server requires a password. OMEM is free while it is in beta.
+        </p>
+        <label className="mt-6 block text-sm">
+          Email
+          <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
+                 autoComplete="username"
+                 className="mt-1 w-full rounded-md border bg-panel px-3 py-2 text-sm outline-none focus:border-accent" />
+        </label>
+        <label className="mt-4 block text-sm">
+          Password
+          <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
+                 autoComplete={register ? "new-password" : "current-password"}
+                 minLength={register ? 10 : undefined}
+                 className="mt-1 w-full rounded-md border bg-panel px-3 py-2 text-sm outline-none focus:border-accent" />
+        </label>
+        {register && (
+          <p className="mt-1 text-xs text-muted">At least 10 characters.</p>
+        )}
+        {needsCode && (
+          <label className="mt-4 block text-sm">
+            Authentication code
+            <input inputMode="numeric" autoComplete="one-time-code" value={code}
+                   onChange={e => setCode(e.target.value)}
+                   className="mt-1 w-full rounded-md border bg-panel px-3 py-2 text-sm outline-none focus:border-accent" />
+          </label>
+        )}
+        {err && <div className="mt-4 rounded-md border border-conflict/40 bg-conflictBg px-3 py-2 text-2xs text-conflict">{err}</div>}
+        <button type="submit" disabled={busy}
+                className="mt-6 w-full rounded-md bg-accent px-3 py-2 text-sm text-white disabled:opacity-50">
+          {busy ? "…" : register ? "Create account" : "Sign in"}
+        </button>
+        <button type="button" onClick={() => { setRegister(v => !v); setErr(null); }}
+                className="mt-4 w-full text-center text-sm text-muted hover:underline">
+          {register ? "I already have an account" : "Create an account"}
+        </button>
+      </form>
     </div>
   );
 }

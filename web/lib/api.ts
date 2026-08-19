@@ -195,12 +195,20 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
 const enc = encodeURIComponent;
 
 export interface ApiKey { id: string; name: string; prefix: string; role: string; created: number; last_used: number | null; revoked: number; secret?: string; }
+export type AuthMode = "local" | "password";
 export interface SignupResult { token: string; email: string; existing: boolean; org?: { id: string; name: string }; project?: { id: string; name: string; env: string }; api_key?: ApiKey; }
 
 export const api = {
-  health: () => req<{ status: string; cts: string }>("GET", "/v1/health"),
-  signup: (b: { email: string; org?: string; project?: string }) => req<SignupResult>("POST", "/v1/signup", b),
-  login: (email: string) => req<{ token: string; email: string }>("POST", "/v1/session", { email }),
+  // `auth` tells the dashboard which of the server's two modes it is talking to
+  // BEFORE it has a session: "local" (no login, server bound to loopback) or
+  // "password" (real accounts). Guessing wrong either locks local users out of
+  // a one-minute quickstart or silently signs somebody in on an exposed server.
+  health: () => req<{ status: string; cts: string; auth?: AuthMode }>("GET", "/v1/health"),
+  signup: (b: { email: string; org?: string; project?: string; password?: string; code?: string }) =>
+    req<SignupResult>("POST", "/v1/signup", b),
+  login: (email: string, password?: string, code?: string) =>
+    req<{ token: string; email: string }>("POST", "/v1/session",
+      { email, ...(password ? { password } : {}), ...(code ? { code } : {}) }),
   me: () => req<{ email: string; org: { id: string; name: string } }>("GET", "/v1/me"),
   keys: (p: string) => req<{ data: ApiKey[] }>("GET", `/v1/keys?project=${enc(p)}`),
   createKey: (p: string, name: string) => req<ApiKey>("POST", `/v1/keys?project=${enc(p)}`, { name }),

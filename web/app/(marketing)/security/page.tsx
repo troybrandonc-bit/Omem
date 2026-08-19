@@ -2,31 +2,52 @@ import Link from "next/link";
 import { MarketingShell } from "@/components/marketing/chrome";
 import { Section } from "@/components/marketing/ui";
 
-export const metadata = { title: "Security / OMEM Cloud" };
+export const metadata = { title: "Security / OMEM" };
+
+// Everything in CONTROLS is implemented in this repository and covered by the
+// test suite. Everything in NOT_YET is not, and used to be claimed here anyway:
+// the page previously advertised TLS 1.3, per-tenant KMS envelope encryption,
+// BYOK, a hash-chained audit stream, region pinning, OIDC/SAML SSO, SCIM 2.0,
+// SOC 2 Type II, ISO 27001 and a HIPAA BAA. A buyer who checks is going to
+// check this list first, and a security page that overstates by that much is
+// worse for trust than one that is short.
 
 const CONTROLS = [
-  { k: "ENCRYPTION", d: "TLS 1.3 in transit; per-tenant envelope encryption at rest via KMS. Customer-managed keys (BYOK) on Enterprise." },
-  { k: "AUDIT", d: "An append-only, hash-chained audit stream records every write and sensitive read. Exportable to your SIEM." },
-  { k: "RESIDENCY", d: "Pin each project to a region. Data and projections stay in-region; residency is immutable after provisioning." },
-  { k: "DEPLOYMENT", d: "Hosted multi-tenant, single-tenant VPC, or fully self-hosted and air-gapped. All pass the identical conformance suite." },
-  { k: "IDENTITY", d: "OIDC and SAML SSO, SCIM 2.0 provisioning, enforced 2FA, and scoped, rotatable API keys with least-privilege roles." },
-  { k: "COMPLIANCE", d: "SOC 2 Type II and ISO 27001; GDPR/CCPA data-subject export and erase; HIPAA BAA available on Enterprise." },
+  { k: "AUTHENTICATION", d: "Two modes, and the server picks neither for you. Local mode has no login and refuses to bind anything but loopback. Password mode (OMEM_AUTH=password) stores PBKDF2-SHA256 password hashes, and signup will not issue a session for an address that already has one." },
+  { k: "SECOND FACTOR", d: "TOTP (RFC 6238), enforced at session creation and on claiming an account. Sessions expire after 30 days and can be revoked; expired and revoked tokens stop working immediately." },
+  { k: "ACCESS CONTROL", d: "Role-based, enforced per organization and per project. API keys are scoped to one project, carry their own role, can be bound to a single agent, and are revocable. Key secrets are shown once and stored hashed." },
+  { k: "AUDIT", d: "An append-only audit log of writes and sensitive reads — actor, org, project, resource, correlation id — exportable as JSON from /v1/export/audit." },
+  { k: "DATA RIGHTS", d: "GDPR/CCPA export and erasure are endpoints, not a process: /v1/export/memories exports a project, and tenant erasure removes every project-scoped row. Backups taken before an erasure still contain the data until they age out." },
+  { k: "SECRETS AT REST", d: "Stored OAuth tokens are encrypted with AES-GCM. Password mode refuses to start on the development master key, because that value is published in this repository." },
+  { k: "ABUSE CONTROL", d: "Per-IP limits on the auth endpoints and per-tenant limits on data endpoints, keyed by project and credential so one key cannot starve another tenant." },
+  { k: "DEPLOYMENT", d: "Self-hosted, on SQLite or PostgreSQL. MIT licensed, so the engine that decides what your agents believe is one you can read, fork, and keep." },
+];
+
+const NOT_YET = [
+  ["TLS", "The server speaks plain HTTP. Terminate TLS at a reverse proxy in front of it; do not expose it directly."],
+  ["Encryption of memory content", "Assertions, evidence and source records are stored in the clear. Only OAuth tokens are encrypted. Use disk or database encryption underneath."],
+  ["SSO and SCIM", "No OIDC, SAML or SCIM. Accounts are email and password."],
+  ["Tamper-evident audit", "The audit log is append-only by convention, not hash-chained. A database administrator can alter it without leaving a trace."],
+  ["Data residency", "No region pinning. Your data is wherever you run it."],
+  ["Certifications", "No SOC 2, ISO 27001 or HIPAA BAA. None are in progress."],
+  ["High availability", "The engine is authoritative in one process, so there is no multi-replica deployment and no uptime SLA."],
 ];
 
 export default function Security() {
   return (
     <MarketingShell>
       <Section className="pt-20 pb-14">
-        <div className="tech-label mb-4">Security & Trust</div>
-        <h1 className="display max-w-xl text-[40px]">Memory you can put in production.</h1>
+        <div className="tech-label mb-4">Security</div>
+        <h1 className="display max-w-xl text-[40px]">What this actually protects, and what it does not.</h1>
         <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-muted">
-          The moment an agent acts on a belief, someone is accountable for it. OMEM Cloud is
-          built so you can reconstruct and prove agent state at decision time, with
-          the controls a regulated deployment requires.
+          The moment an agent acts on a belief, someone is accountable for it. OMEM is built
+          so you can reconstruct agent state at decision time. It is early software, it is free
+          while in beta, and the second list on this page is as important as the first.
         </p>
       </Section>
 
       <Section className="pb-16">
+        <div className="tech-label mb-4">Implemented today</div>
         <div className="border-t">
           {CONTROLS.map(c => (
             <div key={c.k} className="spec-row border-b py-6">
@@ -37,6 +58,22 @@ export default function Security() {
         </div>
       </Section>
 
+      <Section className="pb-16">
+        <div className="tech-label mb-4">Not yet — do not plan around these</div>
+        <div className="border-t">
+          {NOT_YET.map(([k, d]) => (
+            <div key={k} className="spec-row border-b py-6">
+              <div className="text-xs font-medium text-conflict">{k}</div>
+              <p className="max-w-xl text-[14px] leading-relaxed text-muted">{d}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-6 max-w-xl text-[13px] leading-relaxed text-muted">
+          If your deployment needs something on this list, OMEM is not ready for it yet. Saying so
+          here is cheaper for both of us than saying so after an audit.
+        </p>
+      </Section>
+
       <Section className="pb-8">
         <div className="spec-row border-t pt-12">
           <div className="tech-label pt-1">No lock-in</div>
@@ -44,21 +81,21 @@ export default function Security() {
             <h2 className="display max-w-lg text-[28px]">An open standard you can verify, and leave with.</h2>
             <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-muted">
               OMEM is a standard first, with a public conformance suite. &quot;Correct&quot; is decidable:
-              every deployment (hosted, VPC, or air-gapped) passes the identical 29-vector CTS.
-              An agent built against the cloud behaves the same self-hosted. Your memory&apos;s meaning
-              never leaves with a vendor.
+              every deployment passes the identical 29-vector CTS. An agent built against one
+              OMEM behaves the same against another. Your memory&apos;s meaning never leaves with
+              a vendor.
             </p>
             <dl className="mt-8 max-w-md overflow-hidden rounded-lg border bg-panel text-[13px] shadow-sm">
               {[["Protocol", "OMEM 1.0"], ["Conformance", "CTS 29/29 / deterministic"],
-                ["Reference engine", "open source, self-hostable"], ["Audit stream", "hash-chained, append-only"],
-                ["Uptime SLA", "up to 99.95% (Enterprise)"]].map(([k, v]) => (
+                ["Reference engine", "open source, self-hostable"], ["License", "MIT"],
+                ["Audit stream", "append-only, exportable"]].map(([k, v]) => (
                 <div key={k} className="flex items-center justify-between border-b px-4 py-2.5 last:border-b-0">
                   <dt className="text-muted">{k}</dt><dd className="num text-[13px]">{v}</dd>
                 </div>
               ))}
             </dl>
-            <Link href="/onboarding" className="link-underline mt-8 inline-block text-[13px]">
-              Talk to us about enterprise
+            <Link href="/docs/quickstart" className="link-underline mt-8 inline-block text-[13px]">
+              Read the quickstart
             </Link>
           </div>
         </div>
