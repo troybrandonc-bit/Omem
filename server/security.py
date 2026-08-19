@@ -13,6 +13,13 @@ import secrets
 import time
 
 
+def _safe_int(v: str) -> int:
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return 0
+
+
 class RateLimiter:
     def __init__(self, capacity=5, refill_per_sec=0.2):
         # 5 requests burst, then 1 every 5s per key (tuned for auth endpoints)
@@ -20,8 +27,22 @@ class RateLimiter:
         self.refill = refill_per_sec
         self._buckets: dict[str, tuple[float, float]] = {}  # key -> (tokens, last_ts)
 
+    # A bucket is only interesting until it has refilled to capacity; after that
+    # it is indistinguishable from a key never seen before. Without this the dict
+    # grew forever — one entry per client IP on the auth routes, one per
+    # project+credential on the data routes — in a process that is meant to stay
+    # up for months. Anyone rotating source addresses could grow it deliberately.
+    PRUNE_EVERY = 1024
+
+    def _prune(self, now: float) -> None:
+        full = self.capacity / self.refill if self.refill else 0
+        self._buckets = {k: v for k, v in self._buckets.items()
+                         if now - v[1] < full}
+
     def allow(self, key: str) -> bool:
         now = time.time()
+        if len(self._buckets) >= self.PRUNE_EVERY:
+            self._prune(now)
         tokens, last = self._buckets.get(key, (self.capacity, now))
         tokens = min(self.capacity, tokens + (now - last) * self.refill)
         if tokens < 1:
@@ -60,6 +81,15 @@ class OAuthStateStore:
             return None
         if state in self._used:
             return None  # single-use
+        # A state older than the TTL is already rejected above, so remembering
+        # it past that point protects nothing — but the set had no eviction and
+        # grew for the life of the process, one entry per OAuth attempt. Sweep
+        # the expired entries whenever it gets big; replay is still impossible
+        # because expiry catches anything old enough to have been dropped.
+        if len(self._used) >= 4096:
+            cutoff = time.time() - self.ttl
+            self._used = {u for u in self._used
+                          if len(u.split(":")) == 5 and _safe_int(u.split(":")[2]) > cutoff}
         self._used.add(state)
         return {"project_id": project_id, "connector_id": connector_id}
 

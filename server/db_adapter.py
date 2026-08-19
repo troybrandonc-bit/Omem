@@ -177,7 +177,14 @@ _columns_of = {
 class PgDB:
     """Postgres connection with the sqlite3-shaped API the codebase uses."""
     def __init__(self, url: str):
-        import psycopg2
+        try:
+            import psycopg2
+        except ModuleNotFoundError:
+            raise SystemExit(
+                "OMEM_DATABASE_URL is set, but the PostgreSQL driver is not installed.\n"
+                "  pip install 'omem-infrastructure[postgres]'"
+                "   (or: pip install psycopg2-binary)\n"
+                "Unset OMEM_DATABASE_URL to use the SQLite default instead.")
         self._pg = psycopg2
         self.url = url
         self._lock = threading.Lock()  # serialize like sqlite's single connection

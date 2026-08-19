@@ -1,5 +1,15 @@
 # OMEM Cloud, Deployment
 
+> **On the word "verified" below.** Each section marked verified was verified
+> against a live dependency at the time it was written — not by the default test
+> run. `server/run_tests.py` reports SKIPPED separately for exactly this reason:
+> the PostgreSQL suites exit 0 with no database configured, so a run that touched
+> no database used to be indistinguishable from one that proved PostgreSQL works.
+> Without `OMEM_DATABASE_URL`, two suites verify nothing and one runs only its
+> credential-free half. CI (`.github/workflows/ci.yml`) attaches a real
+> postgres:16 and fails if those suites skip, which is what keeps these headings
+> honest from here on.
+
 ## Architecture
 ```
 Frontend (Next.js)  ──►  API (Python stdlib http.server / ThreadingHTTPServer)
@@ -35,9 +45,15 @@ The single SQLite file is the entire SaaS state (engine memory is replayed from
 the ops log). Back up with `sqlite3 omem.db ".backup backup.db"`; restore by
 swapping the file and restarting (boot replays the ops log through the engine).
 
-## PostgreSQL (verified)
-Set `OMEM_DATABASE_URL=postgres://user:pass@host/db` and the SaaS layer runs on
-PostgreSQL through `db_adapter.py` (same code paths; all 214 SQLite checks pass
+## PostgreSQL (verified in CI)
+**Install the driver first:** `pip install "omem-infrastructure[postgres]"`, or
+`pip install psycopg2-binary`. It is an optional extra so the SQLite default
+keeps installing with no build tools; nothing declared it before, so setting
+`OMEM_DATABASE_URL` failed on `ModuleNotFoundError` for anyone who followed this
+section. The bundled Docker image does NOT include it — that image is SQLite-only.
+
+Then set `OMEM_DATABASE_URL=postgres://user:pass@host/db` and the SaaS layer runs
+on PostgreSQL through `db_adapter.py` (same code paths; all 214 SQLite checks pass
 unchanged on PG, plus 14 PG-specific checks). SQLite remains the credential-free
 dev/test default via `OMEM_DB`. Schemas apply idempotently at boot; the
 append-only ops log replays through the frozen engine identically on both
@@ -46,7 +62,7 @@ then restart (boot replays the ops log). Transaction model: the adapter runs
 autocommit (statement-level atomicity, matching the codebase's write+commit
 pattern); the ops log makes this sufficient for engine-state correctness.
 
-## Automated backups (verified)
+## Automated backups (verified on PostgreSQL, in CI)
 `backups.py` runs scheduled backups via the in-process scheduler (env
 `OMEM_BACKUP_DIR`, `OMEM_BACKUP_INTERVAL`, `OMEM_BACKUP_RETAIN`). Each run records
 a `backup_runs` row (running/completed/failed/pruned) with bytes + error; a
@@ -57,20 +73,20 @@ DB and compares the ops-log row count to live, VERIFIED on PostgreSQL. The DB
 user needs the `CREATEDB` privilege for restore verification
 (`ALTER USER omem CREATEDB;`).
 
-## Hardening migrations (verified)
+## Hardening migrations (verified; v3-fks is PostgreSQL-only)
 Versioned, idempotent migrations tracked in `schema_migrations`: v1-baseline,
 v2-indexes (6 high-value indexes on both backends), v3-fks (FK constraints with
 ON DELETE CASCADE, PostgreSQL only, applied after all module schemas exist, and
 only marked complete when every constraint is present so a partial apply retries
 next boot). FK cascade verified: deleting a connector removes its jobs/sources.
 
-## MFA + session security (verified)
+## MFA + session security (verified, every run)
 TOTP MFA (RFC 6238, stdlib): enroll -> activate with a valid code -> enforced at
 session creation (`/v1/session` returns 401 mfa_required without a valid code).
 Sessions now expire (30d default) and are revocable (`/v1/sessions/revoke`);
 expired and revoked sessions return 401. All verified.
 
-## Durable workers (verified)
+## Durable workers (verified on PostgreSQL; SKIP LOCKED has no SQLite equivalent)
 `python3 worker.py` runs a standalone worker process claiming jobs via
 `FOR UPDATE SKIP LOCKED` on PG (the standard DB-queue pattern), multiple
 workers run concurrently with zero double-claims (verified with 2 workers /

@@ -347,13 +347,27 @@ class HealingStore:
             (org_id, project_id, component, recovery_id))
         self.db.commit()
 
+    # Column names are interpolated into the UPDATE below, so they are checked
+    # against this list rather than trusted. Every caller today passes a literal
+    # keyword, so nothing is exploitable — but "no caller passes user input yet"
+    # is a property of today's callers, not of this function, and it is one
+    # refactor away from being untrue.
+    RECOVERY_COLUMNS = frozenset({
+        "failure_id", "component", "fingerprint", "state", "owner",
+        "plan", "actions_run", "verification", "outcome", "attempts", "ts",
+    })
+
     def set_recovery(self, org_id, project_id, rid, **fields):
         cols, vals = [], []
         for k, v in fields.items():
+            if k not in self.RECOVERY_COLUMNS:
+                raise ValueError(f"set_recovery: unknown column {k!r}")
             if k in ("plan", "actions_run", "verification"):
                 v = json.dumps(v)
             cols.append(f"{k}=?")
             vals.append(v)
+        if not cols:
+            return
         vals += [rid, org_id, project_id]
         self.db.execute(f"UPDATE heal_recoveries SET {','.join(cols)} WHERE id=? AND org_id=? AND project_id=?",
                         tuple(vals))

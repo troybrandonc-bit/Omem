@@ -46,6 +46,12 @@ omem-server = "omem.server_cli:main"
 # which skips loudly without it rather than failing the run: an install of this
 # package must never need a third-party dependency.
 dev = ["pytest>=7", "hypothesis>=6"]
+# PostgreSQL is a supported backend (server/db_adapter.py) and needs a driver.
+# Nothing declared one, so `OMEM_DATABASE_URL=postgres://...` died on
+# ModuleNotFoundError for everyone who followed DEPLOYMENT.md. It stays an
+# EXTRA, not a dependency, because the SQLite default must keep installing with
+# no compiler and no wheels: `pip install "omem-infrastructure[postgres]"`.
+postgres = ["psycopg2-binary>=2.9"]
 
 # hatch_build.py copies ../../server into omem/_server at build time, for both
 # targets. Without it `omem-server` installs broken, and a committed copy would

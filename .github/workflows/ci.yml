@@ -1,0 +1,134 @@
+name: CI
+
+# Two things this repository could not verify on its own before:
+#
+#   1. PostgreSQL. The suites skip and EXIT 0 without a live server, so a run
+#      with no database looked exactly like a passing run — while DEPLOYMENT.md
+#      claimed "PostgreSQL (verified)". Here a real postgres:16 is attached and
+#      OMEM_DATABASE_URL is set, so the claim is either true on every push or
+#      the build goes red.
+#
+#   2. The dashboard build. `next build` needs more memory than some dev
+#      machines have, so "it typechecks" was as far as local verification went.
+#      Typecheck, lint and a real production build all run here.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  server-sqlite:
+    name: server / sqlite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      # hypothesis drives the property-based conformance fuzzing; without it
+      # that suite skips loudly rather than failing.
+      - run: pip install hypothesis
+      - name: Run every suite
+        working-directory: server
+        run: python run_tests.py
+
+  server-postgres:
+    name: server / postgres
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: omem
+          POSTGRES_PASSWORD: omem-dev
+          POSTGRES_DB: omem
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install psycopg2-binary hypothesis
+      # Restore verification restores a dump into a scratch database, which
+      # needs CREATEDB (DEPLOYMENT.md says so; this is that line, executed).
+      - name: Grant CREATEDB
+        run: PGPASSWORD=omem-dev psql -h localhost -U omem -d omem -c 'ALTER USER omem CREATEDB;'
+      - name: Run every suite against PostgreSQL
+        working-directory: server
+        env:
+          OMEM_DATABASE_URL: postgres://omem:omem-dev@localhost:5432/omem
+        run: python run_tests.py
+      - name: Fail if the PG suites only skipped
+        working-directory: server
+        env:
+          OMEM_DATABASE_URL: postgres://omem:omem-dev@localhost:5432/omem
+        # A skip here would mean this job proved nothing, which is exactly the
+        # failure mode it exists to catch.
+        run: |
+          out=$(python tests_pg_live.py)
+          echo "$out"
+          echo "$out" | grep -qi "SKIP" && { echo "::error::PG suite skipped in the PG job"; exit 1; }
+          exit 0
+
+  auth-modes:
+    name: server / auth modes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Password mode
+        working-directory: server
+        run: python tests_auth_password.py
+      - name: Local mode refuses a public bind
+        working-directory: server
+        # The guard is the whole reason local mode is safe; assert it rather
+        # than trusting the comment above it.
+        run: |
+          if OMEM_HOST=0.0.0.0 OMEM_DB=data/ci_bind.db python -c "import api; api.enforce_auth_safety('0.0.0.0')"; then
+            echo "::error::local mode accepted a non-loopback bind"; exit 1
+          fi
+          echo "refused, as it should"
+      - name: Password mode refuses the default master key
+        working-directory: server
+        run: |
+          if OMEM_AUTH=password OMEM_DB=data/ci_key.db python -c "import api; api.enforce_auth_safety('127.0.0.1')"; then
+            echo "::error::password mode accepted the development master key"; exit 1
+          fi
+          echo "refused, as it should"
+
+  dashboard:
+    name: dashboard / web
+    runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: web }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: npm, cache-dependency-path: web/package-lock.json }
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx next lint
+      - run: npm run build
+
+  image:
+    name: docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t omem:ci .
+      # The container must actually come up: the bind guard plus a non-root
+      # user are both new, and either could stop it dead.
+      - name: Boot it
+        run: |
+          docker run -d --name omem-ci -p 127.0.0.1:8787:8787 omem:ci
+          for i in $(seq 1 45); do
+            if curl -sf http://127.0.0.1:8787/v1/health > /dev/null; then
+              curl -s http://127.0.0.1:8787/v1/health; echo; docker rm -f omem-ci; exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::server never became healthy"; docker logs omem-ci; exit 1
