@@ -1,0 +1,21 @@
+# sha256 of every module in omem_engine/, the frozen reasoning core.
+#
+# Regenerate with: python3 engine_baseline.py --update
+# Do that only for a deliberate engine change, in the same commit as the
+# change, and say in the message what moved and what proves the semantics
+# did not. tests_engine_equivalence.py is that proof for the current one.
+
+7883cefb7bd806944a94780a88d08d8ae3a89c2ae7d734a5207e31abb5dd6b37  __init__.py
+b07b1d70b155a19942cbcc345b7b65c31b97ae6f70cf10e0090b0ea3057794d1  canon.py
+d3eabbf4521ef347f75e5f1de2137605ebb7504d36304cd61a9f465eb415eaa3  coreference.py
+98f04869b90cb94b869b005b04689cd8e08a49d813f5ba7ee88e3385dee8169f  engine.py
+9395521b9d1892e1160cf8a54ee0e090e9e96b684d482cf83c3549dd9fe625c9  interval.py
+24594b72dfe521c5e7f207082d140814ea6aeffe741ee297e1a6385152e03555  primitives.py
+d55fbc021e43cbd470f84d0b637a24a685f930aa79eda2b8bcd709201351e6e4  proposition.py
+cb51ae2b91c98671e370ef5b66d93ad4fabb7fd416e5cabfceb7be65f3750c25  provenance.py
+bde50943544cdc5da0b23d986af89c8cc80f9c14fcac39a388e971be942a971f  reasons.py
+3b69d4f90aba56f3987675c6ee2b25738ad5d32a656146a390d7b2955ddb1e7a  reproducibility.py
+b8a88a43d83e84c68a22894e1df1b7059d5f5a05174d5b0ad11ac8e5191d3d03  revision.py
+53711c1d5c9fb98fd2076af4982218ff30110dbd8b9833476270caeba7ac7726  store.py
+3a7c3aa9592233616cef32ac1a88faf9b47ec35ce0f346372290a1fc8a975cd8  timeline.py
+12d85274b796008c5c0a7ed09186f2ca367a4e4fbfaa5ea81af8d9f1d857aa7c  trust.py

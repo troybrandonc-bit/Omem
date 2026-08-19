@@ -1,0 +1,354 @@
+// Typed client for the OMEM Cloud API. Every method hits a real endpoint on the
+// backend (server/api.py), which delegates to the authoritative OMEM engine.
+// No memory semantics live here. This is transport + types only.
+
+const BASE = process.env.NEXT_PUBLIC_OMEM_API || "/api/omem";
+
+export type PropositionState = "BELIEVED_TRUE" | "BELIEVED_FALSE" | "CONTRADICTED" | "UNKNOWN";
+
+export interface BeliefInterval { start: number; end: number | null; }
+export interface Assertion {
+  id: string; label?: string | null; agent: string; subjects: string[];
+  proposition: string; assertion_time: number; event_time: number | null;
+  confidence: number | null; belief_interval: BeliefInterval; open: boolean;
+  grounded: string | boolean; provenance_count: number; is_retraction: boolean;
+}
+export interface Entity { id: string; type?: string; label?: string | null; }
+export interface Agent { id: string; kind?: string; label?: string | null; recorded_existence?: number; claims?: Assertion[]; }
+export interface EventPrim { id: string; kind?: string; label?: string | null; event_time?: number | null; }
+export interface ProvNode { id: string; kind: string; root?: boolean; label?: string | null; }
+export interface ProvEdge { from: string; to: string; kind: string; }
+export interface EvidenceRecord { assertion_id: string; source_record_id: string | null; evidence: string | null; confidence: number | null; extractor: string | null; created: number; }
+export interface SourceView {
+  kind: string; connector: string; external_id: string; received: number;
+  title: string; from: string | null; from_name: string | null; from_email: string | null;
+  to: string | null; sent_at: string | null; body: string; snippet: string; link: string | null;
+}
+export interface SourceRef { id: string; external_id: string; connector_id: string; received: number; payload: Record<string, unknown>; view?: SourceView; }
+export interface WhyResult {
+  assertion: Assertion; as_of: number; state: PropositionState; grounded: boolean;
+  provenance: { nodes: ProvNode[]; edges: ProvEdge[] };
+  revision_chain: Assertion[]; contradictions: Assertion[];
+  subjects: (Entity | null)[]; agent: Agent | null;
+  evidence?: EvidenceRecord | null;
+  source?: SourceRef | null;
+}
+export interface Overview {
+  now: number;
+  counts: { entities: number; agents: number; events: number; assertions: number; open_beliefs: number; conflicts: number; };
+  grounded_ratio: number; activity: LogEntry[];
+}
+export interface ConflictPair { pair: [Assertion, Assertion]; }
+export interface GraphData { as_of: number; nodes: { id: string; kind: string; label?: string | null; proposition?: string }[]; edges: ProvEdge[]; }
+export interface LogEntry { id: string; ts: number; method: string; path: string; status: number; summary: string; reason_code?: string | null; }
+export interface LearnResult { learned: { assertion: string; subject: string; proposition: string; state: string; evidence?: string }[]; source: string; event?: string; note?: string; }
+export interface RecallResult { about: string; count: number; memories: { assertion: string; proposition: string; subjects: string[]; state: string; assertion_time: number; grounded: boolean; provenance_count: number; source: string | null }[]; note: string; }
+export interface DnsResult { ok?: boolean; host?: string | null; error?: string; addresses?: string[] }
+export interface ProvidersCheck {
+  summary: string;
+  llm: { configured: boolean; base_url?: string; model?: string; dns?: DnsResult; reachable?: boolean; error?: string; sample?: string };
+  google: { configured: boolean; hosts: Record<string, DnsResult> };
+  stripe: { configured: boolean };
+}
+export interface ClassificationSummary { messages_scanned: number; threads: number; facts_extracted: number; by_classification: Record<string, number>; }
+export interface MemoryScan {
+  id: string; project_id: string; triggered_by: string | null; scope: string;
+  state: string; total: number; examined: number; started: number; finished: number | null;
+  summary: { total?: number; examined?: number; scope?: string; by_classification?: Record<string, number>; proposed_retractions?: number; proposed_review?: number; error?: string };
+  applied: number; apply_ts: number | null;
+}
+export interface MemoryScanResult {
+  id: number; scan_id: string; assertion_id: string; classification: string; reason: string;
+  source_record_id: string | null; evidence: string | null; original_evidence: string | null;
+  classifier_verdict: { classification?: string; confidence?: number; reasons?: string[] } | null;
+  extractor_name: string | null; confidence: number | null;
+  proposed_action: string | null; applied: number; apply_error: string | null; ts: number;
+}
+export interface ReviewItem {
+  id: string; assertion_id: string; scan_id: string; classification: string; reason: string;
+  subjects: string; proposition: string; source_evidence: string | null;
+  status: string; reviewer: string | null; reviewed_ts: number | null; created: number;
+}
+export interface MemoryHealth {
+  active_memories: number; total_assertions_ever: number;
+  last_scan_id: string | null; last_scan_ts: number | null;
+  by_classification: Record<string, number>; pending_review: number;
+  recent_corrections: { assertion_id: string; proposition: string; subjects: string[]; ts: number }[];
+  needs_scan: boolean;
+}
+export interface OrgIdentity { company_name: string | null; emails: string[]; domains: string[]; }
+export interface RelationshipOverride { key_type: "domain" | "email" | "entity"; key: string; role: string; source: string; note: string | null; ts: number; }
+export interface Contact {
+  email: string; name: string | null; domain: string; role: string | null;
+  messages: number; threads: number; first_contact: number | null; last_contact: number | null;
+  entity_id: string; facts_stored: number;
+}
+export interface EmailDiagnostics {
+  source: { id: string; external_id: string; received: number; from: string | null; to: string | null; cc: string | null; subject: string | null; body: string; thread_id: string | null };
+  identity: OrgIdentity;
+  participants: { sender_email: string; sender_name: string; sender_domain: string; sender_is_self: boolean; direction: string; counterparty_email: string | null; internal: boolean; to: string[]; cc: string[] };
+  sender_role_override: string | null;
+  classification_stored: { classification: string; confidence: number; category: string | null; reasons: string; signals: string; entered_pipeline: number } | null;
+  classification_now: { classification: string; confidence: number; reasons: string[]; signals: string[]; business_type?: string | null };
+  analysis: { category: string; marketing_score: number; marketing_signals: string[]; saas_self_notification: boolean; saas_signals: string[]; is_noise_category: boolean; is_business_category: boolean };
+  sentences: { text: string; speech_act: string }[];
+  fact_decisions: FactDecision[];
+  assertions: { assertion_id: string; evidence: string | null; confidence: number | null; extractor: string | null; open: boolean; proposition: string | null; subjects: string[] }[];
+}
+export interface MemoryQuality {
+  emails_scanned: number; by_classification: Record<string, number>;
+  by_category: Record<string, number>; candidate_facts: number;
+  facts_stored: number; facts_rejected: number; by_quality: Record<string, number>;
+  active_memories: number; retracted_by_scanner: number; pending_review: number;
+  entities_resolved: number;
+}
+export interface FactDecision {
+  id: number; connector_id: string | null; source_record_id: string | null;
+  subject: string; proposition: string; speech_act: string | null;
+  quality: string; score: number | null; reasons: string[]; category: string | null;
+  stored: number; evidence: string | null; ts: number;
+}
+export interface GmailRescanResult {
+  sources_examined: number; newly_relevant: number; newly_excluded: number; unchanged: number;
+  reclassified_include: { source_record_id: string; external_id: string | null; subject: string; from: string; old_classification: string; new_classification: string; new_confidence: number | null; reasons: string[] }[];
+  reclassified_exclude: { source_record_id: string; external_id: string | null; subject: string; from: string; old_classification: string; new_classification: string; new_confidence: number | null; reasons: string[] }[];
+  error?: string;
+}
+export interface MessageClassification { external_id: string; thread_id: string | null; subject: string; sender: string; classification: string; confidence: number; business_type: string | null; reasons: string[]; signals: string[]; method: string; entered_pipeline: number; facts_extracted: number; ts: number; }
+export interface AdminMetrics { organizations: number; users: number; projects: number; api_requests: number; assertions_created: number; recalls: number; learn_calls: number; connected_sources: number; source_records: number; jobs: Record<string, number>; audit_events: number; db_bytes: number; scheduler_runs: number; estimated_mrr: number; revenue_note: string; }
+export interface ConnectorDetail { connector_id: string; items_ingested: number; memories_generated: number; jobs: Record<string, number>; last_sync: number | null; cursor: string | null; status: string; last_error: string | null; rate_limit_reset?: number; }
+export interface BackupStatus { failing: boolean; completed_count: number; interval_seconds: number; retain: number; last_successful: { started: number; bytes: number; path: string } | null; last_run: { status: string; error: string | null } | null; }
+export interface CustomerStatus { org_id: string; status: string; pilot_start: number | null; pilot_end: number | null; notes: string | null; }
+export interface AdminOrgDetail { org: string; status: CustomerStatus; projects: { id: string; name: string; usage: Record<string, number>; jobs: Record<string, number>; dead_letters: { id: number; last_error: string; attempts: number }[]; source_records: number; memories: number; conflicts: number; feedback: Record<string, number>; top_recalled: { assertion_id: string; count: number }[] }[]; }
+export interface AdminOrg { id: string; name: string; created: number; projects: number; members: number; usage_total: number; last_activity: number | null; plan: string; customer: CustomerStatus; }
+export interface Job { id: number; connector_id: string; state: string; attempts: number; last_error: string | null; next_attempt: number | null; created: number; updated: number; }
+export interface AuditEvent { id: string; actor: string | null; action: string; resource: string | null; metadata: Record<string, unknown>; ts: number; }
+export interface Member { user_id: string; role: string; email: string; }
+export interface Retention { project_id: string; source_days: number | null; memory_days: number | null; }
+export interface Plan { name: string; price: number | null; quota_memories: number | null; quota_sources: number | null; }
+export interface BillingState { plan: string; subscription_status: string; plans: Record<string, Plan>; stripe_live: boolean; }
+export interface Connector { id: string; kind: string; name: string; agent_id: string; authority: number; status: string; last_run: number | null; }
+export interface IngestStats { sources: number; pending: number; running: number; completed: number; retrying: number; dead: number; cancelled: number; connectors: number; }
+export interface DeadLetter { id: number; external_id: string; attempts: number; last_error: string; }
+export interface SourceRecord { id: string; external_id: string; payload: string; received: number; view?: SourceView; }
+export interface Intelligence {
+  memory_health: { total_assertions: number; grounding_coverage: number; provenance_coverage: number; unresolved_conflicts: number };
+  conflicts: { subjects: string[]; proposition: string }[];
+  ingestion: IngestStats;
+  sources: { name: string; kind: string; authority: number; status: string; last_run: number | null }[];
+}
+export interface Project { id: string; name: string; env: string; now: number; entities: number; agents: number; assertions: number; events: number; is_demo?: boolean; }
+
+export class ApiError extends Error {
+  code: number; reason_code?: string | null; doc_url?: string | null;
+  constructor(code: number, message: string, reason_code?: string | null, doc_url?: string | null) {
+    super(message); this.code = code; this.reason_code = reason_code; this.doc_url = doc_url;
+  }
+}
+
+export function getSession(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("omem-session");
+}
+export function setSession(token: string | null) {
+  if (token) localStorage.setItem("omem-session", token);
+  else localStorage.removeItem("omem-session");
+}
+
+async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const session = getSession();
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method,
+      headers: { "Content-Type": "application/json",
+        ...(session ? { Authorization: `Bearer ${session}` } : {}) },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      cache: "no-store",
+    });
+  } catch {
+    throw new ApiError(0, "Cannot reach the OMEM API. Is the backend running? (cd server && python3 api.py 8787)");
+  }
+  const text = await res.text();
+  // Parse defensively: the Next.js proxy (and other intermediaries) return
+  // plain-text bodies like "Internal Server Error" when the backend is down.
+  // That must surface as a readable error, never as a JSON.parse crash.
+  let json: { error?: { message?: string; reason_code?: string; doc_url?: string } } | null = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    if (!res.ok) {
+      const snippet = text.trim().slice(0, 120);
+      throw new ApiError(res.status,
+        `The OMEM backend is unreachable or crashed (HTTP ${res.status}${snippet ? `: ${snippet}` : ""}). ` +
+        "Check that the API server is running on the configured port.");
+    }
+    throw new ApiError(res.status, `The API returned a non-JSON response: ${text.trim().slice(0, 120)}`);
+  }
+  if (!res.ok) {
+    const e = json?.error;
+    throw new ApiError(res.status, e?.message || res.statusText, e?.reason_code, e?.doc_url);
+  }
+  return json as T;
+}
+
+const enc = encodeURIComponent;
+
+export interface ApiKey { id: string; name: string; prefix: string; role: string; created: number; last_used: number | null; revoked: number; secret?: string; }
+export interface SignupResult { token: string; email: string; existing: boolean; org?: { id: string; name: string }; project?: { id: string; name: string; env: string }; api_key?: ApiKey; }
+
+export const api = {
+  health: () => req<{ status: string; cts: string }>("GET", "/v1/health"),
+  signup: (b: { email: string; org?: string; project?: string }) => req<SignupResult>("POST", "/v1/signup", b),
+  login: (email: string) => req<{ token: string; email: string }>("POST", "/v1/session", { email }),
+  me: () => req<{ email: string; org: { id: string; name: string } }>("GET", "/v1/me"),
+  keys: (p: string) => req<{ data: ApiKey[] }>("GET", `/v1/keys?project=${enc(p)}`),
+  createKey: (p: string, name: string) => req<ApiKey>("POST", `/v1/keys?project=${enc(p)}`, { name }),
+  revokeKey: (p: string, id: string) => req<{ revoked: boolean }>("POST", `/v1/keys/${enc(id)}/revoke?project=${enc(p)}`, {}),
+  createProject: (b: { name: string; env?: string }) => req<{ id: string; name: string; env: string }>("POST", "/v1/projects", b),
+  connectors: (p: string) => req<{ data: Connector[] }>("GET", `/v1/connectors?project=${enc(p)}`),
+  createConnector: (p: string, b: { kind: string; name: string; config?: unknown; authority?: number }) =>
+    req<Connector>("POST", `/v1/connectors?project=${enc(p)}`, b),
+  pollConnector: (p: string, id: string) => req<{ queued: number }>("POST", `/v1/connectors/${enc(id)}/poll?project=${enc(p)}`, {}),
+  processIngest: (p: string) => req<{ processed: number; failed: number; assertions: number; remaining: number }>("POST", `/v1/ingest/process?project=${enc(p)}`, {}),
+  ingestStats: (p: string) => req<IngestStats>("GET", `/v1/ingest/stats?project=${enc(p)}`),
+  deadLetters: (p: string) => req<{ data: DeadLetter[] }>("GET", `/v1/ingest/dead-letters?project=${enc(p)}`),
+  intelligence: (p: string) => req<Intelligence>("GET", `/v1/intelligence?project=${enc(p)}`),
+  beginGmail: (p: string, name?: string) => req<{ connector_id: string; auth_url: string | null; real: boolean; note?: string; required_env?: string[] }>("POST", `/v1/oauth/gmail/begin?project=${enc(p)}`, { name }),
+  gmailCallback: (
+    p: string,
+    connector_id?: string,
+    account?: string,
+    oauth?: { code: string; state: string },
+  ) =>
+    req<{ connected: boolean; real_exchange?: boolean }>("POST", `/v1/oauth/gmail/callback?project=${enc(p)}`, {
+      connector_id,
+      account,
+      ...(oauth ?? {}),
+    }),
+  connectorStatus: (p: string, id: string) => req<{ connected: boolean; account: string | null; status: string; last_run: number | null }>("GET", `/v1/connectors/${enc(id)}/status?project=${enc(p)}`),
+  entityResolution: (p: string, id: string) => req<{ data: { raw_key: string; method: string; evidence: string; ts: number }[] }>("GET", `/v1/entities/${enc(id)}/resolution?project=${enc(p)}`),
+  usageMetrics: (p: string) => req<{ metrics: Record<string, number>; series: Record<string, number[]> }>("GET", `/v1/usage?project=${enc(p)}`),
+  auditLog: () => req<{ data: AuditEvent[] }>("GET", "/v1/audit"),
+  members: (p: string) => req<{ data: Member[] }>("GET", `/v1/members?project=${enc(p)}`),
+  setRole: (email: string, role: string) => req<{ ok: boolean }>("POST", "/v1/members/role", { email, role }),
+  getRetention: (p: string) => req<Retention>("GET", `/v1/retention?project=${enc(p)}`),
+  setRetention: (p: string, b: { source_days?: number | null; memory_days?: number | null }) => req<Retention>("POST", `/v1/retention?project=${enc(p)}`, b),
+  billing: () => req<BillingState>("GET", "/v1/billing"),
+  observability: () => req<Record<string, unknown>>("GET", "/v1/observability"),
+  jobs: (p: string) => req<{ data: Job[] }>("GET", `/v1/jobs?project=${enc(p)}`),
+  retryDeadLetters: (p: string) => req<{ requeued: number }>("POST", `/v1/jobs/retry-dead?project=${enc(p)}`, {}),
+  cancelJob: (p: string, id: number) => req<{ cancelled: boolean }>("POST", `/v1/jobs/${id}/cancel?project=${enc(p)}`, {}),
+  learn: (p: string, b: { agent: string; text: string; about?: string; source?: string }) => req<LearnResult>("POST", `/v1/learn?project=${enc(p)}`, b),
+  recall: (p: string, about: string) => req<RecallResult>("POST", `/v1/recall?project=${enc(p)}`, { about }),
+  connectorDetail: (p: string, id: string) => req<ConnectorDetail>("GET", `/v1/connectors/${enc(id)}/detail?project=${enc(p)}`),
+  resyncConnector: (p: string, id: string) => req<{ resync: boolean }>("POST", `/v1/connectors/${enc(id)}/resync?project=${enc(p)}`, {}),
+  bulkDeleteConnectors: (p: string, b: { kind?: string; only_inactive?: boolean }) => req<{ deleted: number }>("POST", `/v1/connectors/bulk-delete?project=${enc(p)}`, b),
+  deleteConnector: (p: string, id: string) => req<{ deleted: boolean; removed: Record<string, number> }>("DELETE", `/v1/connectors/${enc(id)}?project=${enc(p)}`),
+  clearConnectorErrors: (p: string, id: string) => req<{ cleared: boolean }>("POST", `/v1/connectors/${enc(id)}/clear-errors?project=${enc(p)}`, {}),
+  disconnectConnector: (p: string, id: string) => req<{ disconnected: boolean }>("POST", `/v1/connectors/${enc(id)}/disconnect?project=${enc(p)}`, {}),
+  connectGithub: (p: string, repo: string) => req<Connector>("POST", `/v1/connectors?project=${enc(p)}`, { kind: "github", name: repo, config: { repo }, agent_id: "connector:github", authority: 0.8 }),
+  providersCheck: () => req<ProvidersCheck>("GET", "/v1/providers/check"),
+  classificationSummary: (p: string) => req<ClassificationSummary>("GET", `/v1/classifications/summary?project=${enc(p)}`),
+  classifications: (p: string, classification?: string) => req<{ data: MessageClassification[] }>("GET", `/v1/classifications?project=${enc(p)}${classification ? `&classification=${enc(classification)}` : ""}`),
+  filteredItems: (p: string) => req<{ data: { external_id: string; subject: string; reason: string; ts: number }[] }>("GET", `/v1/filtered?project=${enc(p)}`),
+  uploadDocument: (p: string, b: { filename: string; text: string; customer?: string }) => req<{ connector: string; assertions: number }>("POST", `/v1/documents?project=${enc(p)}`, b),
+  adminMetrics: () => req<AdminMetrics>("GET", "/v1/admin/metrics"),
+  onboardingState: (p: string) => req<{ steps: { id: string; label: string; done: boolean }[]; completed: number; total: number }>("GET", `/v1/onboarding?project=${enc(p)}`),
+  submitFeedback: (p: string, b: { kind: string; assertion_id?: string; comment?: string }) => req<{ recorded: boolean }>("POST", `/v1/feedback?project=${enc(p)}`, b),
+  adminOrgDetail: (id: string) => req<AdminOrgDetail>("GET", `/v1/admin/orgs/${enc(id)}`),
+  setCustomerStatus: (id: string, b: { status?: string; notes?: string }) => req<CustomerStatus>("POST", `/v1/admin/orgs/${enc(id)}/status`, b),
+  getSettings: (p: string) => req<{ llm_enabled: string | null; llm_model: string | null }>("GET", `/v1/settings?project=${enc(p)}`),
+  setSettings: (p: string, b: { llm_enabled?: string; llm_model?: string }) => req<{ llm_enabled: string | null; llm_model: string | null }>("POST", `/v1/settings?project=${enc(p)}`, b),
+  backupStatus: () => req<BackupStatus>("GET", "/v1/admin/backups"),
+  runBackup: () => req<BackupStatus>("POST", "/v1/admin/backups/run", {}),
+  adminOrgs: () => req<{ data: AdminOrg[] }>("GET", "/v1/admin/orgs"),
+  assertionSource: (p: string, id: string) => req<SourceRecord>("GET", `/v1/assertions/${enc(id)}/source?project=${enc(p)}`),
+  projects: () => req<{ data: Project[] }>("GET", "/v1/projects"),
+  overview: (p: string) => req<Overview>("GET", `/v1/overview?project=${enc(p)}`),
+
+  assertions: (p: string, opts?: { as_of?: number | "now"; subject?: string; agent?: string; open?: boolean }) => {
+    const q = new URLSearchParams({ project: p });
+    if (opts?.as_of !== undefined) q.set("as_of", String(opts.as_of));
+    if (opts?.subject) q.set("subject", opts.subject);
+    if (opts?.agent) q.set("agent", opts.agent);
+    if (opts?.open) q.set("open", "true");
+    return req<{ as_of: number; data: Assertion[] }>("GET", `/v1/assertions?${q}`);
+  },
+  assertion: (p: string, id: string, as_of?: number | "now") =>
+    req<Assertion>("GET", `/v1/assertions/${enc(id)}?project=${enc(p)}${as_of !== undefined ? `&as_of=${as_of}` : ""}`),
+  why: (p: string, id: string, as_of?: number | "now") =>
+    req<WhyResult>("GET", `/v1/assertions/${enc(id)}/why?project=${enc(p)}${as_of !== undefined ? `&as_of=${as_of}` : ""}`),
+  provenance: (p: string, id: string) =>
+    req<{ assertion: string; grounded: boolean; nodes: ProvNode[]; edges: ProvEdge[] }>("GET", `/v1/assertions/${enc(id)}/provenance?project=${enc(p)}`),
+  revisionChain: (p: string, id: string) =>
+    req<{ chain: Assertion[] }>("GET", `/v1/assertions/${enc(id)}/revision-chain?project=${enc(p)}`),
+
+  entities: (p: string) => req<{ data: Entity[] }>("GET", `/v1/entities?project=${enc(p)}`),
+  entity: (p: string, id: string) => req<Entity>("GET", `/v1/entities/${enc(id)}?project=${enc(p)}`),
+  beliefsAbout: (p: string, id: string, as_of?: number | "now") =>
+    req<{ as_of: number; data: Assertion[] }>("GET", `/v1/entities/${enc(id)}/beliefs?project=${enc(p)}${as_of !== undefined ? `&as_of=${as_of}` : ""}`),
+
+  agents: (p: string) => req<{ data: Agent[] }>("GET", `/v1/agents?project=${enc(p)}`),
+  agent: (p: string, id: string, as_of?: number | "now") =>
+    req<Agent>("GET", `/v1/agents/${enc(id)}?project=${enc(p)}${as_of !== undefined ? `&as_of=${as_of}` : ""}`),
+
+  events: (p: string) => req<{ data: EventPrim[] }>("GET", `/v1/events?project=${enc(p)}`),
+  timeline: (p: string, as_of?: number | "now") =>
+    req<{ as_of: number; events: EventPrim[] }>("GET", `/v1/timeline?project=${enc(p)}${as_of !== undefined ? `&as_of=${as_of}` : ""}`),
+  conflicts: (p: string, as_of?: number | "now") =>
+    req<{ as_of: number; conflicts: ConflictPair[] }>("GET", `/v1/conflicts?project=${enc(p)}${as_of !== undefined ? `&as_of=${as_of}` : ""}`),
+  graph: (p: string, as_of?: number | "now") =>
+    req<GraphData>("GET", `/v1/graph?project=${enc(p)}${as_of !== undefined ? `&as_of=${as_of}` : ""}`),
+  partition: (p: string, as_of?: number | "now") =>
+    req<{ as_of: number; partition: string[][] }>("GET", `/v1/coreference/partition?project=${enc(p)}${as_of !== undefined ? `&as_of=${as_of}` : ""}`),
+  logs: (p: string) => req<{ data: LogEntry[] }>("GET", `/v1/logs?project=${enc(p)}`),
+
+  // writes (playground / onboarding)
+  createEntity: (p: string, b: { id?: string; type: string; label?: string }) => req<Entity>("POST", `/v1/entities?project=${enc(p)}`, b),
+  createAgent: (p: string, b: { id?: string; kind?: string; label?: string }) => req<Agent>("POST", `/v1/agents?project=${enc(p)}`, b),
+  createEvent: (p: string, b: { id?: string; kind: string; event_time?: number | "now"; label?: string }) => req<EventPrim>("POST", `/v1/events?project=${enc(p)}`, b),
+  remember: (p: string, b: { agent: string; subjects: string[]; proposition: string; assertion_time?: number | "now"; because?: string[]; confidence?: number; label?: string }) =>
+    req<Assertion>("POST", `/v1/assertions?project=${enc(p)}`, b),
+  propositionState: (p: string, b: { subjects: string[]; proposition: string; as_of?: number | "now" }) =>
+    req<{ state: PropositionState; as_of: number }>("POST", `/v1/queries/proposition-state?project=${enc(p)}`, b),
+  supersede: (p: string, id: string, b: { new: { agent: string; subjects: string[]; proposition: string; assertion_time?: number | "now"; label?: string } }) =>
+    req<Assertion>("POST", `/v1/assertions/${enc(id)}/supersede?project=${enc(p)}`, b),
+  retract: (p: string, id: string, b: { agent: string; assertion_time?: number | "now" }) =>
+    req<{ id: string; retracted: string }>("POST", `/v1/assertions/${enc(id)}/retract?project=${enc(p)}`, b),
+  declareContradiction: (p: string, b: { token_a: string; token_b: string }) =>
+    req<{ declared: string[] }>("POST", `/v1/declare-contradiction?project=${enc(p)}`, b),
+
+  // memory scanner
+  memoryHealth: (p: string) => req<MemoryHealth>("GET", `/v1/memory/health?project=${enc(p)}`),
+  memoryScans: (p: string) => req<{ data: MemoryScan[] }>("GET", `/v1/memory/scans?project=${enc(p)}`),
+  memoryScan: (p: string, id: string, classification?: string) =>
+    req<{ scan: MemoryScan; results: MemoryScanResult[]; count: number }>(
+      "GET", `/v1/memory/scans/${enc(id)}?project=${enc(p)}${classification ? `&classification=${enc(classification)}` : ""}`),
+  startMemoryScan: (p: string, scope: "all" | "recent" = "all") =>
+    req<MemoryScan>("POST", `/v1/memory/scan?project=${enc(p)}`, { scope }),
+  applyMemoryScan: (p: string, id: string) =>
+    req<{ retracted: number; review_added: number; skipped: number; errors: number; scan_id: string }>(
+      "POST", `/v1/memory/scans/${enc(id)}/apply?project=${enc(p)}`, {}),
+  reviewQueue: (p: string, status = "pending") =>
+    req<{ data: ReviewItem[] }>("GET", `/v1/memory/review-queue?project=${enc(p)}&status=${enc(status)}`),
+  reviewDecide: (p: string, id: string, decision: "approve" | "reject") =>
+    req<{ id: string; decision: string; assertion_id: string }>(
+      "POST", `/v1/memory/review-queue/${enc(id)}/decide?project=${enc(p)}`, { decision }),
+  gmailRescan: (p: string, opts?: { connector_id?: string; window_days?: 7 | 30 | 90 | 365 }) =>
+    req<GmailRescanResult>("POST", `/v1/memory/gmail-rescan?project=${enc(p)}`, opts ?? {}),
+  memoryQuality: (p: string) => req<MemoryQuality>("GET", `/v1/memory/quality?project=${enc(p)}`),
+  factDecisions: (p: string, opts?: { source?: string; stored?: 0 | 1 }) =>
+    req<{ data: FactDecision[] }>("GET",
+      `/v1/fact-decisions?project=${enc(p)}${opts?.source ? `&source=${enc(opts.source)}` : ""}${opts?.stored !== undefined ? `&stored=${opts.stored}` : ""}`),
+  identity: (p: string) => req<OrgIdentity>("GET", `/v1/identity?project=${enc(p)}`),
+  setIdentity: (p: string, b: OrgIdentity) => req<OrgIdentity>("POST", `/v1/identity?project=${enc(p)}`, b),
+  relationships: (p: string) => req<{ data: RelationshipOverride[]; roles: string[] }>("GET", `/v1/relationships?project=${enc(p)}`),
+  setRelationship: (p: string, b: { key_type: string; key: string; role: string | null; note?: string }) =>
+    req<{ key_type: string; key: string; role?: string; removed?: boolean }>("POST", `/v1/relationships?project=${enc(p)}`, b),
+  contacts: (p: string) => req<{ data: Contact[] }>("GET", `/v1/contacts?project=${enc(p)}`),
+  emailDiagnostics: (p: string, source: string) =>
+    req<EmailDiagnostics>("GET", `/v1/diagnostics/email?project=${enc(p)}&source=${enc(source)}`),
+};
+
+export const isGrounded = (g: string | boolean) => g === true || g === "GROUNDED";

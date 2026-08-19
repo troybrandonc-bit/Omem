@@ -1,0 +1,11 @@
+**/node_modules
+**/.next
+**/__pycache__
+**/*.pyc
+**/data/*.db
+**/data/*.db-*
+**/.env
+**/.git
+**/dist
+**/.hypothesis
+**/.egg-info
