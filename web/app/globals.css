@@ -1,111 +1,272 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;500;600&family=IBM+Plex+Serif:ital,wght@0,400;1,400&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── OMEM system, matched to the reference shot: warm-white page, white cards,
-   ink text, one blue accent, orange for contradiction, green for grounded. ── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   OMEM — "the register"
+
+   This is not a SaaS dashboard, it is an evidentiary record: what was believed,
+   when, on whose word, and what contradicted it. Somebody opens it mid-incident
+   asking why an agent said a thing, so the interface is built like a registry —
+   dated, ruled, quotable — rather than like a product tour.
+
+   Three decisions carry the whole thing:
+
+   1. Warm ground, cool ink. Surfaces are paper-neutral (never blue-white);
+      text and the single accent are an iron-gall blue-black. The previous
+      palette was Stripe's, verbatim — #635bff is Stripe indigo and #1a1f36 is
+      Stripe ink, and the comment said "matched to the reference shot". A memory
+      ledger has no reason to look like a payments dashboard.
+
+   2. Belief state is the ONLY chroma. Every other pixel is neutral. Buttons and
+      links are ink, not brand-blue, so the four colours that mean something —
+      believed, unknown, contradicted, closed — are the only colours competing
+      for the eye. Colour here is data, not decoration.
+
+   3. Borders, never shadows. One depth strategy, committed. A record has rules
+      printed on it. (.panel previously carried a border AND two box-shadows,
+      which is two strategies at once.)
+   ───────────────────────────────────────────────────────────────────────────── */
+
 :root {
   color-scheme: light;
-  --bg: #f6f8fa;
+
+  /* Surfaces: warm paper. Elevation moves in ~2% steps — you feel it, you do
+     not see it. Sidebar shares --bg with the canvas on purpose; a different
+     colour there splits the screen into two worlds. */
+  --bg: #faf9f6;
   --panel: #ffffff;
-  --panel-raised: #f7f9fc;
-  --chip: #f0f3f7;
-  --fg: #1a1f36;          /* Stripe ink: cool navy-black, not warm grey */
-  --muted: #697386;
-  --faint: #8792a2;
-  --border: #e6ebf1;
-  --line-strong: #cfd7e0;
-  --accent: #635bff;      /* Stripe indigo */
-  --accent-bg: #f0efff;
-  --believed: #16a34a;
-  --believed-bg: #e7f6ec;
-  --unknown: #b45309;
-  --unknown-bg: #fbeed9;
-  --conflict: #e8590c;
-  --conflict-bg: #fdeee2;
-  --closed: #8a919b;
-  --closed-bg: #eff0f2;
+  --panel-raised: #f6f4ef;
+  --chip: #f1efe9;
+
+  /* Ink, four levels. Anything less and the hierarchy is too flat to read. */
+  --fg: #1b1a17;          /* warm near-black — iron gall, not cool navy */
+  --muted: #625e56;
+  --faint: #8b867c;
+  --disabled: #b0aba1;
+
+  /* Rules. Low-opacity warm greys: findable when you look for structure,
+     invisible when you are not. */
+  --border: rgba(27, 26, 23, 0.10);
+  --line-strong: rgba(27, 26, 23, 0.20);
+
+  /* The one non-state colour: iron-gall ink. Cool enough to read as blue
+     beside warm paper, dark enough that a filled button is still "ink". */
+  --accent: #263449;
+  --accent-fg: #faf9f6;
+  --accent-bg: rgba(38, 52, 73, 0.07);
+
+  /* Belief state. Muted, archival: verdigris, raw sienna, correction-stamp
+     oxblood, pencil. Saturated web colours would shout over the record. */
+  --believed: #2f6b4f;
+  --believed-bg: rgba(47, 107, 79, 0.10);
+  --unknown: #8a6218;
+  --unknown-bg: rgba(138, 98, 24, 0.10);
+  --conflict: #a83226;
+  --conflict-bg: rgba(168, 50, 38, 0.09);
+  --closed: #8b877e;
+  --closed-bg: rgba(139, 135, 126, 0.12);
 }
+
 .dark {
   color-scheme: dark;
-  --bg: #0c111d;
-  --panel: #151b28;
-  --panel-raised: #1b2230;
-  --chip: #222b3a;
-  --fg: #e6ebf3;
-  --muted: #9aa6bb;
-  --faint: #6b7688;
-  --border: #232c3d;
-  --line-strong: #35415a;
-  --accent: #8b85ff;
-  --accent-bg: rgba(146,157,242,0.14);
-  --believed: #3ecf6f;
-  --believed-bg: rgba(62,207,111,0.13);
-  --unknown: #e0a04f;
-  --unknown-bg: rgba(224,160,79,0.13);
-  --conflict: #ff8a4c;
-  --conflict-bg: rgba(255,138,76,0.13);
-  --closed: #8a919b;
-  --closed-bg: rgba(138,145,155,0.14);
+  /* Warm charcoal, not blue-black: one hue, lightness only. */
+  --bg: #171614;
+  --panel: #1e1d1a;
+  --panel-raised: #252320;
+  --chip: #2b2926;
+
+  --fg: #ece8e0;
+  --muted: #a29c92;
+  --faint: #7d776d;
+  --disabled: #5c574f;
+
+  /* Shadows do not read on dark; borders carry all the structure, so they
+     step up slightly. */
+  --border: rgba(236, 232, 224, 0.11);
+  --line-strong: rgba(236, 232, 224, 0.22);
+
+  --accent: #8fa8cc;
+  --accent-fg: #171614;
+  --accent-bg: rgba(143, 168, 204, 0.14);
+
+  /* Desaturated one notch further — saturated semantics glare on dark. */
+  --believed: #6fae8c;
+  --believed-bg: rgba(111, 174, 140, 0.14);
+  --unknown: #c39a4e;
+  --unknown-bg: rgba(195, 154, 78, 0.14);
+  --conflict: #d9705f;
+  --conflict-bg: rgba(217, 112, 95, 0.14);
+  --closed: #8b877e;
+  --closed-bg: rgba(139, 135, 126, 0.16);
 }
 
 * { border-color: var(--border); box-sizing: border-box; }
-/* Secondary text stays at normal weight. Forcing 500 on every small class made
-   the whole interface read heavy; Stripe keeps supporting text light and lets
-   weight carry meaning only where it matters. */
 html, body { color: var(--fg); }
 body {
   margin: 0;
-  font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 14px;
-  line-height: 1.45;
+  /* IBM Plex was drawn for technical and institutional documentation, which is
+     what this is. Inter is the font every generated dashboard already uses. */
+  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 13px;          /* dense: a forensic tool, not a brochure */
+  line-height: 1.5;
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 a { color: inherit; }
-.mono { font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; font-size: 0.95em; }
-::selection { background: color-mix(in srgb, var(--accent) 20%, transparent); }
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 6px; }
-a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
-  outline: 2px solid var(--accent); outline-offset: 2px;
+
+/* Identifiers, propositions, timestamps and every figure are mono. A
+   proposition is a token (`prefers_annual_billing`), not prose, and setting it
+   in prose type invites people to read it as a sentence they could reword. */
+.mono {
+  font-family: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.94em;
+  letter-spacing: -0.005em;
+}
+.num { font-variant-numeric: tabular-nums; font-weight: 500; }
+
+::selection { background: var(--accent-bg); }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 6px; border: 3px solid var(--bg); }
+::-webkit-scrollbar-track { background: transparent; }
+
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px;
 }
 
-.display { font-family: Inter, sans-serif; font-weight: 600; letter-spacing: -0.018em; line-height: 1.15; }
+/* ── type scale: 1.25 from a 13px base, whole pixels ─────────────────────────
+   11 · 13 · 16 · 20 · 25 · 31. Weight and colour do most of the hierarchy work;
+   size is the third lever, not the only one. */
+.display {
+  font-weight: 600;
+  letter-spacing: -0.021em;   /* tighter as it gets bigger — optical sizing */
+  line-height: 1.15;
+  text-wrap: balance;
+}
 .display em { font-style: normal; color: var(--accent); }
+
+/* A claim quoted at size is evidence, so it is set like a quotation in a
+   record — the one place a serif appears, and the reason a serif is loaded. */
+.claim {
+  font-family: 'IBM Plex Serif', Georgia, serif;
+  font-size: 20px;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
 .tech-label {
-  font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--faint);
 }
-.sec-num { font-size: 12px; font-weight: 600; color: var(--faint); }
-.num { font-variant-numeric: tabular-nums; font-weight: 600; }
+.sec-num { font-size: 11px; font-weight: 500; color: var(--faint); font-variant-numeric: tabular-nums; }
+p, .prose { text-wrap: pretty; }
 
-.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-  box-shadow: 0 1px 1px rgba(0,0,0,0.02), 0 1px 3px rgba(18,42,66,0.04); }
-/* dense header for a panel: hairline rule, small title, tight padding */
-.panel > header { padding: 10px 16px; }
-.chip { display: inline-flex; align-items: center; gap: 5px; background: var(--chip);
-  border-radius: 5px; padding: 2px 7px; font-size: 12px; color: var(--muted); }
+/* ── surfaces ──────────────────────────────────────────────────────────────
+   Borders only. Radius stays small and concentric: 6px outer, 4px inner. */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.panel > header { padding: 9px 14px; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--chip); border-radius: 4px; padding: 2px 7px;
+  font-size: 11px; color: var(--muted);
+}
 .chip b { color: var(--fg); font-weight: 500; }
-.led { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; }
-.led.believed { background: var(--believed); }
-.led.unknown  { background: var(--unknown); }
-.led.conflict { background: var(--conflict); }
-.led.accent   { background: var(--accent); }
-.led.closed   { background: var(--closed); }
-.led.hollow   { background: var(--panel); border: 1.5px solid var(--line-strong); }
 
-.empty { padding: 16px; border: 1px dashed var(--border); border-radius: 6px;
-  background: var(--panel-raised); color: var(--faint); font-size: 13px; }
+.empty {
+  padding: 18px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 6px;
+  background: var(--panel-raised);
+  color: var(--faint);
+  font-size: 13px;
+}
 .rule { border-top: 1px solid var(--border); }
 .spec-row { display: grid; grid-template-columns: 128px 1fr; gap: 24px; }
 @media (max-width: 640px) { .spec-row { grid-template-columns: 1fr; gap: 8px; } }
-.link-underline { text-decoration: underline; text-underline-offset: 3px;
-  text-decoration-color: var(--line-strong); text-decoration-thickness: 1px; }
+
+.link-underline {
+  text-decoration: underline; text-underline-offset: 3px;
+  text-decoration-color: var(--line-strong); text-decoration-thickness: 1px;
+}
 .link-underline:hover { text-decoration-color: var(--accent); color: var(--accent); }
 
-/* code: line numbers + minimal syntax tint (strings orange, keywords blue) */
-.code-str { color: var(--conflict); }
-.code-kw { color: var(--accent); }
-.code-cm { color: var(--faint); }
+/* ── state marks ───────────────────────────────────────────────────────────
+   SHAPE first, colour second. A coloured dot encodes state in hue alone, which
+   fails for ~4% of men and disappears entirely in a screenshot printed in
+   black. These read without colour: filled, hollow, struck, dotted.
+   `.led` keeps its name so the pages already using it inherit the new grammar. */
+.led {
+  display: inline-block; width: 9px; height: 9px; flex: none;
+  border-radius: 1px;                 /* squared: a mark stamped, not a bulb */
+  border: 1.5px solid currentColor;
+  position: relative;
+}
+.led.believed { color: var(--believed); background: var(--believed); }
+.led.unknown  { color: var(--unknown);  background: transparent;
+                border-style: dotted; border-width: 1.5px; }
+.led.closed   { color: var(--closed);   background: transparent; }
+.led.accent   { color: var(--accent);   background: var(--accent); }
+/* contradicted: struck through — two claims crossing is the whole idea */
+.led.conflict { color: var(--conflict); background: var(--conflict-bg); }
+.led.conflict::after {
+  content: ""; position: absolute; inset: -1.5px;
+  background: linear-gradient(to bottom right,
+    transparent calc(50% - 1px), currentColor calc(50% - 1px),
+    currentColor calc(50% + 1px), transparent calc(50% + 1px));
+}
+.led.hollow { color: var(--line-strong); background: var(--panel); }
+
+/* ── the belief rail ───────────────────────────────────────────────────────
+   The signature. A claim's belief interval drawn on a hairline span:
+
+     ├━━━━━━━━━━┤        closed  — believed then superseded, hard end-cap
+     ├━━━━━━━━━━▶        open    — still believed, no terminator, fades out
+     ├╳╳╳╳╳╳╳╳╳╳┤        contradicted — hatched
+
+   An open interval deliberately has no right edge. "No end recorded" is a real
+   state in this system and a bar that simply stops would read as "ended here". */
+.rail { position: relative; height: 10px; width: 100%; }
+.rail::before {                        /* the ruled baseline */
+  content: ""; position: absolute; left: 0; right: 0; top: 50%;
+  height: 1px; margin-top: -0.5px; background: var(--border);
+}
+.rail-span {
+  position: absolute; top: 50%; height: 3px; margin-top: -1.5px;
+  border-radius: 1px; background: var(--closed);
+}
+.rail-span.is-believed { background: var(--believed); }
+.rail-span.is-open {
+  /* fades rather than terminates */
+  -webkit-mask-image: linear-gradient(to right, #000 65%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 65%, transparent 100%);
+}
+.rail-span.is-conflict {
+  background: repeating-linear-gradient(
+    45deg, var(--conflict) 0 2px, transparent 2px 4px);
+  box-shadow: inset 0 0 0 1px var(--conflict-bg);
+}
+.rail-cap {                            /* the hard end-cap on a closed span */
+  position: absolute; top: 50%; width: 1px; height: 9px; margin-top: -4.5px;
+  background: var(--line-strong);
+}
+.rail-now {                            /* "as of" — full height, ink */
+  position: absolute; top: 0; bottom: 0; width: 1px; background: var(--accent);
+}
+
+/* ── code ─────────────────────────────────────────────────────────────────── */
+.code-str { color: var(--believed); }
+.code-kw  { color: var(--accent); }
+.code-cm  { color: var(--faint); }
+
+/* Motion: felt, not watched. Entering curve only; nothing eases in. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

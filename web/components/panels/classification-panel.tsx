@@ -77,7 +77,7 @@ function Row({ m }: { m: MessageClassification }) {
       <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-3 text-left">
         <span className="min-w-0 flex-1 truncate text-[13px]">{m.subject || "(no subject)"}</span>
         {m.business_type && (
-          <span className="shrink-0 rounded-pill border border-line-strong px-1.5 py-px text-2xs text-muted">
+          <span className="shrink-0 rounded-sm border border-line-strong px-1.5 py-px text-2xs text-muted">
             {m.business_type}
           </span>
         )}

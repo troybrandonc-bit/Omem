@@ -12,28 +12,36 @@ import {
 import { useEffect, useState } from "react";
 import { getSession, setSession, ApiError, type AuthMode } from "@/lib/api";
 
+/* Grouped by the question you arrived with, not by feature name. Somebody opens
+   this because an agent said something wrong — they are asking "what does it
+   believe / what disagrees / where did that come from", and the nav should
+   answer in those terms. The destinations are unchanged; the framing is not. */
 const NAV = [
-  { group: null, items: [
-    { href: "/overview", label: "Home", icon: Home },
+  { group: "What is believed", items: [
+    { href: "/overview", label: "Overview", icon: Home },
     { href: "/memory", label: "Memory", icon: Brain },
-    { href: "/intelligence", label: "Intelligence", icon: Activity },
+    { href: "/timeline", label: "Timeline", icon: Clock },
+    { href: "/graph", label: "Belief graph", icon: Network },
+  ]},
+  { group: "What disagrees", items: [
+    { href: "/conflicts", label: "Conflicts", icon: AlertTriangle },
     { href: "/memory-health", label: "Memory health", icon: HeartPulse },
+    { href: "/intelligence", label: "Intelligence", icon: Activity },
+  ]},
+  { group: "Where it came from", items: [
     { href: "/agents", label: "Agents", icon: Bot },
     { href: "/entities", label: "Entities", icon: Box },
-    { href: "/timeline", label: "Timeline", icon: Clock },
-    { href: "/conflicts", label: "Conflicts", icon: AlertTriangle },
-    { href: "/graph", label: "Graph", icon: Network },
+    { href: "/audit", label: "Audit trail", icon: ShieldCheck },
+    { href: "/logs", label: "Request log", icon: ScrollText },
   ]},
-  { group: "Developers", items: [
+  { group: "Build", items: [
     { href: "/playground", label: "Playground", icon: FlaskConical },
     { href: "/developers", label: "API", icon: Braces },
-    { href: "/logs", label: "Logs", icon: ScrollText },
     { href: "/diagnostics", label: "Diagnostics", icon: Stethoscope },
   ]},
-  { group: "Organization", items: [
+  { group: "Account", items: [
     { href: "/usage", label: "Usage", icon: Gauge },
     { href: "/team", label: "Team", icon: Users },
-    { href: "/audit", label: "Audit", icon: ShieldCheck },
     { href: "/settings", label: "Settings", icon: Settings },
   ]},
 ];
@@ -90,7 +98,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <Sidebar path={path ?? ""} />
       <div className="min-w-0 flex-1">
         <TopBar onSearch={() => setPalette(true)} />
-        <main className="mx-auto max-w-[1200px] px-6 pb-16 pt-2">{children}</main>
+        <main className="mx-auto max-w-[1200px] px-6 pb-20 pt-6">{children}</main>
       </div>
       {palette && <CommandPalette onClose={() => setPalette(false)} />}
     </div>
@@ -102,14 +110,14 @@ function Sidebar({ path }: { path: string }) {
   const { data } = useQuery({ queryKey: ["projects"], queryFn: api.projects });
   const projects = data?.data || [];
   return (
-    <aside className="hidden w-[216px] shrink-0 flex-col border-r px-3 pb-6 pt-4 md:flex">
-      <div className="mb-5 flex items-center gap-2.5 px-2">
-        <span className="grid h-7 w-7 place-items-center rounded-pill bg-accent text-white">
-          <Share2 className="h-3.5 w-3.5" />
+    <aside className="hidden w-[232px] shrink-0 flex-col border-r px-3 pb-6 pt-4 md:flex">
+      <div className="mb-6 flex items-center gap-2.5 px-2">
+        <span className="grid h-6 w-6 place-items-center rounded-sm bg-accent text-accentFg">
+          <Share2 className="h-3 w-3" />
         </span>
         <div className="relative min-w-0 flex-1">
           <select value={project} onChange={e => setProject(e.target.value)}
-            className="w-full appearance-none bg-transparent pr-5 text-[14px] font-semibold outline-none">
+            className="w-full appearance-none bg-transparent pr-5 text-xs font-semibold outline-none">
             {(projects.length ? projects : [{ id: "demo", name: "OMEM" } as any]).map(p => (
               <option key={p.id} value={p.id}>{p.is_demo ? "Demo (shared)" : p.name}</option>
             ))}
@@ -117,21 +125,26 @@ function Sidebar({ path }: { path: string }) {
           <ChevronDown className="pointer-events-none absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-faint" />
         </div>
       </div>
-      <nav className="flex-1 space-y-4">
+      <nav className="flex-1 space-y-5">
         {NAV.map((g, gi) => (
           <div key={gi}>
-            {g.group && <div className="tech-label mb-1.5 px-2">{g.group}</div>}
+            {g.group && <div className="tech-label mb-2 px-2">{g.group}</div>}
             <div className="space-y-0.5">
               {g.items.map(it => {
                 const active = path.startsWith(it.href);
                 const Icon = it.icon;
                 return (
                   <Link key={it.href} href={it.href} aria-current={active ? "page" : undefined}
-                    className={cn("flex items-center gap-2.5 rounded-md px-2 py-[5px] text-[13px] transition-colors",
+                    className={cn(
+                      "relative flex items-center gap-2.5 rounded px-2 py-1 text-xs",
+                      "transition-colors duration-150 ease-out",
                       active
-                        ? "bg-accentBg font-semibold text-accent"
+                        ? "bg-chip font-medium text-fg"
                         : "text-muted hover:bg-raised hover:text-fg")}>
-                    <Icon className={cn("h-[15px] w-[15px]", active ? "text-accent" : "text-faint")} strokeWidth={1.8} />
+                    {/* the marked line: a 2px ink rule, not a coloured pill */}
+                    {active && <span aria-hidden="true"
+                      className="absolute -left-3 top-1 bottom-1 w-[2px] rounded-r bg-accent" />}
+                    <Icon className={cn("h-[14px] w-[14px]", active ? "text-fg" : "text-faint")} strokeWidth={1.75} />
                     {it.label}
                   </Link>
                 );
@@ -150,29 +163,38 @@ function TopBar({ onSearch }: { onSearch: () => void }) {
   useEffect(() => { if (data?.now !== undefined) setNow(data.now); }, [data?.now, setNow]);
   const T = asOf ?? now;
   return (
-    <div className="sticky top-0 z-30 bg-bg/95 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-[1200px] items-center gap-4 px-6 py-4">
+    <div className="sticky top-0 z-30 border-b bg-bg/95 backdrop-blur-sm">
+      <div className="mx-auto flex max-w-[1200px] items-center gap-3 px-6 py-3">
         <button onClick={onSearch}
-          className="panel flex h-10 w-full max-w-xl items-center gap-2.5 px-3.5 text-left text-[14px] text-faint">
-          <Search className="h-4 w-4" /> Search…
-          <kbd className="ml-auto rounded border bg-raised px-1.5 text-2xs text-faint">⌘K</kbd>
+          className="panel flex h-8 w-full max-w-md items-center gap-2 px-3 text-left text-xs text-faint transition-colors duration-150 ease-out hover:border-[color:var(--line-strong)]">
+          <Search className="h-3.5 w-3.5" /> Search beliefs…
+          <kbd className="mono ml-auto rounded-sm border bg-raised px-1.5 text-2xs text-faint">⌘K</kbd>
         </button>
         <div className="ml-auto flex items-center gap-2.5">
-          <div className="panel hidden h-10 items-center gap-2.5 px-3 sm:flex">
-            <span className="text-2xs text-faint">as of</span>
+          {/* Time travel is the product's whole premise — every belief on screen
+              is "as of" this clock. It reads as a stated position, and says so
+              plainly when it is not now. */}
+          <div className={cn("panel hidden h-8 items-center gap-2.5 px-3 sm:flex",
+                             asOf !== null && "border-[color:var(--accent)]")}>
+            <span className="tech-label">as of</span>
             <input type="range" min={0} max={Math.max(now, 1)} value={T}
+              aria-label="View memory as of an earlier logical time"
               onChange={e => { const v = Number(e.target.value); setAsOf(v >= now ? null : v); }}
-              className="h-1 w-28 cursor-pointer accent-[color:var(--accent)]" />
-            <span className="num w-14 text-right text-2xs text-muted">
-              {asOf === null ? `now t=${now}` : `t=${asOf}`}
+              className="h-1 w-24 cursor-pointer accent-[color:var(--accent)]" />
+            <span className="mono w-16 text-right text-2xs text-muted">
+              {asOf === null ? `now · t${now}` : `t${asOf}`}
             </span>
+            {asOf !== null && (
+              <button onClick={() => setAsOf(null)}
+                className="text-2xs font-medium text-accent hover:underline">now</button>
+            )}
           </div>
           <button onClick={toggleTheme} aria-label="Toggle theme"
-            className="panel grid h-10 w-10 place-items-center text-muted transition-colors hover:text-fg">
-            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            className="panel grid h-8 w-8 place-items-center text-muted transition-colors duration-150 ease-out hover:text-fg">
+            {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
           </button>
-          <span className="grid h-10 w-10 place-items-center rounded-pill border bg-panel text-faint">
-            <User className="h-4.5 w-4.5" style={{ width: 17, height: 17 }} />
+          <span className="grid h-8 w-8 place-items-center rounded-sm border bg-panel text-faint">
+            <User className="h-3.5 w-3.5" />
           </span>
         </div>
       </div>
@@ -248,7 +270,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
     <div className="grid min-h-screen place-items-center px-6">
       <form onSubmit={submit} className="w-full max-w-sm">
         <div className="mb-8 flex items-center gap-2">
-          <span className="grid h-6 w-6 place-items-center rounded-pill bg-accent text-white">
+          <span className="grid h-6 w-6 place-items-center rounded-sm bg-accent text-accentFg">
             <Share2 className="h-3 w-3" />
           </span>
           <span className="text-sm font-medium">OMEM</span>
@@ -283,7 +305,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
         )}
         {err && <div className="mt-4 rounded-md border border-conflict/40 bg-conflictBg px-3 py-2 text-2xs text-conflict">{err}</div>}
         <button type="submit" disabled={busy}
-                className="mt-6 w-full rounded-md bg-accent px-3 py-2 text-sm text-white disabled:opacity-50">
+                className="mt-6 w-full rounded-md bg-accent px-3 py-2 text-sm text-accentFg disabled:opacity-50">
           {busy ? "…" : register ? "Create account" : "Sign in"}
         </button>
         <button type="button" onClick={() => { setRegister(v => !v); setErr(null); }}

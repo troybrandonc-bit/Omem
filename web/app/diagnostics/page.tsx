@@ -66,7 +66,7 @@ function DiagnosticsInner() {
           <input value={input} onChange={e => setInput(e.target.value)}
             placeholder="source record id (src_…)"
             className="w-64 rounded-md border bg-panel px-3 py-1.5 font-mono text-[12px] outline-none focus:border-accent" />
-          <button type="submit" className="rounded-md bg-accent px-3 py-1.5 text-[13px] font-semibold text-white">Trace</button>
+          <button type="submit" className="rounded-md bg-accent px-3 py-1.5 text-[13px] font-semibold text-accentFg">Trace</button>
         </form>
       </div>
 

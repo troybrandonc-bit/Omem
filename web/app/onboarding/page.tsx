@@ -64,7 +64,7 @@ export default function Onboarding() {
   return (
     <div className="mx-auto max-w-lg px-6 py-16">
       <Link href="/" className="mb-10 flex items-center gap-2">
-        <span className="grid h-6 w-6 place-items-center rounded-pill bg-accent text-white">
+        <span className="grid h-6 w-6 place-items-center rounded-sm bg-accent text-accentFg">
           <Share2 className="h-3 w-3" />
         </span>
         <span className="text-[15px] font-bold tracking-tight">OMEM</span>
@@ -88,7 +88,7 @@ export default function Onboarding() {
             className="mt-1 w-full rounded-md border bg-panel px-3 py-2 text-sm outline-none focus:border-accent" />
           {err && <div className="mt-3 rounded-md border border-conflict/40 bg-conflictBg px-3 py-2 text-2xs text-conflict">{err}</div>}
           <button onClick={doSignup} disabled={busy || !email.includes("@") || (mode === "password" && password.length < 10)}
-            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 text-[14px] font-semibold text-white transition-opacity hover:opacity-[0.88] disabled:opacity-40">
+            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 text-[14px] font-semibold text-accentFg transition-opacity hover:opacity-[0.88] disabled:opacity-40">
             {busy ? "Creating…" : "Continue"} <ArrowRight className="h-4 w-4" />
           </button>
         </div>
@@ -108,7 +108,7 @@ export default function Onboarding() {
             </button>
           </div>
           <button onClick={() => setStep(2)}
-            className="mt-5 w-full rounded-md bg-accent px-4 py-2.5 text-[14px] font-semibold text-white transition-opacity hover:opacity-[0.88]">
+            className="mt-5 w-full rounded-md bg-accent px-4 py-2.5 text-[14px] font-semibold text-accentFg transition-opacity hover:opacity-[0.88]">
             I saved it
           </button>
         </div>
@@ -123,7 +123,7 @@ export default function Onboarding() {
           </p>
           {err && <div className="mt-3 rounded-md border border-conflict/40 bg-conflictBg px-3 py-2 text-2xs text-conflict">{err}</div>}
           <button onClick={firstMemory} disabled={busy}
-            className="mt-5 w-full rounded-md bg-accent px-4 py-2.5 text-[14px] font-semibold text-white transition-opacity hover:opacity-[0.88] disabled:opacity-40">
+            className="mt-5 w-full rounded-md bg-accent px-4 py-2.5 text-[14px] font-semibold text-accentFg transition-opacity hover:opacity-[0.88] disabled:opacity-40">
             {busy ? "Writing…" : "Store it"}
           </button>
         </div>
@@ -137,7 +137,7 @@ export default function Onboarding() {
             {acct?.existing ? "Signed in. Your projects are ready." : "Your belief is stored, grounded, and queryable. Open the dashboard to inspect it."}
           </p>
           <button onClick={() => router.push("/overview")}
-            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 text-[14px] font-semibold text-white transition-opacity hover:opacity-[0.88]">
+            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 text-[14px] font-semibold text-accentFg transition-opacity hover:opacity-[0.88]">
             Open dashboard <ArrowRight className="h-4 w-4" />
           </button>
         </div>

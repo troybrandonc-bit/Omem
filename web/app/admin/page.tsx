@@ -82,7 +82,7 @@ export default function Admin() {
               {orgs.data.map(o => (
                 <tr key={o.id}>
                   <td className="px-4 py-2 font-medium">{o.name || o.id}</td>
-                  <td className="px-3 py-2.5"><span className="rounded-pill border border-line-strong px-2 py-px text-2xs font-semibold uppercase text-muted">{o.plan}</span></td>
+                  <td className="px-3 py-2.5"><span className="rounded-sm border border-line-strong px-2 py-px text-2xs font-semibold uppercase text-muted">{o.plan}</span></td>
                   <td className="px-3 py-2.5">
                     <select value={o.customer.status} onChange={e => setStatus(o.id, e.target.value)}
                       className="rounded-md border bg-panel px-1.5 py-0.5 text-2xs font-semibold uppercase">

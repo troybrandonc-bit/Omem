@@ -33,7 +33,7 @@ export default function Team() {
             {data.data.map(m => (
               <div key={m.user_id} className="flex items-center justify-between px-4 py-2.5">
                 <span className="text-[13px] font-medium">{m.email}</span>
-                <span className="rounded-pill border border-line-strong px-2 py-px text-2xs font-semibold uppercase text-muted">{m.role}</span>
+                <span className="rounded-sm border border-line-strong px-2 py-px text-2xs font-semibold uppercase text-muted">{m.role}</span>
               </div>
             ))}
           </div>
@@ -44,7 +44,7 @@ export default function Team() {
           <select value={role} onChange={e => setRole(e.target.value)} className="rounded-md border bg-panel px-2 py-1.5 text-[13px]">
             {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
           </select>
-          <button onClick={invite} className="rounded-md bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-white hover:opacity-[0.88]">Set role</button>
+          <button onClick={invite} className="rounded-md bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-accentFg hover:opacity-[0.88]">Set role</button>
         </div>
       </section>
     </div>

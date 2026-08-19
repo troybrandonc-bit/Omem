@@ -8,7 +8,7 @@ import { Sun, Moon, ChevronDown, Share2 } from "lucide-react";
 function Wordmark() {
   return (
     <Link href="/" className="flex items-center gap-2">
-      <span className="grid h-6 w-6 place-items-center rounded-pill bg-accent text-white">
+      <span className="grid h-6 w-6 place-items-center rounded-sm bg-accent text-accentFg">
         <Share2 className="h-3 w-3" />
       </span>
       <span className="text-[16px] font-bold tracking-tight">OMEM</span>
@@ -77,7 +77,7 @@ export function MarketingNav() {
             Sign in
           </Link>
           <Link href="/onboarding"
-            className="rounded-md bg-accent px-4 py-2 text-[14px] font-semibold text-white transition-opacity duration-[120ms] hover:opacity-[0.88]">
+            className="rounded-md bg-accent px-4 py-2 text-[14px] font-semibold text-accentFg transition-opacity duration-[120ms] hover:opacity-[0.88]">
             Start building
           </Link>
         </div>

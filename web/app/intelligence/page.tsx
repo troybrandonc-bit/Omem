@@ -60,7 +60,7 @@ export default function Intelligence() {
                 <div className="text-2xs text-faint">{s.kind}</div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="h-1.5 w-24 rounded-pill bg-chip"><div className="h-1.5 rounded-pill bg-accent" style={{ width: pct(s.authority) }} /></div>
+                <div className="h-1.5 w-24 rounded-sm bg-chip"><div className="h-1.5 rounded-sm bg-accent" style={{ width: pct(s.authority) }} /></div>
                 <span className="num w-9 text-right text-2xs text-muted">{s.authority}</span>
               </div>
             </div>

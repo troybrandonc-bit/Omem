@@ -154,7 +154,7 @@ function SourceCard({ c, busy, act }: { c: Connector; busy: string | null; act: 
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className={cn("rounded-pill border px-2 py-px text-2xs font-semibold uppercase tracking-[0.04em]", TONE[status] ?? "text-muted")}
+          <span className={cn("rounded-sm border px-2 py-px text-2xs font-semibold uppercase tracking-[0.04em]", TONE[status] ?? "text-muted")}
             style={{ borderColor: "currentColor" }}>{status.replace("_", " ")}</span>
           {status === "NEEDS_REAUTH" && (
             <button onClick={() => act(c.id + "re", async () => {
@@ -162,7 +162,7 @@ function SourceCard({ c, busy, act }: { c: Connector; busy: string | null; act: 
               if (b.real && b.auth_url) { window.location.href = b.auth_url; return; }
               throw new Error(b.note ?? "Gmail is not configured on the API server.");
             })}
-              className="rounded-md bg-accent px-2.5 py-1 text-2xs font-semibold text-white hover:opacity-[0.88]">
+              className="rounded-md bg-accent px-2.5 py-1 text-2xs font-semibold text-accentFg hover:opacity-[0.88]">
               Reconnect
             </button>
           )}

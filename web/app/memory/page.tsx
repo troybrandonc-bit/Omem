@@ -127,7 +127,7 @@ function FilterPill({ children, active, onClick }:
   { children: React.ReactNode; active: boolean; onClick: () => void }) {
   return (
     <button onClick={onClick}
-      className={"rounded-pill border px-2.5 py-0.5 text-2xs font-semibold uppercase tracking-[0.05em] transition-colors " +
+      className={"rounded-sm border px-2.5 py-0.5 text-2xs font-semibold uppercase tracking-[0.05em] transition-colors " +
         (active ? "border-accent text-accent" : "border-line-strong text-muted hover:text-ink")}>
       {children}
     </button>

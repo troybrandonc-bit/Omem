@@ -155,7 +155,7 @@ export default function Developers() {
               <span className="mono text-2xs font-semibold text-believed">GET</span>
               <code className="mono flex-1 truncate text-xs">/v1/assertions/a:alice-email/why</code>
               <button onClick={runTry} disabled={running}
-                className="inline-flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-40">
+                className="inline-flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accentFg transition hover:opacity-90 disabled:opacity-40">
                 <Play className="h-3 w-3" /> {running ? "Running" : "Send"}
               </button>
             </div>

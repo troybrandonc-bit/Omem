@@ -41,7 +41,7 @@ export function BeliefInspector() {
           <div>
             <div className="mb-1.5 flex items-center gap-2.5">
               <span className="tech-label">Belief state</span>
-              <span className="inline-flex items-center gap-1.5 rounded-pill bg-chip px-2.5 py-1 text-2xs font-semibold uppercase tracking-[0.04em]">
+              <span className="inline-flex items-center gap-1.5 rounded-sm bg-chip px-2.5 py-1 text-2xs font-semibold uppercase tracking-[0.04em]">
                 <span className={cn("led", contradicted ? "conflict" : "believed")} style={{ width: 7, height: 7 }} />
                 {contradicted ? "Contradicted" : "Believed true"}
               </span>

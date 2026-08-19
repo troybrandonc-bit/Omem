@@ -98,7 +98,7 @@ function ExtractionSettings() {
           <div className="text-2xs text-faint">Off = deterministic rules. On = configured model proposes facts; the engine still decides truth.</div>
         </div>
         <button onClick={toggle}
-          className={enabled ? "rounded-md bg-accent px-3 py-1.5 text-2xs font-semibold text-white" : "rounded-md border px-3 py-1.5 text-2xs font-semibold text-muted"}>
+          className={enabled ? "rounded-md bg-accent px-3 py-1.5 text-2xs font-semibold text-accentFg" : "rounded-md border px-3 py-1.5 text-2xs font-semibold text-muted"}>
           {enabled ? "Enabled" : "Disabled"}
         </button>
       </div>
@@ -176,7 +176,7 @@ function IdentitySettings() {
       </div>
       <div className="flex items-center gap-3">
         <button onClick={save} disabled={saving}
-          className="rounded-md bg-accent px-3 py-1.5 text-[13px] font-semibold text-white disabled:opacity-50">
+          className="rounded-md bg-accent px-3 py-1.5 text-[13px] font-semibold text-accentFg disabled:opacity-50">
           {saving ? "Saving…" : "Save identity"}
         </button>
         {saved && <span className="text-2xs text-believed">Saved.</span>}

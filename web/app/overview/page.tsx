@@ -45,34 +45,58 @@ export default function Overview() {
           </div>
         </section>
       )}
-      {/* Memory panel */}
+      {/* The state of the record.
+          Six identical boxes gave every number the same voice, so nothing led
+          and the eye had nowhere to go. There is one question on this screen —
+          "is anything wrong?" — so conflicts take the focal position whenever
+          there are any, and the counts that are merely context drop to a
+          tertiary row. Three tiers, built from size + weight + colour. */}
       <section className="panel overflow-hidden">
         <header className="flex items-center justify-between border-b px-4 py-2.5">
-          <h2 className="text-[14px] font-semibold">Memory</h2>
-          <Link href="/memory" className="text-[13px] font-medium text-accent hover:underline">View memory →</Link>
+          <h2 className="text-xs font-semibold">The record</h2>
+          <Link href="/memory" className="link-underline text-xs text-muted">Open memory</Link>
         </header>
-        <div className="grid grid-cols-2 divide-x divide-y sm:grid-cols-3 lg:grid-cols-6 lg:divide-y-0">
-          {[
-            ["Open beliefs", c.open_beliefs, "/memory"],
-            ["Conflicts", c.conflicts, "/conflicts"],
-            ["Grounded", `${groundPct}%`, "/memory"],
-            ["Agents", c.agents, "/agents"],
-            ["Entities", c.entities, "/entities"],
-            ["Events", c.events, "/timeline"],
-          ].map(([label, value, href]) => (
-            <Link key={label as string} href={href as string} className="px-4 py-3 transition-colors hover:bg-raised">
-              <div className="text-2xs text-faint">{label}</div>
-              <div className="num mt-1 text-[20px] leading-none">{value}</div>
+
+        <div className="grid sm:grid-cols-[1.2fr_1fr] sm:divide-x">
+          {/* focal: what is currently believed, and how much of it is grounded */}
+          <Link href="/memory" className="block px-5 py-4 transition-colors duration-150 ease-out hover:bg-raised">
+            <div className="tech-label">Open beliefs</div>
+            <div className="num mt-1.5 text-2xl leading-none tracking-[-0.02em]">{c.open_beliefs}</div>
+            <div className="mt-3 flex items-center gap-2">
+              <div className="h-1 flex-1 rounded-sm bg-chip">
+                <div className="h-1 rounded-sm bg-believed" style={{ width: `${groundPct}%` }} />
+              </div>
+              <span className="num text-2xs text-muted">{groundPct}% grounded</span>
+            </div>
+          </Link>
+
+          {/* the thing you came to find out — loud only when it is real */}
+          <Link href="/conflicts" className="block px-5 py-4 transition-colors duration-150 ease-out hover:bg-raised">
+            <div className="tech-label">Unresolved conflicts</div>
+            <div className={cn("num mt-1.5 text-2xl leading-none tracking-[-0.02em]",
+                               c.conflicts > 0 ? "text-conflict" : "text-faint")}>
+              {c.conflicts}
+            </div>
+            <div className="mt-3 flex items-center gap-1.5 text-2xs">
+              {c.conflicts > 0
+                ? <><span className="led conflict" aria-hidden="true" />
+                    <span className="text-conflict">needs adjudication</span></>
+                : <><span className="led believed" aria-hidden="true" />
+                    <span className="text-muted">nothing contradicts</span></>}
+            </div>
+          </Link>
+        </div>
+
+        {/* tertiary: context, deliberately quiet */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-t px-5 py-2.5">
+          {[["Agents", c.agents, "/agents"], ["Entities", c.entities, "/entities"],
+            ["Events", c.events, "/timeline"], ["Assertions", c.assertions, "/memory"]]
+            .map(([label, value, href]) => (
+            <Link key={label as string} href={href as string}
+              className="flex items-baseline gap-1.5 text-2xs text-muted transition-colors duration-150 ease-out hover:text-fg">
+              <span className="num font-medium text-fg">{value as number}</span>{label}
             </Link>
           ))}
-        </div>
-        <div className="border-t px-4 py-2.5.5">
-          <div className="mb-1.5 flex items-center justify-between text-2xs text-muted">
-            <span>Grounding coverage</span><span className="num">{groundPct}%</span>
-          </div>
-          <div className="h-1.5 rounded-pill bg-chip">
-            <div className="h-1.5 rounded-pill bg-accent" style={{ width: `${groundPct}%` }} />
-          </div>
         </div>
       </section>
 
