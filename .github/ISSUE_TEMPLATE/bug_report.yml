@@ -1,0 +1,53 @@
+name: Bug report
+description: Something behaves differently from what it says it does.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Not for security issues.** An auth bypass, a tenant-isolation hole, or
+        anything letting model output execute an action goes through
+        [private reporting](../security/advisories/new) instead. See SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "`pip show omem-infrastructure`, or the commit if running from source."
+      placeholder: "0.2.0"
+    validations: { required: true }
+  - type: dropdown
+    id: how
+    attributes:
+      label: How are you running it?
+      options:
+        - pip install + omem-server
+        - From this repo (python api.py)
+        - Docker
+        - MCP client (omem-mcp)
+        - SDK only, against someone else's server
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what happened, and what you expected instead.
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: |
+        The smallest thing that shows it. If it involves belief state, the
+        assertion ids and the output of `/why` are worth more than a description
+        — that endpoint exists precisely so this question has a real answer.
+      render: python
+  - type: dropdown
+    id: storage
+    attributes:
+      label: Storage
+      options: [SQLite (default), PostgreSQL, "SQLite + OMEM_ENCRYPT_AT_REST"]
+  - type: dropdown
+    id: auth
+    attributes:
+      label: Auth mode
+      options: ["local (default)", password]

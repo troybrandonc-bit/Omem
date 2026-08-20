@@ -1,0 +1,158 @@
+name: Release
+
+# Publishing used to be a person on a laptop. 0.2.0 reached PyPI by hand, there
+# were no git tags, and the changelog still said "unreleased" for a version that
+# had shipped — three symptoms of the same missing step.
+#
+# Now a tag is the release. Push `v0.2.1` and this builds the wheel with the
+# dashboard baked in, checks the tag matches pyproject, and publishes.
+#
+# Auth is PyPI trusted publishing (OIDC), NOT an API token in secrets. A
+# long-lived token that can overwrite a package everyone pip-installs is exactly
+# the credential you do not want sitting in a repository setting. Configure it
+# once at https://pypi.org/manage/project/omem-infrastructure/settings/publishing/
+#   owner: troybrandonc-bit        repo: Omem
+#   workflow: release.yml      environment: pypi
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and verify, but do not publish"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The tag says one thing and pyproject says another often enough that it is
+  # worth failing here rather than shipping a wheel whose version is a lie.
+  verify:
+    name: verify the tag matches the package
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          PKG=$(grep -m1 '^version = ' sdk/python/pyproject.toml | cut -d'"' -f2)
+          echo "version=$PKG" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${GITHUB_REF#refs/tags/v}"
+            if [ "$TAG" != "$PKG" ]; then
+              echo "::error::tag v$TAG does not match pyproject version $PKG"
+              exit 1
+            fi
+            echo "tag v$TAG matches pyproject $PKG"
+          fi
+      - name: The changelog must have an entry for this version
+        run: |
+          V="${{ steps.check.outputs.version }}"
+          if ! grep -q "^## $V" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## $V' heading"; exit 1
+          fi
+          # "unreleased" survived into a published version once already.
+          if grep -iE "^## $V.*unreleased" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md still marks $V as unreleased"; exit 1
+          fi
+
+  # A release that ships a broken wheel is worse than no release, so the full
+  # suite runs again on the tagged commit rather than trusting the branch build.
+  test:
+    name: full suite on the tagged commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install hypothesis cryptography
+      - working-directory: server
+        run: python run_tests.py
+
+  build:
+    name: build the wheel
+    needs: [verify, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: npm, cache-dependency-path: web/package-lock.json }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+
+      # The dashboard is a static export copied into the wheel at build time, so
+      # `pip install` is the whole install — no Node at runtime, no second port.
+      # If this step is skipped the wheel still builds and the server just says
+      # "dashboard not bundled", which is a quiet way to ship a worse product.
+      - name: Build the bundled dashboard
+        working-directory: web
+        run: npm ci && OMEM_STATIC=1 npm run build
+
+      - name: Build sdist and wheel
+        run: pipx run build --sdist --wheel --outdir dist/ sdk/python
+
+      - name: The wheel must actually contain the dashboard
+        run: |
+          python -m zipfile -l dist/*.whl > files.txt
+          if ! grep -q "_dashboard/index.html" files.txt; then
+            echo "::error::wheel has no bundled dashboard"; exit 1
+          fi
+          grep -c "_dashboard/" files.txt | xargs echo "dashboard files in wheel:"
+
+      - name: Metadata check
+        run: pipx run twine check dist/*
+
+      # Install the built wheel into a clean environment and start the server,
+      # because "it built" and "it runs" have been different things before.
+      - name: Smoke test the built wheel
+        run: |
+          python -m venv /tmp/smoke
+          /tmp/smoke/bin/pip install --quiet dist/*.whl
+          OMEM_DB=/tmp/smoke.db /tmp/smoke/bin/omem-server 8799 &
+          for i in $(seq 1 40); do
+            curl -sf http://127.0.0.1:8799/v1/health >/dev/null && break || sleep 0.5
+          done
+          curl -sf http://127.0.0.1:8799/v1/health | head -c 200
+          curl -sfo /dev/null http://127.0.0.1:8799/ || { echo "::error::dashboard not served"; exit 1; }
+          echo "wheel installs, server starts, dashboard serves"
+
+      - uses: actions/upload-artifact@v4
+        with: { name: dist, path: dist/ }
+
+  publish:
+    name: publish to PyPI
+    needs: build
+    if: github.event_name == 'push' || inputs.dry_run == false
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/omem-infrastructure
+    permissions:
+      id-token: write        # OIDC for trusted publishing
+      contents: write        # to create the GitHub Release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist/ }
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        # No `password:` on purpose — trusted publishing uses the OIDC token.
+
+      - name: Cut the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ needs.verify.outputs.version }}
+        run: |
+          # Pull this version's section out of the changelog for the release body.
+          awk -v v="## $V" '
+            $0 ~ "^" v {p=1; next}
+            p && /^## / {exit}
+            p {print}
+          ' CHANGELOG.md > notes.md
+          echo "" >> notes.md
+          echo "Install: \`pip install omem-infrastructure==$V\`" >> notes.md
+          gh release create "v$V" dist/* --title "v$V" --notes-file notes.md
