@@ -1,19 +1,19 @@
-"""P10.1 — engine conformance, fuzzing & scale. Run: python3 tests_p10_1_conformance.py
+"""P10.1. Engine conformance, fuzzing & scale. Run: python3 tests_p10_1_conformance.py
 
 Three parts, honestly labelled:
 
-  PART 1  INVARIANT CONFORMANCE — each invariant the engine CLAIMS about itself
+  PART 1  INVARIANT CONFORMANCE, each invariant the engine CLAIMS about itself
           (INV-*, N*, J-*, I-*) mapped to an executable test. Labelled VERIFIED /
           PARTIAL / UNKNOWN. NOTE: the normative CTS/spec these ids reference is
           NOT present in the repository, so these are SELF-STATED invariants
           checked for internal coherence, not certified against a normative source.
 
-  PART 2  PROPERTY-BASED FUZZING — a hypothesis stateful machine drives random
+  PART 2  PROPERTY-BASED FUZZING, a hypothesis stateful machine drives random
           op sequences and asserts properties derived INDEPENDENTLY of the
           implementation (totality, half-open coverage, partition validity,
           monotonicity, determinism, no crashes on well-formed ops).
 
-  PART 3  SCALE CHARACTERIZATION — measures enough points to fit the complexity
+  PART 3  SCALE CHARACTERIZATION, measures enough points to fit the complexity
           curve of proposition_state / conflicts / coreference / provenance / replay.
 
 This file does NOT modify or optimize the engine.
@@ -49,7 +49,7 @@ def eng():
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# PART 1 — INVARIANT CONFORMANCE MAP
+# PART 1 - INVARIANT CONFORMANCE MAP
 # ════════════════════════════════════════════════════════════════════════════
 print("== PART 1: invariant conformance (self-stated; normative spec ABSENT) ==")
 
@@ -115,7 +115,7 @@ except Rejected:
 check("INV-6 derivation with non-existent antecedent is rejected (R_DANGLING)",
       raised, "VERIFIED")
 
-# INV-7: temporal coherence — assertion-time must not precede agent existence.
+# INV-7: temporal coherence - assertion-time must not precede agent existence.
 e = Engine()
 e.put_agent("late", "human", recorded_existence=100)
 e.put_entity("co", "org")
@@ -127,7 +127,7 @@ except Rejected:
 check("INV-7 assertion before agent existence is rejected (R_TEMPORAL)",
       raised, "VERIFIED")
 
-# N5: half-open interval — start included, end excluded (re-checked at boundary).
+# N5: half-open interval - start included, end excluded (re-checked at boundary).
 e = eng(); e.put_entity("co", "org")
 e.assert_("n1", "ag", ["co"], "P", 10)
 e.declare_contradiction("P", "Q")
@@ -163,7 +163,7 @@ check("J-4 self-coreference is a partition no-op (solo stays its own class)",
 
 # INV-9: interval state is a RECOMPUTABLE view (determinism of close bound). We can't
 # see internal recomputation black-box; we verify the observable consequence: identical
-# op sequences produce identical open/closed views. (PARTIAL — internal claim.)
+# op sequences produce identical open/closed views. (PARTIAL - internal claim.)
 def _bv():
     e = eng(); e.put_entity("co", "org")
     e.assert_("a", "ag", ["co"], "P", 10)
@@ -177,7 +177,7 @@ print("  observable consequence. 'UNKNOWN' invariants (spec-only, no black-box")
 print("  consequence) are listed in the checkpoint, not asserted here.")
 
 # ════════════════════════════════════════════════════════════════════════════
-# PART 2 — PROPERTY-BASED FUZZING (hypothesis stateful machine)
+# PART 2 - PROPERTY-BASED FUZZING (hypothesis stateful machine)
 # ════════════════════════════════════════════════════════════════════════════
 print("\n== PART 2: property-based fuzzing (randomized op sequences) ==")
 # Hypothesis is the one third-party package anything here needs, and the project
@@ -395,7 +395,7 @@ check("malformed/boundary ops raise Rejected or handle cleanly (no crash)",
       mal_ok, "VERIFIED", fuzz_err)
 
 # ════════════════════════════════════════════════════════════════════════════
-# PART 3 — SCALE CHARACTERIZATION
+# PART 3 - SCALE CHARACTERIZATION
 # ════════════════════════════════════════════════════════════════════════════
 print("\n== PART 3: scale characterization (complexity curves) ==")
 
@@ -434,7 +434,7 @@ ps_exp = _fit_exponent(SIZES, ps_times)
 print("  proposition_state:", "  ".join(f"n={n}:{t*1000:.1f}ms" for n, t in zip(SIZES, ps_times)))
 print(f"    => empirical exponent ~{ps_exp:.2f}  (1=linear, 2=quadratic, 3=cubic)")
 
-# conflicts (capped sizes — known expensive)
+# conflicts (capped sizes - known expensive)
 CSZ = [25, 50, 100, 200]
 cf_times = []
 for n in CSZ:
@@ -484,7 +484,7 @@ rp_exp = _fit_exponent(SIZES, rp_times)
 print("  replay/build:", "  ".join(f"n={n}:{t*1000:.0f}ms" for n, t in zip(SIZES, rp_times)))
 print(f"    => empirical exponent ~{rp_exp:.2f}")
 
-# These two used to assert the OPPOSITE — that the exponents were above 1.5 and
+# These two used to assert the OPPOSITE - that the exponents were above 1.5 and
 # 1.8, recording the scale ceiling as a measured fact. They were honest, and they
 # failed the moment the ceiling was removed, which is exactly what a
 # characterisation test is for. Inverted rather than deleted: the property is

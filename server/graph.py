@@ -1,14 +1,14 @@
 """P5 memory graph. Relationships are ENGINE FACTS first, graph second:
 
     assertion  subjects=[person:sarah, company:acme]  prop=rel_works_at
-        │ (truth, provenance, supersession, contradiction — frozen engine)
+        │ (truth, provenance, supersession, contradiction, frozen engine)
         ▼
     memory_edges row  person:sarah --works_at--> company:acme
         (direction + traversal index; a pure PROJECTION)
 
 An edge is visible only while its assertion is OPEN at the queried time and
 VISIBLE to the viewer's scope. Retraction/supersession make the edge vanish
-from traversal automatically — the row is never deleted, truth stays in the
+from traversal automatically. The row is never deleted, truth stays in the
 engine, and history remains reconstructable through as_of.
 
 Traversal is bounded (depth ≤ MAX_DEPTH, fanout ≤ MAX_FANOUT per node,
@@ -129,7 +129,7 @@ def rebuild_projection(db, p) -> dict:
     for a in p.engine.store.assertions():
         if len(a.subjects) < 2:
             continue
-        # A row is kept iff a real relational assertion backs it — OPEN OR
+        # A row is kept iff a real relational assertion backs it - OPEN OR
         # CLOSED. Temporal/open filtering happens per-query in _live() so that
         # as_of history (superseded edges at past times) is preserved. Rebuild
         # only removes DANGLING rows (no backing assertion at all).

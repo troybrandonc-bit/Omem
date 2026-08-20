@@ -105,7 +105,7 @@ if _saved_url:
     os.environ["OMEM_DATABASE_URL"] = _saved_url
 # Close the connections before deleting the file. POSIX allows unlinking a file
 # that is still open and Windows does not, so leaving these to the garbage
-# collector passed here and raised PermissionError there — the whole suite died
+# collector passed here and raised PermissionError there - the whole suite died
 # on cleanup, after every assertion in it had already succeeded.
 for _s in (_legacy_store, _second_boot):
     _s.db.close()          # Store holds the connection as .db; it has no close() of its own

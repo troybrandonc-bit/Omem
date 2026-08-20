@@ -40,7 +40,7 @@ class OAuthStore:
     """OAuth credential storage. Encryption is delegated to a SecretsProvider
     (authenticated encryption locally; KMS envelope in production). Refresh/access
     tokens are NEVER returned by get() unless include_secrets=True, which only the
-    Gmail transport uses internally — API responses call get() without it."""
+    Gmail transport uses internally. API responses call get() without it."""
     def __init__(self, db, provider=None):
         from secrets_provider import get_secrets_provider
         self.db = db
@@ -93,7 +93,7 @@ class OAuthStore:
 # ── Gmail transport seam ───────────────────────────────────────────────────
 class ProviderNotConfigured(Exception):
     """Raised when a connector needs provider credentials that are absent.
-    The product must surface this as an explicit NOT_CONFIGURED state — never
+    The product must surface this as an explicit NOT_CONFIGURED state, never
     as a crash, and never as a fake success."""
     def __init__(self, provider, message="", env_vars=None):
         self.provider = provider
@@ -797,7 +797,7 @@ class GitHubIssueExtractor(Extractor):
     Deterministic and fully auditable: every fact carries the exact substring of
     the source that triggered it, and facts are only emitted when that evidence
     genuinely appears in the issue text. Subjects are the REPO (an organisational
-    entity), not the author — the durable knowledge is about the project.
+    entity), not the author. The durable knowledge is about the project.
     Proposes only; the frozen engine decides belief state."""
 
     SIGNALS = [
@@ -848,7 +848,7 @@ class BusinessFactExtractor(Extractor):
 
     Deliberately narrow: it proposes a fact only when the source states one
     plainly. A business-relevant email with nothing durable in it ("sounds good,
-    let's talk tomorrow") correctly yields nothing — relevance is not evidence.
+    let's talk tomorrow") correctly yields nothing. Relevance is not evidence.
     Subjects are the counterparty's company where the fact concerns the
     organisation, and the person where it concerns them.
     """
@@ -874,7 +874,7 @@ class BusinessFactExtractor(Extractor):
          "intends_to_cancel", 0.85, "company"),
         (r"\b(?:renewal|contract)\b[^.]{0,30}?\b(?:due|expires?)\b[^.]{0,20}?\b(January|February|March|April|May|June|July|August|September|October|November|December)\b",
          "renewal_due_{v}", 0.8, "company"),
-        # commercial intent stated in plain language — durable, and common in
+        # commercial intent stated in plain language - durable, and common in
         # real customer mail even when no figures are quoted
         (r"\b(?:would like to|want to|plan(?:ning)? to|intend to)\s+upgrade\b",
          "intends_to_upgrade", 0.82, "company"),

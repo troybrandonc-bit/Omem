@@ -7,8 +7,8 @@ import { Badge, Skeleton, EmptyState } from "@/components/ui/primitives";
 import { Users } from "lucide-react";
 
 // People and organisations derived from REAL email interaction: message counts,
-// first/last contact, stored facts. Setting a role here is a user correction —
-// it is stored as reusable intelligence and changes how FUTURE mail from that
+// first/last contact, stored facts. Setting a role here is a user correction.
+// It is stored as reusable intelligence and changes how FUTURE mail from that
 // sender/domain is classified. Roles are never guessed by the system.
 
 const ROLE_TONE: Record<string, "believed" | "unknown" | "conflict" | "muted" | "closed" | "accent"> = {
@@ -61,7 +61,7 @@ export default function Contacts() {
       </div>
       <p className="text-[13px] text-muted">
         Derived from real email interaction. Setting a role teaches OMEM how to treat
-        future mail from that sender or domain — it never guesses relationships.
+        future mail from that sender or domain, it never guesses relationships.
       </p>
 
       {isLoading ? <Skeleton className="h-64" /> :

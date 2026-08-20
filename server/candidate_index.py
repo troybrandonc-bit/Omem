@@ -1,8 +1,8 @@
-"""P7 candidate index — makes candidate generation an INDEXED LOOKUP instead
+"""P7 candidate index. Makes candidate generation an INDEXED LOOKUP instead
 of a full scan of the engine's in-memory assertion map.
 
 Strict boundary: the index only answers "which assertion ids MIGHT be
-relevant?". It never decides belief state, scope, conflict, or ordering —
+relevant?". It never decides belief state, scope, conflict, or ordering,
 the engine and the decision layer remain authoritative. Every id the index
 returns is re-validated against the engine (open state, scope) exactly as
 before, so results are semantically identical to the scan path (proven by
@@ -12,9 +12,9 @@ Two projections, populated when an assertion is recorded (assert / supersede),
 mirroring what CandidateRetriever computed on the fly:
 
     candidate_subjects(project_id, subject, assertion_id)
-        one row per (subject, assertion) — the 'entity' signal
+        one row per (subject, assertion), the 'entity' signal
     candidate_tokens(project_id, token, assertion_id)
-        one row per (proposition token, assertion) — the 'lexical' signal
+        one row per (proposition token, assertion), the 'lexical' signal
 
 Both are pure projections of assertion identity + subjects + proposition; they
 carry no truth. Rebuildable from the engine at any time (rebuild()).

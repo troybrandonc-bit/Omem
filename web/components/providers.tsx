@@ -34,7 +34,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       try {
         list = (await api.projects()).data || [];
       } catch {
-        // server not up yet — Shell shows the waiting state and this retries on
+        // server not up yet. Shell shows the waiting state and this retries on
         // the next mount rather than pinning a project that may not exist.
         return;
       }

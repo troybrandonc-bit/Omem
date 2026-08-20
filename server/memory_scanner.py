@@ -117,7 +117,7 @@ class MemoryScanner:
       db          - the shared SQLite/PG connection (STORE.db)
       project     - a live Project object (engine + labels)
       classifier  - classifier.classify function (optional; used for automated-noise re-eval)
-      record_fn   - api.record() — the authoritative write path for retractions
+      record_fn   - api.record(). The authoritative write path for retractions
       mint_fn     - id minter (api.mint)
     """
 
@@ -403,7 +403,7 @@ class MemoryScanner:
         if state == "CONTRADICTED":
             return {
                 "classification": "CONTRADICTED",
-                "reason": "Engine reports CONTRADICTED — a competing assertion exists",
+                "reason": "Engine reports CONTRADICTED. A competing assertion exists",
                 "proposed_action": None,  # engine already handles this; no action needed
             }
 
@@ -419,7 +419,7 @@ class MemoryScanner:
         if evidence_row is None:
             if not derivations:
                 # Completely ungrounded and not derived: manually asserted via SDK/API
-                # without going through the ingestion pipeline. Treat as VALID —
+                # without going through the ingestion pipeline. Treat as VALID -
                 # the user wrote it intentionally. Mark so in the reason.
                 return {
                     "classification": "VALID",
@@ -527,7 +527,7 @@ class MemoryScanner:
                     return {
                         "classification": "IRRELEVANT",
                         "reason": ("Source is a third-party platform notification about "
-                                   "the owner's own account — not a business relationship"),
+                                   "the owner's own account, not a business relationship"),
                         "source_record_id": src["id"],
                         "evidence": evidence,
                         "original_evidence": evidence,

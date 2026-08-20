@@ -1,11 +1,26 @@
 # OMEM
 
+[![CI](https://github.com/troybrandonc-bit/Omem/actions/workflows/ci.yml/badge.svg)](https://github.com/troybrandonc-bit/Omem/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/omem-infrastructure)](https://pypi.org/project/omem-infrastructure/)
+[![Python](https://img.shields.io/pypi/pyversions/omem-infrastructure)](https://pypi.org/project/omem-infrastructure/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+**Memory for AI agents that tracks what is believed, when, and why, and refuses
+to decide what is true.**
+
 OMEM is a memory layer for AI agents. Instead of dumping text into a vector
 store and hoping for the best, it tracks what each agent believes over time and
 handles contradictions explicitly, so an agent can reason about what it knows,
 when it learned it, and why.
 
 It runs locally with no external services and no dependencies to install.
+
+```bash
+pip install omem-infrastructure && omem-server
+```
+
+Docs: **[infrastructure.omem-cloud.com](https://infrastructure.omem-cloud.com)**
+· [Quickstart](QUICKSTART.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
 ## What makes it different
 
@@ -27,6 +42,11 @@ vector store does not:
 - **Semantic recall.** Finds relevant memories even when the wording differs
   from how they were stored.
 - **A learning loop.** Memories that prove useful rank higher over time.
+- **Self-healing that refuses.** OMEM records failures and runs repairs under
+  policy, and will not run a repair nobody authorised. A model can propose a
+  plan; only actions registered in code execute, and risk class comes from
+  OMEM's registry rather than from the plan claiming its own. See
+  [Self-healing](#self-healing).
 
 ## Quick start
 
@@ -40,7 +60,7 @@ omem-server
 ```
 
 That starts the server on http://127.0.0.1:8787 and, on first run, prints a
-project id and an API key — no signup call, no dashboard visit, nothing to
+project id and an API key: no signup call, no dashboard visit, nothing to
 configure. Paste them straight in:
 
 ```python
@@ -66,10 +86,51 @@ python api.py
 
 Same server, started from source. Setup takes about a minute either way.
 
+## Self-healing
+
+OMEM records what breaks and repairs it under policy. This is infrastructure for
+your agents, not something OMEM does to itself: you register a component and the
+hooks it can be repaired with, and OMEM owns the memory, the safety boundary and
+the lifecycle.
+
+The part that matters is what it refuses. A model may *propose* a repair plan;
+OMEM decides what is permitted. Only action types registered in code can execute,
+risk class comes from that registry and never from the plan, high-risk actions
+need explicit approval, and a repair is not successful until it verifies.
+
+```python
+mem.healing.report_health("vector-index", "healthy", "12,400 vectors")
+
+result = mem.healing.handle(
+    error={"component": "vector-index", "error_type": "StaleShard"},
+    plan={"diagnosis": "replica fell behind after a partition",
+          "confidence": 0.8,
+          "actions": [{"type": "rebuild_index"}, {"type": "exec_shell"}]},
+)
+result["status"]     # -> "denied"
+result["decisions"]  # rebuild_index: permitted (low risk)
+                     # exec_shell:    unknown action type (not registered)
+```
+
+Nothing ran. The plan is kept with the reason each action was permitted or
+refused, so the refusal is a record rather than a silence. Error text and model
+output are data here, and neither can name an action into existence.
+
+Everything else you would want is enforced too: failures are fingerprinted so a
+thousand identical errors are one entry, a repair storm is capped per component,
+one recovery per component is claim-enforced in the database, secrets are
+stripped before anything is persisted, and an internal error escalates rather
+than retrying wild.
+
+The **Self-healing** screen in the dashboard shows component health, the failure
+record, and how far each repair got, with the step it stopped at marked, and the
+diagnosis it acted on. `server/healing.py` is the whole subsystem and is worth
+reading if you are deciding whether to trust it.
+
 ## The dashboard
 
 The dashboard ships inside the package. Start the server and open the same
-address — **http://127.0.0.1:8787** — and it is there: memory, conflicts, the
+address, **http://127.0.0.1:8787**. It is all there: memory, conflicts, the
 belief graph, the timeline, logs and the audit trail. No Node, no second
 process, no second port.
 
@@ -93,14 +154,14 @@ and to rebuild the bundled copy, `OMEM_STATIC=1 npm run build`.
 OMEM runs in one of two modes, and the difference matters before you put it
 anywhere other than your own machine.
 
-**`OMEM_AUTH=local`** — the default, and what makes the quickstart a minute.
+**`OMEM_AUTH=local`**: the default, and what makes the quickstart a minute.
 There is no login: the dashboard provisions a session against the server it can
 see. That is only safe while nothing else can reach the server, so local mode
 **refuses to bind a non-loopback address**. If you mean it (a container whose
 ports are published to `127.0.0.1`, a single-user VM), set
 `OMEM_ALLOW_INSECURE_BIND=1`.
 
-**`OMEM_AUTH=password`** — required for a server other people can reach.
+**`OMEM_AUTH=password`**: required for a server other people can reach.
 Accounts have passwords, hashed with PBKDF2-SHA256. Signing up with an address
 that already has a password returns 409 rather than a session, TOTP is enforced
 where it is enrolled, and the server refuses to start unless `OMEM_MASTER_KEY`
@@ -133,7 +194,7 @@ be switched on for a database that already has data. It refuses to start on the
 development master key, and refuses to run without a real AEAD library rather
 than falling back to the stdlib keystream used for OAuth tokens.
 
-**Lose the key and the data is gone** — there is no recovery path, and no
+**Lose the key and the data is gone**: there is no recovery path, and no
 rotation tooling yet.
 
 ## What is in this repo
@@ -154,15 +215,38 @@ stdio, so MCP clients like Claude Desktop can use OMEM as a memory tool:
 OMEM_API_KEY=... OMEM_BASE_URL=http://127.0.0.1:8787 OMEM_AGENT=support omem-mcp
 ```
 
+To wire it into Claude Desktop, start `omem-server` once to get a project id and
+key, then add this to `claude_desktop_config.json` and restart the app:
+
+```json
+{
+  "mcpServers": {
+    "omem": {
+      "command": "omem-mcp",
+      "env": {
+        "OMEM_API_KEY": "omem_sk_...",
+        "OMEM_BASE_URL": "http://127.0.0.1:8787",
+        "OMEM_PROJECT": "proj_...",
+        "OMEM_AGENT": "claude"
+      }
+    }
+  }
+}
+```
+
+The config file lives at `~/Library/Application Support/Claude/claude_desktop_config.json`
+on macOS and `%APPDATA%\Claude\claude_desktop_config.json` on Windows. The server
+has to be running for the tool to answer, so keep `omem-server` up.
+
 ## Status and price
 
-Free, and free while it stays in beta — no plans, no card, no quota.
+Free, and free while it stays in beta: no plans, no card, no quota.
 
 This is early software under active development. It is meant for testing and
 feedback right now. `web/app/(marketing)/security/page.tsx` lists what it
 protects and, just as importantly, what it does not yet: no SSO, no
 certifications, no key rotation, an audit chain that detects tampering rather
-than preventing it, and one process holding authoritative state — enforced now,
+than preventing it, and one process holding authoritative state, enforced now,
 so a second one refuses to start rather than diverging, but that is the honest
 absence of high availability rather than the presence of it. Read that before
 you plan around it. If you try it and something breaks or feels wrong, that feedback is

@@ -1,6 +1,6 @@
-"""P6 situation brief — "what do I need to know about this situation?"
+"""P6 situation brief. "What do I need to know about this situation?"
 
-Composes the P1–P5 layers into ONE answer an agent can act on. It does not
+Composes the P1-P5 layers into ONE answer an agent can act on. It does not
 re-derive truth: it calls the existing memory pack (candidates → decision →
 scope → engine state), then organises the result into a task-shaped brief and
 attaches a transparent PRIORITY SCORE assembled ONLY from state that actually
@@ -22,7 +22,7 @@ exists. Nothing here invents confidence, similarity, or trust numbers.
 
 PRIORITY MODEL (deterministic, documented; every term is real stored state):
     directness   +3  the memory's subjects intersect the context entities
-    graph_hop    +1  reached via a relationship edge (1 hop) — still relevant,
+    graph_hop    +1  reached via a relationship edge (1 hop), still relevant,
                      but below a direct fact
     specificity  +2  SPECIFIC_FACT/CONFLICTING_FACT; generalisations get 0 so a
                      specific fact always outranks the pattern about it
@@ -74,7 +74,7 @@ def build_situation_brief(p, db, scope_store, *, agent, context="", task="",
     ents = list(entities or [])
     if isinstance(about, str) and about:
         ents = [about] + ents
-    # reuse the whole P1–P5 decision pipeline (scope, engine state, graph hop,
+    # reuse the whole P1-P5 decision pipeline (scope, engine state, graph hop,
     # conflict embedding). We ask for a generous candidate limit, then rank +
     # section + budget here.
     pack = _recall.build_memory_pack(

@@ -1,7 +1,7 @@
 """P8 event_time distinction. Run: python3 tests_p8_event_time.py
 
 Proves assertion_time (when OMEM learned it) and event_time (when it happened)
-are distinct, engine-native fields — populated at formation and surfaced in the
+are distinct, engine-native fields, populated at formation and surfaced in the
 memory chain and packs. Does not fabricate timestamps: when no event time is
 supplied they legitimately coincide; when one is supplied they differ.
 """

@@ -141,7 +141,7 @@ def parse_participants(payload: dict, owner_email: "str | dict | None" = None) -
         "message_id": payload.get("message_id") or payload.get("external_id"),
         "in_reply_to": headers.get("in-reply-to"),
         "references": headers.get("references"),
-        # internal: correspondence that stays inside our organisation —
+        # internal: correspondence that stays inside our organisation -
         # a colleague writing to the owner, or the owner writing to a colleague
         "internal": bool(have_identity and (
             (direction == "inbound" and self_domains and sender_domain in self_domains) or
@@ -153,7 +153,7 @@ def parse_participants(payload: dict, owner_email: "str | dict | None" = None) -
 # ── SaaS self-notification detection ───────────────────────────────────────
 # "Your Stripe subscription renewed" is the OWNER's relationship with a vendor,
 # not a customer relationship. Detected from second-person template shape plus
-# platform-sender evidence — never from a domain blacklist alone.
+# platform-sender evidence - never from a domain blacklist alone.
 _SELF_NOTIFICATION_SUBJECT = re.compile(
     r"^(your|you'?re|welcome to|thanks for (?:joining|subscribing)|"
     r"get(?:ting)? started|confirm(?:ing)? your|verify your|"
@@ -277,7 +277,7 @@ def speech_act(sentence: str) -> str:
             return "MARKETING_CTA"
         return "QUESTION"
     if _SECOND_PERSON_OPEN.match(low):
-        # "Want to upgrade? Click here" without the '?' kept — still a CTA shape
+        # "Want to upgrade? Click here" without the '?' kept - still a CTA shape
         return "MARKETING_CTA" if _CTA_TAIL.search(low) else "QUESTION"
     if re.match(r"^(please|kindly|could you please|por favor)\b", low) or \
        re.search(r"\b(please|kindly)\s+(send|share|forward|extend|confirm|review|sign|update|cancel|renew)\b", low) or \

@@ -2,7 +2,7 @@
 
 The whole server (engine + HTTP API) ships inside this package under _server/.
 This launcher puts that directory on sys.path (the server uses flat local
-imports) and calls its main(). It runs with zero third-party dependencies —
+imports) and calls its main(). It runs with zero third-party dependencies,
 same instant-install story as the SDK.
 
 Usage:

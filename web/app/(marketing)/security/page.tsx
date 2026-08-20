@@ -15,8 +15,8 @@ export const metadata = { title: "Security / OMEM" };
 const CONTROLS = [
   { k: "AUTHENTICATION", d: "Two modes, and the server picks neither for you. Local mode has no login and refuses to bind anything but loopback. Password mode (OMEM_AUTH=password) stores PBKDF2-SHA256 password hashes, and signup will not issue a session for an address that already has one." },
   { k: "SECOND FACTOR", d: "TOTP (RFC 6238), enforced at session creation and on claiming an account. Sessions expire after 30 days and can be revoked; expired and revoked tokens stop working immediately." },
-  { k: "TLS", d: "Set OMEM_TLS_CERT and OMEM_TLS_KEY and the server speaks HTTPS directly, TLS 1.2 floor. A terminating proxy is still the better answer at scale — it renews and resumes better than this does — but OMEM no longer requires one to avoid plaintext." },
-  { k: "ENCRYPTION AT REST", d: "OMEM_ENCRYPT_AT_REST encrypts memory content with AES-GCM: the operations log the engine is rebuilt from, ingested source payloads, and the quoted evidence behind each memory. Stored OAuth tokens are encrypted regardless. Lose the master key and you lose the data — there is no recovery path, by design." },
+  { k: "TLS", d: "Set OMEM_TLS_CERT and OMEM_TLS_KEY and the server speaks HTTPS directly, TLS 1.2 floor. A terminating proxy is still the better answer at scale (it renews and resumes better than this does) but OMEM no longer requires one to avoid plaintext." },
+  { k: "ENCRYPTION AT REST", d: "OMEM_ENCRYPT_AT_REST encrypts memory content with AES-GCM: the operations log the engine is rebuilt from, ingested source payloads, and the quoted evidence behind each memory. Stored OAuth tokens are encrypted regardless. Lose the master key and you lose the data. There is no recovery path, by design." },
   { k: "ACCESS CONTROL", d: "Role-based, enforced per organization and per project. API keys are scoped to one project, carry their own role, can be bound to a single agent, and are revocable. Key secrets are shown once and stored hashed." },
   { k: "TAMPER-EVIDENT AUDIT", d: "Every audit row commits to the one before it, per organization. Editing or deleting a row breaks every hash after it, and GET /v1/audit/verify says which row and why. Anchor the head hash somewhere OMEM does not control and the log becomes evidence rather than assertion." },
   { k: "DATA RIGHTS", d: "GDPR/CCPA export and erasure are endpoints, not a process: /v1/export/memories exports a project, and tenant erasure removes every project-scoped row. Backups taken before an erasure still contain the data until they age out." },
@@ -26,7 +26,7 @@ const CONTROLS = [
 ];
 
 const NOT_YET = [
-  ["Tamper-PROOFING", "The audit chain detects edits; it cannot prevent them. Anyone with write access can rewrite the chain from the edit forward. Detecting that requires keeping the head hash somewhere else — export it."],
+  ["Tamper-PROOFING", "The audit chain detects edits; it cannot prevent them. Anyone with write access can rewrite the chain from the edit forward. Detecting that requires keeping the head hash somewhere else, export it."],
   ["SSO and SCIM", "No OIDC, SAML or SCIM. Accounts are email and password."],
   ["Key rotation", "There is one master key and no re-encryption tooling. Rotating it today means decrypting and re-encrypting by hand."],
   ["Data residency", "No region pinning. Your data is wherever you run it."],
@@ -60,7 +60,7 @@ export default function Security() {
       </Section>
 
       <Section className="pb-16">
-        <div className="tech-label mb-4">Not yet — do not plan around these</div>
+        <div className="tech-label mb-4">Not yet. Do not plan around these</div>
         <div className="border-t">
           {NOT_YET.map(([k, d]) => (
             <div key={k} className="spec-row border-b py-6">
