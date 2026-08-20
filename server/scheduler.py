@@ -23,6 +23,12 @@ class Scheduler:
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self.runs = 0
+        # Timestamp of the last tick that ran to completion. `_loop` swallows tick
+        # exceptions so one bad connector cannot kill the scheduler, which means a
+        # thread that is alive proves nothing about whether work is happening. This
+        # does: a stale value with a live thread is a hung or persistently failing
+        # scheduler, and that distinction is what health reporting needs.
+        self.last_tick: float | None = None
 
     def start(self):
         if self._thread and self._thread.is_alive():
@@ -92,4 +98,5 @@ class Scheduler:
             self._last_run[pid] = now
             acted[pid] = {"queued": queued, **res}
         self.runs += 1
+        self.last_tick = time.time()
         return acted
