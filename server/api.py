@@ -4098,6 +4098,14 @@ def bootstrap_local_workspace():
 
 
 def print_local_quickstart(ws, host, port, scheme):
+    """Print the first-run banner, and FLUSH it.
+
+    stdout is block-buffered whenever it is not a terminal, and this process
+    then runs forever without filling the buffer — so `omem-server > omem.log &`,
+    which is how anyone backgrounds it, printed the "starting on ..." line (that
+    one goes to stderr) and then appeared to hang with the API key still sitting
+    in memory. The key is the entire onboarding; it has to reach the pipe.
+    """
     base = f"{scheme}://{host}:{port}"
     print()
     print("  Your workspace is ready. The key is shown once:")
@@ -4112,6 +4120,7 @@ def print_local_quickstart(ws, host, port, scheme):
     print('                 claim="prefers_annual_billing")')
     print('    mem.believes(about="customer:1", claim="prefers_annual_billing")')
     print()
+    sys.stdout.flush()
 
 
 
@@ -4244,6 +4253,9 @@ def main(port=8787):
               "Build it with: cd web && OMEM_STATIC=1 npm run build")
     if _ws:
         print_local_quickstart(_ws, host, port, scheme)
+    # Everything above is startup information a person is waiting to read, and
+    # serve_forever() never returns to flush it.
+    sys.stdout.flush()
 
     def shutdown(*_):
         print("\n  graceful shutdown: stopping scheduler + server")

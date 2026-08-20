@@ -123,37 +123,60 @@ check("off unless asked for", not secrets_provider.content_encryption_enabled())
 os.environ["OMEM_ENCRYPT_AT_REST"] = "1"
 check("on when asked", secrets_provider.content_encryption_enabled())
 
-ct = secrets_provider.encrypt_content('{"proposition":"prefers_annual_billing"}')
-check("ciphertext does not contain the plaintext", "prefers_annual_billing" not in ct)
-check("it is a versioned token", ct.startswith("v2c."), ct[:8])
-check("it round-trips", json.loads(secrets_provider.decrypt_content(ct))["proposition"]
-      == "prefers_annual_billing")
-check("encrypting twice gives different ciphertext (fresh nonce)",
-      secrets_provider.encrypt_content("same") != secrets_provider.encrypt_content("same"))
-check("already-encrypted input is not double-wrapped",
-      secrets_provider.encrypt_content(ct) == ct)
-check("None passes through", secrets_provider.encrypt_content(None) is None)
+# Content encryption REFUSES to run on the stdlib HMAC fallback, so without the
+# `cryptography` extra there is nothing to round-trip. That is the correct
+# behaviour and the default install, not a broken environment — so assert the
+# refusal is clean and skip the rest. Asserting otherwise made this suite fail
+# in every CI job that did not install the extra, which is most of them.
+if not secrets_provider._HAVE_AESGCM:
+    _refused = False
+    try:
+        secrets_provider.encrypt_content("x")
+    except SystemExit as e:
+        _refused = "cryptography" in str(e)
+    check("without an AEAD library, encryption refuses rather than "
+          "silently using the HMAC fallback", _refused)
+    if _ambient is not None:
+        os.environ["OMEM_ENCRYPT_AT_REST"] = _ambient
+    else:
+        os.environ.pop("OMEM_ENCRYPT_AT_REST", None)
+    print("  (skipping the encryption round-trip: cryptography is not installed)")
+    _SKIP_CRYPTO = True
+else:
+    _SKIP_CRYPTO = False
 
-# The property that lets a database be half-migrated: plaintext still reads.
-# The reason v2c exists: LocalSecretsProvider salts per value and so runs
-# PBKDF2 per row (~336 ms measured). Content derives the key once and uses a
-# fresh nonce per row instead. If this regresses, every write and every boot
-# replay gets ~4 orders of magnitude slower, so it is worth a test.
-secrets_provider.encrypt_content("warm the key cache")
-_t = time.perf_counter()
-for _ in range(200):
-    secrets_provider.encrypt_content("x" * 400)
-_per_ms = (time.perf_counter() - _t) / 200 * 1000
-check(f"encryption derives its key once, not per row ({_per_ms:.3f} ms/row)",
-      _per_ms < 5.0, f"{_per_ms:.1f} ms per row suggests a KDF in the hot path")
+if not _SKIP_CRYPTO:
+    ct = secrets_provider.encrypt_content('{"proposition":"prefers_annual_billing"}')
+    check("ciphertext does not contain the plaintext", "prefers_annual_billing" not in ct)
+    check("it is a versioned token", ct.startswith("v2c."), ct[:8])
+    check("it round-trips", json.loads(secrets_provider.decrypt_content(ct))["proposition"]
+          == "prefers_annual_billing")
+    check("encrypting twice gives different ciphertext (fresh nonce)",
+          secrets_provider.encrypt_content("same") != secrets_provider.encrypt_content("same"))
+    check("already-encrypted input is not double-wrapped",
+          secrets_provider.encrypt_content(ct) == ct)
+    check("None passes through", secrets_provider.encrypt_content(None) is None)
 
-check("plaintext rows still read when encryption is ON",
-      secrets_provider.decrypt_content('{"plain":true}') == '{"plain":true}')
-os.environ.pop("OMEM_ENCRYPT_AT_REST")
-check("ciphertext still reads when encryption is switched OFF again",
-      json.loads(secrets_provider.decrypt_content(ct))["proposition"] == "prefers_annual_billing")
-if _ambient is not None:
-    os.environ["OMEM_ENCRYPT_AT_REST"] = _ambient   # leave the run as we found it
+    # The property that lets a database be half-migrated: plaintext still reads.
+    # The reason v2c exists: LocalSecretsProvider salts per value and so runs
+    # PBKDF2 per row (~336 ms measured). Content derives the key once and uses a
+    # fresh nonce per row instead. If this regresses, every write and every boot
+    # replay gets ~4 orders of magnitude slower, so it is worth a test.
+    secrets_provider.encrypt_content("warm the key cache")
+    _t = time.perf_counter()
+    for _ in range(200):
+        secrets_provider.encrypt_content("x" * 400)
+    _per_ms = (time.perf_counter() - _t) / 200 * 1000
+    check(f"encryption derives its key once, not per row ({_per_ms:.3f} ms/row)",
+          _per_ms < 5.0, f"{_per_ms:.1f} ms per row suggests a KDF in the hot path")
+
+    check("plaintext rows still read when encryption is ON",
+          secrets_provider.decrypt_content('{"plain":true}') == '{"plain":true}')
+    os.environ.pop("OMEM_ENCRYPT_AT_REST")
+    check("ciphertext still reads when encryption is switched OFF again",
+          json.loads(secrets_provider.decrypt_content(ct))["proposition"] == "prefers_annual_billing")
+    if _ambient is not None:
+        os.environ["OMEM_ENCRYPT_AT_REST"] = _ambient   # leave the run as we found it
 
 # ── the single-writer lock ──────────────────────────────────────────────────
 print("== one writer per database ==")
