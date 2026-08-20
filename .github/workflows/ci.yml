@@ -138,14 +138,34 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.9" }        # the floor we advertise
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: npm, cache-dependency-path: web/package-lock.json }
+      # The dashboard is built here and copied into the wheel by hatch_build.py,
+      # which is what makes `pip install` enough to get a UI. This is also the
+      # only machine that can build it — Next needs more memory than some dev
+      # machines have — so the wheel must be built here too, never locally.
+      - name: Build the dashboard (static export)
+        working-directory: web
+        env: { OMEM_STATIC: "1", NEXT_PUBLIC_OMEM_BUNDLED: "1" }
+        run: |
+          npm ci
+          npm run build
+          test -f out/index.html || { echo "::error::static export produced no index.html"; exit 1; }
+          echo "exported $(find out -type f | wc -l) files"
       - run: pip install build
       - name: Build the wheel
         working-directory: sdk/python
         run: python -m build --wheel
-      # Install it the way a developer would — from the wheel, into a clean
-      # environment, with nothing else present. The bundled server is generated
-      # at build time, so "it works from the repo" says nothing about whether
-      # `pip install omem-infrastructure` works.
+      - name: The wheel must actually contain the dashboard
+        # One line, not a heredoc: an indented heredoc body reaches python with
+        # its leading spaces intact and dies on IndentationError.
+        run: >-
+          python -c "import glob,zipfile,sys;
+          n=zipfile.ZipFile(glob.glob('sdk/python/dist/*.whl')[0]).namelist();
+          d=[x for x in n if '/_dashboard/' in x];
+          print(len(d),'dashboard files in the wheel');
+          sys.exit(0 if any(x.endswith('_dashboard/index.html') for x in d) else 1)"
+
       - name: Install it clean
         run: pip install sdk/python/dist/*.whl
       - name: Run QUICKSTART.md, exactly as written
@@ -154,6 +174,17 @@ jobs:
         # IndentationError. It is also runnable locally, which a YAML block
         # is not.
         run: python scripts/verify_quickstart.py --port 8787
+      - name: The dashboard is served by the API server
+        # The whole point of bundling: one install, one command, one URL.
+        run: |
+          omem-server 8788 > dash.log 2>&1 &
+          for i in $(seq 1 40); do curl -sf http://127.0.0.1:8788/v1/health >/dev/null && break; sleep 1; done
+          cat dash.log
+          code=$(curl -s -o page.html -w "%{http_code}" http://127.0.0.1:8788/)
+          test "$code" = "200" || { echo "::error::GET / returned $code, not the dashboard"; exit 1; }
+          grep -qi "<html" page.html || { echo "::error::GET / did not return HTML"; exit 1; }
+          curl -sf http://127.0.0.1:8788/v1/health >/dev/null || { echo "::error::static serving broke the API"; exit 1; }
+          echo "dashboard served, API intact"
 
   dashboard:
     name: dashboard / web

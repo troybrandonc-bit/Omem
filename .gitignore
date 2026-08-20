@@ -34,5 +34,11 @@ out/
 # Never commit it: server/ is the single source.
 sdk/python/omem/_server/
 
+# Built dashboard. web/out is the Next static export; omem/_dashboard is the
+# copy hatch_build.py makes into the wheel. Both are generated — web/ is the
+# single source, exactly as server/ is for the bundled server.
+web/out/
+sdk/python/omem/_dashboard/
+
 # A build artifact: it changes on every typecheck and belongs to nobody.
 web/tsconfig.tsbuildinfo

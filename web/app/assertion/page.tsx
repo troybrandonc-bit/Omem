@@ -1,7 +1,21 @@
 "use client";
-import { useState } from "react";
+/* Query-param route, not /assertions/[id].
+ *
+ * `output: "export"` emits a file per route at build time, and a route whose id
+ * only exists at runtime has no file to emit — Next needs generateStaticParams,
+ * which cannot enumerate ids that have not been created yet. So the id moves
+ * into the query string, which is a client-side concern and needs no file.
+ *
+ * The singular path (/assertion, not /assertions) keeps it from colliding with
+ * the list page that already lives at the plural one.
+ *
+ * useSearchParams() suspends during prerender, so the body sits inside a
+ * Suspense boundary. Without it the export fails with "useSearchParams() should
+ * be wrapped in a suspense boundary" — a build error, not a runtime one.
+ */
+import { Suspense, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api, isGrounded, type WhyResult } from "@/lib/api";
 import { useApp } from "@/components/providers";
@@ -10,9 +24,8 @@ import { ProvenanceDAG } from "@/components/viz/provenance-dag";
 import {
   ArrowLeft, AlertTriangle, History, ExternalLink, Mail, FileText } from "lucide-react";
 
-export default function AssertionDetail() {
-  const params = useParams();
-  const id = decodeURIComponent(params.id as string);
+function AssertionDetailInner() {
+  const id = useSearchParams().get("id") || "";
   const { project, asOf, now } = useApp();
   const T = asOf ?? undefined;
 
@@ -45,9 +58,9 @@ export default function AssertionDetail() {
       </div>
 
       <div className="mb-5 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-y py-2.5 text-2xs text-muted">
-        <span>about <Link href={`/entities/${encodeURIComponent(why.subjects[0]?.id ?? "")}`}
+        <span>about <Link href={`/entity?id=${encodeURIComponent(why.subjects[0]?.id ?? "")}`}
           className="font-medium text-fg hover:text-accent">{why.subjects[0]?.label || why.subjects[0]?.id || "—"}</Link></span>
-        <span>asserted by <Link href={`/agents/${encodeURIComponent(a.agent)}`}
+        <span>asserted by <Link href={`/agent?id=${encodeURIComponent(a.agent)}`}
           className="font-medium text-fg hover:text-accent">{why.agent?.label || a.agent}</Link></span>
         <span>at <span className="num text-fg">t={a.assertion_time}</span></span>
         {a.confidence !== null && <span>source confidence <span className="num text-fg">{a.confidence}</span></span>}
@@ -80,7 +93,7 @@ export default function AssertionDetail() {
                 <div className="tech-label mb-1.5">Also about</div>
                 <div className="flex flex-wrap gap-1">
                   {why.subjects.slice(1).map((s, i) => s && (
-                    <Link key={i} href={`/entities/${encodeURIComponent(s.id)}`}>
+                    <Link key={i} href={`/entity?id=${encodeURIComponent(s.id)}`}>
                       <Badge tone="accent">{s.label || s.id}</Badge>
                     </Link>
                   ))}
@@ -112,7 +125,7 @@ export default function AssertionDetail() {
                 <AlertTriangle className="h-3.5 w-3.5" /> Contradicted by
               </div>
               {why.contradictions.map(c => (
-                <Link key={c.id} href={`/assertions/${encodeURIComponent(c.id)}`}
+                <Link key={c.id} href={`/assertion?id=${encodeURIComponent(c.id)}`}
                   className="mb-2 flex items-center justify-between rounded-md border border-[color:var(--conflict)]/30 bg-[color:var(--conflict)]/5 px-3 py-2 hover:bg-[color:var(--conflict)]/10">
                   <div>
                     <div className="text-sm font-medium">{c.label || c.proposition}</div>
@@ -140,7 +153,7 @@ export default function AssertionDetail() {
                       <div className={`h-2.5 w-2.5 rounded-full ${r.id === a.id ? "bg-accent" : r.is_retraction ? "bg-conflict" : "bg-closed"}`} />
                       {i < why.revision_chain.length - 1 && <div className="h-8 w-px bg-border" />}
                     </div>
-                    <Link href={`/assertions/${encodeURIComponent(r.id)}`} className="flex-1 py-1 hover:text-accent">
+                    <Link href={`/assertion?id=${encodeURIComponent(r.id)}`} className="flex-1 py-1 hover:text-accent">
                       <div className="text-sm">{r.is_retraction ? <span className="text-conflict">retracted</span> : (r.label || r.proposition)}</div>
                       <div className="text-2xs text-faint">t={r.assertion_time} {r.id === a.id && "· viewing"}</div>
                     </Link>
@@ -288,5 +301,13 @@ function SourceMessage({ why }: { why: WhyResult }) {
         </div>
       )}
     </Card>
+  );
+}
+
+export default function AssertionDetail() {
+  return (
+    <Suspense fallback={null}>
+      <AssertionDetailInner />
+    </Suspense>
   );
 }

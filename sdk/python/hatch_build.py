@@ -72,3 +72,40 @@ class BundleServerHook(BuildHookInterface):
         if not os.path.isfile(os.path.join(dest, "api.py")):
             raise RuntimeError("bundled server is missing api.py; refusing to build")
         self.app.display_info(f"bundled {copied} server files into {DEST}")
+        self._bundle_dashboard(dest)
+
+    def _bundle_dashboard(self, server_dest):
+        """Copy the built dashboard in, if one has been built.
+
+        This is what makes `pip install omem-infrastructure` enough to get a UI:
+        the Python server finds these files next to itself and serves them, so
+        there is no Node at runtime, no second process and no second port.
+
+        Deliberately NOT fatal when absent. The dashboard needs `npm ci && npm
+        run build` with OMEM_STATIC=1, which is a Node toolchain and a good deal
+        of memory — CI has both and plenty of machines do not. A wheel without
+        it is a perfectly good wheel that serves the API and says the dashboard
+        is not bundled, which is a far better failure than being unable to cut a
+        release at all. The server bundle above IS fatal, because without it
+        `omem-server` does not exist.
+        """
+        source = os.path.abspath(os.path.join(self.root, "..", "..", "web", "out"))
+        dest = os.path.join(self.root, "omem", "_dashboard")
+
+        if not os.path.isdir(source):
+            if os.path.isdir(dest):
+                return          # building from an sdist: the copy is already here
+            self.app.display_warning(
+                "no dashboard bundled (web/out not found). The wheel will serve "
+                "the API only. Build it with: cd web && OMEM_STATIC=1 npm run build")
+            return
+
+        if os.path.isdir(dest):
+            shutil.rmtree(dest)
+        shutil.copytree(source, dest)
+        n = sum(len(f) for _, _, f in os.walk(dest))
+        if not os.path.isfile(os.path.join(dest, "index.html")):
+            raise RuntimeError(
+                "web/out exists but has no index.html — a partial or failed "
+                "export would ship a dashboard that 404s on its own front page")
+        self.app.display_info(f"bundled {n} dashboard files into omem/_dashboard")

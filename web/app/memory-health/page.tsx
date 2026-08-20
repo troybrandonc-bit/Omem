@@ -212,7 +212,7 @@ export default function MemoryHealth() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <Badge tone={CLS_TONE[q.classification] ?? "muted"}>{q.classification.replace(/_/g, " ")}</Badge>
-                    <Link href={`/assertions/${encodeURIComponent(q.assertion_id)}`}
+                    <Link href={`/assertion?id=${encodeURIComponent(q.assertion_id)}`}
                       className="num text-[13px] text-accent hover:underline">{q.assertion_id}</Link>
                   </div>
                   <div className="num mt-1 text-[13px]">{q.proposition}</div>
@@ -354,7 +354,7 @@ export default function MemoryHealth() {
               <div className="flex items-center gap-3">
                 <span className="text-2xs text-faint">{new Date(c.ts * 1000).toLocaleString()}</span>
                 {c.assertion_id && (
-                  <Link href={`/assertions/${encodeURIComponent(c.assertion_id)}`}
+                  <Link href={`/assertion?id=${encodeURIComponent(c.assertion_id)}`}
                     className="text-2xs font-semibold text-accent hover:underline">Inspect →</Link>
                 )}
               </div>
@@ -405,7 +405,7 @@ function ResultRow({ r }: { r: MemoryScanResult }) {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <Badge tone={CLS_TONE[r.classification] ?? "muted"}>{r.classification.replace(/_/g, " ")}</Badge>
-            <Link href={`/assertions/${encodeURIComponent(r.assertion_id)}`}
+            <Link href={`/assertion?id=${encodeURIComponent(r.assertion_id)}`}
               className="num text-[13px] text-accent hover:underline">{r.assertion_id}</Link>
             {r.proposed_action &&
               <span className="text-2xs text-faint">→ {r.proposed_action}</span>}

@@ -66,22 +66,27 @@ python api.py
 
 Same server, started from source. Setup takes about a minute either way.
 
-## The dashboard (optional)
+## The dashboard
 
-The dashboard lives in `web/` — it is the only UI in this repository, and the
-server itself returns JSON and never HTML. It shows memory, conflicts, the belief
-graph, the timeline, logs and the audit trail:
+The dashboard ships inside the package. Start the server and open the same
+address — **http://127.0.0.1:8787** — and it is there: memory, conflicts, the
+belief graph, the timeline, logs and the audit trail. No Node, no second
+process, no second port.
+
+In local mode (the default) there is no login; it opens on the project the
+server created for you. On a server running `OMEM_AUTH=password` it shows a
+sign-in form instead.
+
+It is a static export of `web/`, the only UI in this repository, copied into the
+wheel at build time. To work on it:
 
 ```bash
 cd web
 npm install
-npm run dev
+npm run dev          # http://localhost:3000, proxying to the API on 8787
 ```
 
-Open http://localhost:3000. In local mode (the default) it connects to the
-running server automatically with no login. If it says it is waiting for the
-server, start the server first and refresh. On a server running `OMEM_AUTH=password`
-it shows a sign-in form instead.
+and to rebuild the bundled copy, `OMEM_STATIC=1 npm run build`.
 
 ## Authentication
 

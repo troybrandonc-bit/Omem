@@ -2,7 +2,18 @@
 // backend (server/api.py), which delegates to the authoritative OMEM engine.
 // No memory semantics live here. This is transport + types only.
 
-const BASE = process.env.NEXT_PUBLIC_OMEM_API || "/api/omem";
+// Where the API is.
+//
+//   bundled (static export served BY the Python server) -> "" , i.e. same
+//     origin, so the client calls /v1/... directly. No proxy, no CORS, no
+//     configuration, and it works on whatever host and port the server was
+//     started on rather than a hardcoded one.
+//   npm run dev -> "/api/omem", the rewrite in next.config.js.
+//
+// NEXT_PUBLIC_OMEM_API still overrides both, for a dashboard hosted apart from
+// its server.
+const BASE = process.env.NEXT_PUBLIC_OMEM_API
+  ?? (process.env.NEXT_PUBLIC_OMEM_BUNDLED === "1" ? "" : "/api/omem");
 
 export type PropositionState = "BELIEVED_TRUE" | "BELIEVED_FALSE" | "CONTRADICTED" | "UNKNOWN";
 

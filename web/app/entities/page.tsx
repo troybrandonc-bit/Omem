@@ -17,7 +17,7 @@ export default function Entities() {
         <Table><thead><tr><Th>Entity</Th><Th>Type</Th><Th>ID</Th></tr></thead><tbody>
           {data.data.map(e => (
             <tr key={e.id} className="cursor-pointer hover:bg-[color:var(--border)]/20">
-              <Td><Link href={`/entities/${encodeURIComponent(e.id)}`} className="font-medium hover:text-accent">{e.label || e.id}</Link></Td>
+              <Td><Link href={`/entity?id=${encodeURIComponent(e.id)}`} className="font-medium hover:text-accent">{e.label || e.id}</Link></Td>
               <Td><Badge tone="accent">{e.type}</Badge></Td>
               <Td><span className="text-xs text-muted">{e.id}</span></Td>
             </tr>

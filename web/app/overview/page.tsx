@@ -126,7 +126,7 @@ export default function Overview() {
             <div className="divide-y">
               {latest.length === 0 && <div className="py-4 text-[13px] text-muted">No open beliefs yet.</div>}
               {latest.map(b => (
-                <Link key={b.id} href={`/assertions/${encodeURIComponent(b.id)}`}
+                <Link key={b.id} href={`/assertion?id=${encodeURIComponent(b.id)}`}
                   className="flex items-center justify-between gap-3 py-2 transition-colors hover:bg-raised">
                   <span className="truncate text-[13px] font-medium">{b.label || b.proposition}</span>
                   <span className="num shrink-0 text-2xs text-faint">t={b.assertion_time}</span>

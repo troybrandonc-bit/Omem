@@ -1,14 +1,29 @@
 "use client";
+/* Query-param route, not /assertions/[id].
+ *
+ * `output: "export"` emits a file per route at build time, and a route whose id
+ * only exists at runtime has no file to emit — Next needs generateStaticParams,
+ * which cannot enumerate ids that have not been created yet. So the id moves
+ * into the query string, which is a client-side concern and needs no file.
+ *
+ * The singular path (/assertion, not /assertions) keeps it from colliding with
+ * the list page that already lives at the plural one.
+ *
+ * useSearchParams() suspends during prerender, so the body sits inside a
+ * Suspense boundary. Without it the export fails with "useSearchParams() should
+ * be wrapped in a suspense boundary" — a build error, not a runtime one.
+ */
+import { Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api, isGrounded } from "@/lib/api";
 import { useApp } from "@/components/providers";
 import { Card, Skeleton, Badge } from "@/components/ui/primitives";
 import { ArrowLeft, Box } from "lucide-react";
 
-export default function EntityDetail() {
-  const id = decodeURIComponent(useParams().id as string);
+function EntityDetailInner() {
+  const id = useSearchParams().get("id") || "";
   const { project, asOf } = useApp();
   const { data: ent } = useQuery({ queryKey: ["entity", project, id], queryFn: () => api.entity(project, id) });
   const { data, isLoading } = useQuery({ queryKey: ["beliefs", project, id, asOf], queryFn: () => api.beliefsAbout(project, id, asOf ?? "now") });
@@ -25,7 +40,7 @@ export default function EntityDetail() {
       {isLoading ? <Skeleton className="h-40" /> :
         <div className="space-y-2">
           {(data?.data || []).map(b => (
-            <Link key={b.id} href={`/assertions/${encodeURIComponent(b.id)}`}>
+            <Link key={b.id} href={`/assertion?id=${encodeURIComponent(b.id)}`}>
               <Card className="p-3 hover:border-[color:var(--accent)]/40">
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-medium">{b.label || b.proposition}</div>
@@ -38,5 +53,14 @@ export default function EntityDetail() {
           {(!data || data.data.length === 0) && <div className="text-sm text-muted">No current beliefs about this entity.</div>}
         </div>}
     </div>
+  );
+}
+
+
+export default function EntityDetail() {
+  return (
+    <Suspense fallback={null}>
+      <EntityDetailInner />
+    </Suspense>
   );
 }

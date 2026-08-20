@@ -31,7 +31,7 @@ export default function Conflicts() {
                 </div>
                 <div className="relative grid md:grid-cols-2">
                   {c.pair.map((a, j) => (
-                    <Link key={a.id} href={`/assertions/${encodeURIComponent(a.id)}`}
+                    <Link key={a.id} href={`/assertion?id=${encodeURIComponent(a.id)}`}
                       className={`group p-5 transition-colors hover:bg-panel ${j === 0 ? "border-b md:border-b-0 md:border-r" : ""}`}>
                       <div className="text-[15px] leading-snug group-hover:text-accent">{a.label || a.proposition}</div>
                       <div className="mt-1 text-2xs text-muted">{a.proposition}</div>

@@ -141,7 +141,7 @@ function MemoryRow({ a, now, role }: { a: Assertion; now: number; role: string |
     <div className="px-4 py-3 hover:bg-[color:var(--border)]/20">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <Link href={`/assertions/${encodeURIComponent(a.id)}`} className="group block">
+          <Link href={`/assertion?id=${encodeURIComponent(a.id)}`} className="group block">
             <div className="flex flex-wrap items-center gap-2">
               <span className="num text-[14px] font-medium group-hover:text-accent">{a.proposition}</span>
               {role && <Badge tone={role === "CUSTOMER" ? "believed" : role === "MARKETING" || role === "IGNORE" ? "conflict" : "accent"}>{role.replace(/_/g, " ")}</Badge>}
@@ -169,7 +169,7 @@ function MemoryRow({ a, now, role }: { a: Assertion; now: number; role: string |
             ? <Badge tone="believed"><ShieldCheck className="h-3 w-3" />grounded</Badge>
             : <Badge tone="unknown"><ShieldAlert className="h-3 w-3" />ungrounded</Badge>}
           <div className="w-32"><IntervalStrip start={a.belief_interval.start} end={a.belief_interval.end} now={now} min={0} max={Math.max(now, a.belief_interval.start + 1)} /></div>
-          <Link href={`/assertions/${encodeURIComponent(a.id)}`}
+          <Link href={`/assertion?id=${encodeURIComponent(a.id)}`}
             className="text-2xs font-semibold text-accent hover:underline">View evidence →</Link>
         </div>
       </div>

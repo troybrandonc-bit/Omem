@@ -216,7 +216,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
         <div className="max-h-72 overflow-y-auto p-1.5">
           {results.length === 0 && <div className="px-3 py-6 text-center text-sm text-muted">No matches</div>}
           {results.map(a => (
-            <Link key={a.id} href={`/assertions/${encodeURIComponent(a.id)}`} onClick={onClose}
+            <Link key={a.id} href={`/assertion?id=${encodeURIComponent(a.id)}`} onClick={onClose}
               className="flex items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-raised">
               <span>{a.label || a.proposition}</span>
               <span className="text-2xs text-faint">{a.id}</span>

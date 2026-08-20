@@ -57,7 +57,7 @@ export default function Graph() {
             const clickable = n.kind === "assertion";
             return (
               <g key={n.id} className={clickable ? "cursor-pointer" : ""}
-                onClick={() => clickable && router.push(`/assertions/${encodeURIComponent(n.id)}`)}>
+                onClick={() => clickable && router.push(`/assertion?id=${encodeURIComponent(n.id)}`)}>
                 <circle cx={p.x} cy={p.y} r={n.kind === "assertion" ? 6 : 5} fill={KIND_COLOR[n.kind]} opacity={0.9} />
                 <text x={p.x} y={p.y - 10} textAnchor="middle" fontSize={10} fill="var(--fg)" className="pointer-events-none">
                   {(n.label || n.id).slice(0, 22)}

@@ -1,14 +1,29 @@
 "use client";
+/* Query-param route, not /assertions/[id].
+ *
+ * `output: "export"` emits a file per route at build time, and a route whose id
+ * only exists at runtime has no file to emit — Next needs generateStaticParams,
+ * which cannot enumerate ids that have not been created yet. So the id moves
+ * into the query string, which is a client-side concern and needs no file.
+ *
+ * The singular path (/assertion, not /assertions) keeps it from colliding with
+ * the list page that already lives at the plural one.
+ *
+ * useSearchParams() suspends during prerender, so the body sits inside a
+ * Suspense boundary. Without it the export fails with "useSearchParams() should
+ * be wrapped in a suspense boundary" — a build error, not a runtime one.
+ */
+import { Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { useApp } from "@/components/providers";
 import { Card, Skeleton, Badge } from "@/components/ui/primitives";
 import { ArrowLeft, Bot } from "lucide-react";
 
-export default function AgentDetail() {
-  const id = decodeURIComponent(useParams().id as string);
+function AgentDetailInner() {
+  const id = useSearchParams().get("id") || "";
   const { project, asOf } = useApp();
   const { data, isLoading } = useQuery({ queryKey: ["agent", project, id, asOf], queryFn: () => api.agent(project, id, asOf ?? "now") });
   if (isLoading || !data) return <Skeleton className="h-64" />;
@@ -22,7 +37,7 @@ export default function AgentDetail() {
       <div className="mb-2 tech-label">Claims asserted by this agent</div>
       <div className="space-y-2">
         {(data.claims || []).map(c => (
-          <Link key={c.id} href={`/assertions/${encodeURIComponent(c.id)}`}>
+          <Link key={c.id} href={`/assertion?id=${encodeURIComponent(c.id)}`}>
             <Card className="p-3 hover:border-[color:var(--accent)]/40">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-medium">{c.label || c.proposition}</div>
@@ -35,5 +50,14 @@ export default function AgentDetail() {
         {(!data.claims || data.claims.length === 0) && <div className="text-sm text-muted">No claims.</div>}
       </div>
     </div>
+  );
+}
+
+
+export default function AgentDetail() {
+  return (
+    <Suspense fallback={null}>
+      <AgentDetailInner />
+    </Suspense>
   );
 }

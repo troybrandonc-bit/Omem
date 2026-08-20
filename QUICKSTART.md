@@ -82,18 +82,17 @@ once, as above. OMEM never decides two claims disagree by reading them, because
 that judgment is what would stop the same question having the same answer a year
 from now.
 
-## 5. Look at it (optional)
+## 5. Look at it
 
-The dashboard is a separate app in `web/`, and needs Node:
+Open **http://127.0.0.1:8787** — the same address the server is already on.
 
-```bash
-cd web
-npm install
-npm run dev
-```
+The dashboard ships inside the package and is served by the server itself, so
+there is nothing else to install and no second process. It opens on the project
+you have been writing to, with no login: memory, conflicts, the belief graph,
+the timeline, and the provenance behind any claim.
 
-http://localhost:3000. In local mode there is no login — it connects to the
-server you are already running and opens on the project you have been writing to.
+If it says the dashboard is not bundled, you have a build without it — the API
+works exactly the same, and `cd web && OMEM_STATIC=1 npm run build` produces one.
 
 ## Use it from Claude Desktop, or any MCP client
 

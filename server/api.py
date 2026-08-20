@@ -1322,6 +1322,14 @@ class Handler(BaseHTTPRequestHandler):
             return "public"
         if parts[:3] == ["oauth", "gmail", "callback"]:
             return "public"  # browser redirect from Google; signed state is the auth
+        # The bundled dashboard's own files (HTML, JS, CSS) are public: they are
+        # a static app, and the API calls it then makes carry the session like
+        # any other client. Deliberately narrow — it requires a real file inside
+        # the bundle to exist, and never applies to /v1, so this cannot be used
+        # to reach an API route without credentials.
+        if DASHBOARD_ROOT and parts[:1] != ["v1"]:
+            if _dashboard_file("/" + "/".join(parts)):
+                return "public"
         if tuple(parts[:2]) in self.PUBLIC:
             if parts[:2] in (["v1", "signup"], ["v1", "session"]):
                 ip = self.client_address[0] if self.client_address else "unknown"
@@ -1517,6 +1525,13 @@ class Handler(BaseHTTPRequestHandler):
             self._err(500, "server", f"{type(ex).__name__}: {ex}")
 
     def _route_get(self, parts, qs, u, auth):
+        # The bundled dashboard, before anything else. It has to be first
+        # because the API routes below resolve ?project= and bail out with
+        # "project not found" — a request for / or /memory/ carries no project
+        # and never survived that far. Safe to be first because
+        # _serve_dashboard refuses /v1/ outright, so it cannot shadow the API.
+        if self._serve_dashboard(u.path):
+            return
         # ── self-healing reads (RBAC-gated, project-scoped) ──
         if len(parts) >= 2 and parts[0] == "v1" and parts[1] == "healing":
             p = self._proj(qs)
@@ -2544,6 +2559,36 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"data": p.log[:200]})
 
         return self._err(404, "not_found", f"no route: /{'/'.join(parts)}")
+
+    def _serve_dashboard(self, url_path):
+        """Serve a file from the bundled dashboard. True if it handled the request."""
+        if not DASHBOARD_ROOT or url_path.startswith("/v1/"):
+            return False
+        full = _dashboard_file(url_path)
+        if not full:
+            return False
+        try:
+            with open(full, "rb") as fh:
+                body = fh.read()
+        except OSError:
+            return False
+        ext = os.path.splitext(full)[1].lower()
+        self.send_response(200)
+        self.send_header("Content-Type", _CONTENT_TYPES.get(ext, "application/octet-stream"))
+        self.send_header("Content-Length", str(len(body)))
+        # Next fingerprints its assets, so /_next/static is safe to cache hard.
+        # Everything else must not be, or an upgraded server keeps serving the
+        # previous dashboard out of the browser cache.
+        if url_path.startswith("/_next/static/"):
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        else:
+            self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        return True
 
     # ---- POST ----
     def do_DELETE(self):
@@ -3972,6 +4017,60 @@ LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost", ""}
 LOCAL_EMAIL = "local@omem.dev"
 
 
+# ── the bundled dashboard ────────────────────────────────────────────────────
+# A static export of web/, copied into the wheel at build time (see
+# sdk/python/hatch_build.py) so `pip install omem-infrastructure` gives you a
+# dashboard as well as an API — no Node, no second process, no second port.
+#
+# Absent when running from a source checkout that has not built it, and absent
+# from any wheel whose dashboard build failed. Both degrade to "API only" with a
+# line saying so, rather than breaking the install.
+def _dashboard_root():
+    env = os.environ.get("OMEM_DASHBOARD_DIR")
+    if env:
+        return os.path.abspath(env) if os.path.isdir(env) else None
+    here = os.path.dirname(os.path.abspath(__file__))
+    for cand in (os.path.join(here, "..", "_dashboard"),    # wheel: omem/_dashboard
+                 os.path.join(here, "_dashboard"),          # if ever nested
+                 os.path.join(here, "..", "web", "out")):   # source checkout
+        if os.path.isdir(cand):
+            return os.path.abspath(cand)
+    return None
+
+
+DASHBOARD_ROOT = _dashboard_root()
+
+_CONTENT_TYPES = {
+    ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8", ".json": "application/json",
+    ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg",
+    ".ico": "image/x-icon", ".woff": "font/woff", ".woff2": "font/woff2",
+    ".map": "application/json", ".txt": "text/plain; charset=utf-8",
+}
+
+
+def _dashboard_file(url_path: str):
+    """Resolve a URL path to a file inside the bundle, or None.
+
+    Path traversal is the whole risk here: this serves files from disk based on
+    a string the caller controls. The resolved path is required to sit under the
+    bundle root, so "/../../etc/passwd" and its encodings resolve outside and
+    are refused.
+    """
+    if not DASHBOARD_ROOT:
+        return None
+    rel = url_path.lstrip("/")
+    candidates = [rel, os.path.join(rel, "index.html"), rel + ".html"] if rel else ["index.html"]
+    for cand in candidates:
+        full = os.path.abspath(os.path.join(DASHBOARD_ROOT, cand))
+        if not (full == DASHBOARD_ROOT or full.startswith(DASHBOARD_ROOT + os.sep)):
+            continue        # escaped the bundle
+        if os.path.isfile(full):
+            return full
+    return None
+
+
+
 def bootstrap_local_workspace():
     """Give a first-run local server a project and a key, and print them.
 
@@ -4138,6 +4237,11 @@ def main(port=8787):
     if scheme == "http" and host not in LOOPBACK_HOSTS:
         print("  TLS: OFF — this is plaintext HTTP on a non-loopback address.")
         print("       Terminate TLS at a proxy, or set OMEM_TLS_CERT/OMEM_TLS_KEY.")
+    if DASHBOARD_ROOT:
+        print(f"  dashboard   {scheme}://{host}:{port}")
+    else:
+        print("  dashboard   not bundled in this build (API only). "
+              "Build it with: cd web && OMEM_STATIC=1 npm run build")
     if _ws:
         print_local_quickstart(_ws, host, port, scheme)
 

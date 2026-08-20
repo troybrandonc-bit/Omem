@@ -164,7 +164,7 @@ function DiagnosticsInner() {
             <div className="space-y-1.5">
               {d.assertions.map(a => (
                 <div key={a.assertion_id} className="flex flex-wrap items-center gap-2 text-[13px]">
-                  <Link href={`/assertions/${encodeURIComponent(a.assertion_id)}`}
+                  <Link href={`/assertion?id=${encodeURIComponent(a.assertion_id)}`}
                     className="num text-accent hover:underline">{a.proposition ?? a.assertion_id}</Link>
                   <span className="text-2xs text-muted">{a.subjects.join(", ")}</span>
                   <Badge tone={a.open ? "believed" : "closed"}>{a.open ? "believed" : "no longer believed"}</Badge>
