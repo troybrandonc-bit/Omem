@@ -7,6 +7,7 @@ cached view ever differs it must not ship.
 """
 import os
 import sys
+import uuid
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -32,7 +33,22 @@ def check(n, c, d=""):
         FAIL += 1; print(f"  FAIL {n}  {d}")
 
 
-P = list(api.PROJECTS.values())[0]
+# Own project, not whatever happens to be first in PROJECTS.
+#
+# On SQLite this suite gets a fresh OMEM_DB tempfile, so the first project is
+# always its own. On PostgreSQL OMEM_DATABASE_URL wins, the tempfile is
+# ignored, and the first project is a leftover that already contains this
+# suite's hardcoded assertion ids ("a_r", "a_m1", ...) from the previous run.
+# Replay then re-adds them and the engine rejects the duplicate with
+# R_MUTATION: id already recorded.
+#
+# A brand-new project id has no ops to replay, so its Engine starts empty and
+# the fixed ids below are unique within it on either backend.
+_PID = "proj_peq_" + uuid.uuid4().hex[:10]
+P = api.Project(_PID, "partition-equivalence suite", "development", "org_test")
+api.PROJECTS[_PID] = P
+api.CONTRADICTIONS[_PID] = []
+api._DECLARED_PAIRS[_PID] = set()
 E = P.engine
 if "agent:t" not in P.labels:
     api.record(P, "agent", {"id": "agent:t", "kind": "system"})

@@ -29,7 +29,11 @@ jobs:
           path-to-signatures: signatures/cla.json
           path-to-document: https://github.com/troybrandonc-bit/Omem/blob/main/CLA.md
           branch: cla-signatures
-          allowlist: dependabot[bot],github-actions[bot]
+          # troybrandonc-bit is the copyright holder. A CLA exists so that
+          # contributions from OTHER people can be relicensed later; asking the
+          # owner to license their own work to themselves is meaningless, and it
+          # blocks every maintainer PR on a signature that grants nothing.
+          allowlist: troybrandonc-bit,dependabot[bot],github-actions[bot]
           custom-notsigned-prcomment: |
             Thanks for the pull request. Before it can be merged, please sign the
             [Contributor License Agreement](CLA.md) by commenting exactly:

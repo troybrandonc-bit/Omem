@@ -55,7 +55,13 @@ check("admin can read audit", role_allows("admin", "audit.read"))
 check("developer cannot read audit", not role_allows("developer", "audit.read"))
 
 print("== signup makes owner + audits ==")
-_, owner = call("POST", "/v1/signup", {"email": "owner@corp.com", "org": "Corp"})
+# Suite-unique address. Every suite shares one database on PostgreSQL
+# (OMEM_DATABASE_URL wins over the per-suite OMEM_DB tempfile), so a
+# signup address used by two suites makes the second one receive an
+# existing-account response with no api_key/project, and the test dies on
+# a KeyError far from the cause. Invisible on SQLite.
+# Was "owner@corp.com", which tests_auth_password.py also signs up.
+_, owner = call("POST", "/v1/signup", {"email": "owner-enterprise@corp.com", "org": "Corp"})
 OSESS = owner["token"]; PID = owner["project"]["id"]; KEY = owner["api_key"]["secret"]
 _, me = call("GET", "/v1/me", token=OSESS)
 OID = me["org"]["id"]
