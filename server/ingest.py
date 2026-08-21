@@ -1,8 +1,8 @@
-"""Automatic ingestion layer for OMEM Cloud.
+"""Automatic ingestion layer for OMEM.
 
 Design principle (non-negotiable): this layer produces valid OMEM primitives and
 hands them to the existing recorded write path. It never decides truth, state,
-contradiction, or coreference itself — the frozen engine does. Ingestion is a
+contradiction, or coreference itself. The frozen engine does. Ingestion is a
 *producer* of assertions/entities/events/derivations; the engine remains the
 sole authority on what they mean.
 
@@ -190,7 +190,7 @@ class SupportInboxConnector(Connector):
 
 class PushConnector(Connector):
     """DB-backed push connector: powers webhooks and document uploads. Items are
-    appended by the API (push_item) and drained by poll() via cursor — the same
+    appended by the API (push_item) and drained by poll() via cursor, the same
     pipeline path as every other source. No external dependency."""
     kind = "push"
 
@@ -234,7 +234,7 @@ CONNECTOR_TYPES: dict[str, type[Connector]] = {
 class Ingestor:
     """Owns the async-style job lifecycle. `record_fn` is the app's recorded
     write path (record(project, kind, args)); `mint_fn` mints ids. The Ingestor
-    NEVER imports the engine directly — it only produces primitives through
+    NEVER imports the engine directly. It only produces primitives through
     record_fn, which keeps the engine authoritative."""
 
     def __init__(self, store, record_fn: Callable, mint_fn: Callable, project_getter: Callable):
@@ -279,7 +279,7 @@ class Ingestor:
             self.db.execute(
                 "UPDATE source_records SET thread_id=?, from_addr=? WHERE id=?",
                 (pl.get("thread_id"),
-                 _addr_of_sender(pl) or "",  # '' sentinel: parsed, no sender —
+                 _addr_of_sender(pl) or "",  # '' sentinel: parsed, no sender,
                  r["id"]))                    # never re-scanned on next boot
         self.db.execute(
             "CREATE INDEX IF NOT EXISTS sr_thread ON source_records(project_id, thread_id)")
@@ -295,7 +295,7 @@ class Ingestor:
             "INSERT INTO connectors(id,project_id,kind,name,config,agent_id,authority,created) VALUES(?,?,?,?,?,?,?,?)",
             (cid, project_id, kind, name, json.dumps(config), agent_id, authority, _now()))
         self.db.commit()
-        # the connector is an OMEM agent — its assertions are attributed to it
+        # the connector is an OMEM agent - its assertions are attributed to it
         p = self.project(project_id)
         if p and agent_id not in p.labels:
             self.record(p, "agent", {"id": agent_id, "kind": "system", "label": name})
@@ -520,7 +520,7 @@ class Ingestor:
                 # A stronger fact ("has_renewed") replaces open weaker/opposite
                 # beliefs about the same subject ("considering_cancel") through
                 # the engine's supersede: old belief closes, history preserved.
-                # Computed BEFORE the dedup skip: "ignore my previous email —
+                # Computed BEFORE the dedup skip: "ignore my previous email -
                 # we've decided to renew" may re-state an already-known decision
                 # (a duplicate assertion) while STILL needing to close the
                 # cancellation intent it reverses.
@@ -532,7 +532,7 @@ class Ingestor:
                     if isinstance(rel, dict) and rel.get("relation") == "supersedes" \
                             and rel.get("target_proposition"):
                         # The semantic model recognised a reversal/change of an
-                        # existing belief ("ignore my previous email — we've
+                        # existing belief ("ignore my previous email - we've
                         # decided to renew"). It only NAMES the target; the
                         # engine's supersede op does the actual revision, and
                         # only for a belief that genuinely exists on this
@@ -799,7 +799,7 @@ class Ingestor:
         if not r:
             return None
         # SELECT * hands back the stored column, so the decryption has to happen
-        # here rather than at each caller — this row goes straight to the "why"
+        # here rather than at each caller - this row goes straight to the "why"
         # surface, where ciphertext would be displayed as if it were the quoted
         # evidence that produced the memory.
         d = dict(r)

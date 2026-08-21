@@ -1,4 +1,4 @@
-# OMEM Cloud
+# OMEM, engineering history
 
 Developer-facing product for the OMEM memory standard. Two parts:
 
@@ -344,7 +344,7 @@ indexed-vs-scan equivalence still holds and output is byte-identical.
 conflicts() ≈ 13,900 ms → narrow ≈ 360 ms per brief (~38× on this workload),
 identical output. Remaining decision cost is `proposition_state` (per included
 item, bounded by limit; inside the frozen engine, left untouched).
-**Postgres bug found + fixed.** The P3–P7 tables (candidate_subjects/tokens,
+**Postgres bug found + fixed.** The P3-P7 tables (candidate_subjects/tokens,
 memory_edges, memory_scopes, team_members, memory_class, consolidation_state)
 used INSERT OR REPLACE/IGNORE but were missing from the adapter's upsert maps,
 and INSERT OR IGNORE wasn't translated at all, both would break on Postgres.
@@ -369,7 +369,7 @@ supersession-invalidates-edge, cycle-termination, direction integrity,
 tenant isolation and concurrent-write consistency all verified. New suite:
 tests_p5_audit.py (19 checks).
 **P6, situation brief.** POST /v1/brief (SDK: memory.brief/agent.brief)
-answers "what do I need to know about this situation?" It composes P1–P5  - 
+answers "what do I need to know about this situation?" It composes P1-P5  - 
 candidate finding, engine-decided belief state, scope, graph hops, conflict
 analysis, into ONE task-shaped answer with four sections (current_facts,
 relationships, conflicts, patterns) and a transparent, documented PRIORITY

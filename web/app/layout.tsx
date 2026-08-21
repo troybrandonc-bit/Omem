@@ -4,7 +4,7 @@ import { Providers } from "@/components/providers";
 import { Shell } from "@/components/shell";
 
 export const metadata: Metadata = {
-  title: "OMEM Cloud / trustworthy memory for AI",
+  title: "OMEM / trustworthy memory for AI agents",
   description: "Give your AI memory it can prove.",
 };
 

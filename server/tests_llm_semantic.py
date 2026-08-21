@@ -9,7 +9,7 @@ quality gate -> frozen engine) with a scripted fake LLM, asserting:
   * evidence that is not an exact substring is dropped
   * QUESTION candidates never become facts
   * a reversal ("ignore my previous email") supersedes the old belief through
-    the ENGINE's op — old belief closed, history preserved
+    the ENGINE's op, old belief closed, history preserved
   * marketing is rejected WITH a recorded rejection_reason (observability)
   * malformed model output falls back to the deterministic extractor + error row
   * escalation: low-confidence NON_BUSINESS mail REACHES the model
@@ -276,7 +276,7 @@ check("history preserved (old assertion exists, closed)",
       len(old) >= 1 and not p.engine.ledger.is_open_at(old[0], p.now()))
 
 print("== rejection observability ==")
-# ambiguous: human tone + promotional intent — exactly the mail the cheap
+# ambiguous: human tone + promotional intent - exactly the mail the cheap
 # layer cannot judge (NON_BUSINESS at 0.03 confidence) and must escalate
 MAILBOX.append(msg("g8", "maria@shop.io", "Following up from the expo MARKER_MARKETING",
                    "Hi Troy, great meeting you at the expo! We are running 50% off "

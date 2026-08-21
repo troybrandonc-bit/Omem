@@ -2,7 +2,7 @@
 /* Query-param route, not /assertions/[id].
  *
  * `output: "export"` emits a file per route at build time, and a route whose id
- * only exists at runtime has no file to emit — Next needs generateStaticParams,
+ * only exists at runtime has no file to emit. Next needs generateStaticParams,
  * which cannot enumerate ids that have not been created yet. So the id moves
  * into the query string, which is a client-side concern and needs no file.
  *
@@ -11,7 +11,7 @@
  *
  * useSearchParams() suspends during prerender, so the body sits inside a
  * Suspense boundary. Without it the export fails with "useSearchParams() should
- * be wrapped in a suspense boundary" — a build error, not a runtime one.
+ * be wrapped in a suspense boundary", a build error, not a runtime one.
  */
 import { Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";

@@ -7,7 +7,7 @@ Replaces the reversible XOR obfuscation flagged by the audit. Two providers:
   PBKDF2-HMAC-SHA256). Real confidentiality + tamper detection, keyed from an
   env master secret. Suitable for single-node/dev.
 - KMSSecretsProvider: envelope-encryption interface for AWS KMS (or equivalent).
-  REAL CODE, EXTERNAL DEPENDENCY — not exercised without AWS creds. Selected when
+  REAL CODE, EXTERNAL DEPENDENCY, not exercised without AWS creds. Selected when
   OMEM_KMS_KEY_ID is set.
 
 Guarantees (tested): ciphertext != plaintext, wrong key cannot decrypt, tampered
@@ -141,7 +141,7 @@ def _keystream(key: bytes, nonce: bytes, n: int) -> bytes:
 
 
 class KMSSecretsProvider(SecretsProvider):
-    """AWS KMS envelope encryption. REAL CODE, EXTERNAL DEPENDENCY — untested
+    """AWS KMS envelope encryption. REAL CODE, EXTERNAL DEPENDENCY, untested
     without AWS credentials + boto3. Generates a data key per secret, encrypts
     locally with it, stores the KMS-wrapped data key alongside the ciphertext."""
     def __init__(self, key_id: str):
@@ -170,8 +170,8 @@ class KMSSecretsProvider(SecretsProvider):
 
 
 # ── encryption of memory content at rest ────────────────────────────────────
-# Only stored OAuth tokens were ever encrypted; the memories themselves —
-# propositions, subjects, labels, quoted evidence, raw source payloads — sat in
+# Only stored OAuth tokens were ever encrypted; the memories themselves -
+# propositions, subjects, labels, quoted evidence, raw source payloads - sat in
 # the clear, while the security page advertised "per-tenant envelope encryption
 # at rest". This closes that for the content columns.
 #
@@ -191,7 +191,7 @@ _CONTENT_PREFIX = "v2c."
 # Fixed, documented context string instead of a per-row salt. THIS IS THE WHOLE
 # PERFORMANCE STORY: LocalSecretsProvider salts every value it encrypts, so it
 # runs PBKDF2 (100,000 iterations) once PER ROW. Measured, that is ~336 ms per
-# encrypt — correct for a handful of long-lived OAuth tokens, and ruinous for
+# encrypt - correct for a handful of long-lived OAuth tokens, and ruinous for
 # content, where it would cost 336 ms on every memory written and 336 ms per
 # operation on every boot replay. A project with 10,000 operations would take
 # most of an hour to start.
@@ -256,7 +256,7 @@ def decrypt_content(stored):
         _, nonce_b64, ct_b64 = stored.split(".", 2)
         return AESGCM(_content_key()).decrypt(
             base64.b64decode(nonce_b64), base64.b64decode(ct_b64), None).decode("utf-8")
-    # v1g/v1h — written by the OAuth-token provider before this existed.
+    # v1g/v1h - written by the OAuth-token provider before this existed.
     return get_secrets_provider().decrypt(stored)
 
 

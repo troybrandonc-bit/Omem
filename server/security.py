@@ -29,8 +29,8 @@ class RateLimiter:
 
     # A bucket is only interesting until it has refilled to capacity; after that
     # it is indistinguishable from a key never seen before. Without this the dict
-    # grew forever — one entry per client IP on the auth routes, one per
-    # project+credential on the data routes — in a process that is meant to stay
+    # grew forever - one entry per client IP on the auth routes, one per
+    # project+credential on the data routes - in a process that is meant to stay
     # up for months. Anyone rotating source addresses could grow it deliberately.
     PRUNE_EVERY = 1024
 
@@ -82,7 +82,7 @@ class OAuthStateStore:
         if state in self._used:
             return None  # single-use
         # A state older than the TTL is already rejected above, so remembering
-        # it past that point protects nothing — but the set had no eviction and
+        # it past that point protects nothing - but the set had no eviction and
         # grew for the life of the process, one entry per OAuth attempt. Sweep
         # the expired entries whenever it gets big; replay is still impossible
         # because expiry catches anything old enough to have been dropped.
@@ -125,7 +125,7 @@ def totp_verify(secret: str, code: str, window=1) -> bool:
 # ── SSRF guard ──────────────────────────────────────────────────────────────
 # Tenant-configured connector URLs (e.g. Salesforce instance_url) flow into
 # outbound HTTP. Without validation a tenant could point OMEM at internal hosts
-# or cloud metadata (169.254.169.254) — a classic SSRF. safe_url() enforces
+# or cloud metadata (169.254.169.254) - a classic SSRF. safe_url() enforces
 # https + a public destination and is called before any tenant-URL fetch.
 import ipaddress as _ipaddress
 import socket as _socket
@@ -153,7 +153,7 @@ def _ip_is_public(ip_str: str) -> bool:
 def safe_url(url: str, *, allow_http: bool = False) -> str:
     """Validate a tenant-supplied URL for outbound fetch. Returns the URL if safe,
     else raises SSRFError. Enforces https (unless allow_http), a hostname that is
-    not a known-internal name, and — after DNS resolution — a PUBLIC destination
+    not a known-internal name, and (after DNS resolution) a PUBLIC destination
     IP, so a hostname that resolves to a private/link-local/metadata address is
     rejected (defends against DNS-rebinding-style config)."""
     if not url or not isinstance(url, str):
@@ -174,7 +174,7 @@ def safe_url(url: str, *, allow_http: bool = False) -> str:
             raise SSRFError(f"non-public ip: {host}")
         return url
     except ValueError:
-        pass  # not a literal IP — resolve it
+        pass  # not a literal IP, resolve it
     # Resolve every A/AAAA record; ALL must be public (a single private answer
     # is a rebinding vector).
     try:

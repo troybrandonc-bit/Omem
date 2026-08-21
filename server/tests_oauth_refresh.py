@@ -2,7 +2,7 @@
 
 The bug this suite pins down: the Gmail transport used the access token stored
 at connect time forever. Google access tokens live ~1 hour, so every poll after
-that got a 401 which was misreported as "reconnect the account — refresh token
+that got a 401 which was misreported as "reconnect the account, refresh token
 revoked", even though the refresh token was never tried. These tests simulate
 Google's endpoints and assert the correct lifecycle:
 

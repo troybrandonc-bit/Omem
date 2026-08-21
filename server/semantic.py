@@ -38,7 +38,7 @@ _VALID_ENTITY = re.compile(r"^(company|customer|person|self):[a-z0-9][a-z0-9_.@-
 
 SEMANTIC_SYSTEM = """You are the semantic analyst of a business relationship-memory system.
 You read ONE email (with its thread and context) the way a sharp executive assistant would,
-and decide what — if anything — deserves to become durable relationship memory.
+and decide what (if anything) deserves to become durable relationship memory.
 
 Return ONLY a JSON object, no prose, matching exactly:
 
@@ -95,8 +95,8 @@ def build_semantic_input(payload: dict, participants: dict, identity: dict,
                          sender_role: str | None, thread_context: str,
                          existing_memories: list[dict],
                          allowed_entities: list[dict]) -> str:
-    """The full context pack. The complete cleaned body is always included —
-    context is trimmed around it, never the email itself."""
+    """The full context pack. The complete cleaned body is always included.
+    Context is trimmed around it, never the email itself."""
     lines = []
     lines.append("=== EMAIL ===")
     lines.append(f"From: {payload.get('from', '')}")
@@ -118,7 +118,7 @@ def build_semantic_input(payload: dict, participants: dict, identity: dict,
     lines.append(f"Direction of this email: {participants.get('direction')}"
                  + (" (the WRITER IS US)" if participants.get("direction") == "outbound" else ""))
     if participants.get("counterparty_email"):
-        role_txt = f" — user-confirmed role: {sender_role}" if sender_role else ""
+        role_txt = f", user-confirmed role: {sender_role}" if sender_role else ""
         lines.append(f"Counterparty: {participants['counterparty_email']}{role_txt}")
     if participants.get("internal"):
         lines.append("This is INTERNAL mail (both sides are our organisation).")
@@ -141,7 +141,7 @@ def build_semantic_input(payload: dict, participants: dict, identity: dict,
 
 def allowed_entities_for(participants: dict, identity: dict) -> list[dict]:
     """The closed set of entities the model may attribute facts to. Built from
-    REAL participants + the configured identity — the anti-invention boundary."""
+    REAL participants + the configured identity, the anti-invention boundary."""
     out, seen = [], set()
 
     def add(eid, label):
@@ -175,7 +175,7 @@ def allowed_entities_for(participants: dict, identity: dict) -> list[dict]:
         # re-checks the name appears in the email)
         if cdom:
             add(f"person:any@{cdom.split('.')[0]}",
-                f"a NAMED person at {cdom} — replace 'any' with their lowercase first name")
+                f"a NAMED person at {cdom}, replace 'any' with their lowercase first name")
     return out
 
 
@@ -185,7 +185,7 @@ class SemanticValidationError(Exception):
 
 def validate_semantic_output(raw: str, payload: dict,
                              allowed: list[dict]) -> dict:
-    """Strict validation. Anything invalid is DROPPED with a recorded reason —
+    """Strict validation. Anything invalid is DROPPED with a recorded reason,
     never partially trusted."""
     text = raw.strip()
     if text.startswith("```"):

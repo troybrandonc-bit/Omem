@@ -39,7 +39,7 @@ function KV({ k, v }: { k: string; v: React.ReactNode }) {
   return (
     <div className="flex gap-2 text-[13px]">
       <span className="w-36 shrink-0 text-2xs uppercase tracking-wide text-faint">{k}</span>
-      <span className="min-w-0 break-words">{v ?? <span className="text-faint">—</span>}</span>
+      <span className="min-w-0 break-words">{v ?? <span className="text-faint">not recorded</span>}</span>
     </div>
   );
 }

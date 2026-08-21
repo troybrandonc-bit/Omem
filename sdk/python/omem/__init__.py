@@ -1,4 +1,4 @@
-"""OMEM Cloud Python SDK. Ergonomic wrapper over the Cloud API.
+"""OMEM Python SDK. Ergonomic wrapper over the HTTP API.
 
 Every method maps 1:1 onto existing OMEM operations/queries. No new semantics.
 
@@ -17,6 +17,13 @@ paired automatically; contradict() covers everything else. OMEM does not infer
 opposition from wording, which is what lets a belief state be reproduced without
 a model in the loop.
 """
+# `project: str | None` in the Memory signature below is PEP 604, which is a
+# TypeError on the Python 3.9 this package claims to support. Deferring
+# annotations makes them lazy strings that are never evaluated, so the union
+# syntax stays readable and 3.9 stays supported. Removing this line puts the
+# package back to crashing on import for every 3.9 user.
+from __future__ import annotations
+
 import json
 import time
 import urllib.request
@@ -98,7 +105,7 @@ class Memory:
         auto_create (default True): ensure the agent and subject entities exist
         first, auto-registering them if needed, so a first-time remember() about a
         new agent/entity works out of the box. Set auto_create=False for strict
-        behavior — the engine then rejects unknown agents/subjects with
+        behavior, the engine then rejects unknown agents/subjects with
         R_NO_AGENT / R_DANGLING (useful to catch typos or enforce an explicit
         entity lifecycle).
 
@@ -109,7 +116,7 @@ class Memory:
         via share().
 
         because: OPTIONAL list of *recorded* antecedent ids this belief derives
-        from (not free text — use `label` for a human note). Unknown antecedents
+        from (not free text, use `label` for a human note). Unknown antecedents
         are rejected (R_DANGLING) regardless of auto_create."""
         subjects = [about] if isinstance(about, str) else list(about)
         if auto_create:
@@ -197,7 +204,7 @@ class Memory:
 
     def conflicts(self, viewer=None):
         """Open contradictions with each side's real evidence (observations,
-        agents, authority, recency) and a deterministic recommendation — or
+        agents, authority, recency) and a deterministic recommendation, or
         'unresolved' when evidence is tied. The engine's truth state is never
         altered by this analysis.
 
@@ -281,7 +288,7 @@ class Healing:
     """Self-healing surface. The developer does not write a self-healing framework;
     they report failures (or submit a plan) and OMEM handles memory, policy,
     execution, verification, and history. High-risk actions still require explicit
-    approval and permission — OMEM decides, not the caller."""
+    approval and permission. OMEM decides, not the caller."""
 
     def __init__(self, memory):
         self.m = memory
@@ -295,7 +302,7 @@ class Healing:
     def handle(self, error, plan=None, approved_by=None):
         """Run the autonomous recovery loop for a failure. `error` is
         {component, error_type, message?, context?}. Optionally submit a `plan`
-        (e.g. produced by an LLM) — OMEM still runs it through policy + verify.
+        (e.g. produced by an LLM). OMEM still runs it through policy + verify.
         Returns a structured result (recovered/failed/denied/throttled/escalated)."""
         body = {"error": error}
         if plan is not None:

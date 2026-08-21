@@ -13,7 +13,7 @@ So the reference implementation is written out again here, deliberately naive an
 transcribed from the semantics rather than from the new code: partition per
 subject, every pair compared, no caching, no bucketing, no early exit. Both are
 then run over thousands of randomly generated stores and required to agree on
-every question, including the awkward ones — coreference merges and splits that
+every question, including the awkward ones, coreference merges and splits that
 change which subjects are the same referent, retractions, supersessions, and
 as-of queries at times before and after each of those.
 

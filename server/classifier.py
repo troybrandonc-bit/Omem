@@ -5,7 +5,7 @@ Two stages, deliberately separated:
   STAGE 1 (this module)  "Should this message enter the memory pipeline?"
   STAGE 2 (extractors)   "What durable facts, if any, does it contain?"
 
-A message can be BUSINESS_RELEVANT and still produce zero memories — "sounds
+A message can be BUSINESS_RELEVANT and still produce zero memories, "sounds
 good, let's talk tomorrow" is real business correspondence with nothing durable
 in it. Relevance is not evidence.
 
@@ -199,8 +199,8 @@ def business_signals(text: str) -> tuple[float, list[str], dict[str, float]]:
 
 def human_correspondence_score(payload: dict, auto_score: float) -> tuple[float, list[str]]:
     """A written-by-a-person message to a named recipient is the baseline shape of
-    business correspondence. This does not make it memorable — extraction still
-    has to find a durable fact — but it separates real mail from broadcasts."""
+    business correspondence. This does not make it memorable, extraction still
+    has to find a durable fact, but it separates real mail from broadcasts."""
     if auto_score >= 0.5:
         return 0.0, []
     body = _norm(payload.get("body", ""))
@@ -275,7 +275,7 @@ def classify(payload: dict, thread_context: str = "", history: dict | None = Non
         votes[k] = votes.get(k, 0.0) + v * 0.6
 
     business = own_score + inherited + rel_score + human_score
-    # Automated evidence subtracts, but strong commercial content survives it —
+    # Automated evidence subtracts, but strong commercial content survives it -
     # this is what keeps "contract amendment from noreply@" in scope.
     net = business - (auto_score * 0.55)
 
@@ -325,7 +325,7 @@ def classify(payload: dict, thread_context: str = "", history: dict | None = Non
         # Layered cost (§performance): the model is a second opinion for the
         # UNSURE middle. A verdict the deterministic layer is confident about
         # (unambiguous marketing at 0.9+, obvious business at 0.9+) never
-        # spends an LLM call — that is what makes the expensive layer usable
+        # spends an LLM call - that is what makes the expensive layer usable
         # on a whole mailbox.
         merged = _llm_review(llm, subject, body, thread_context, result)
         if merged is not None:
@@ -504,7 +504,7 @@ class ClassificationStore:
 
 def thread_context_for(db, project_id, thread_id, exclude_source_id=None, limit=12) -> str:
     """Concatenate sibling messages in the same Gmail thread, so a short reply is
-    judged in the conversation it belongs to. Uses the indexed thread_id column —
+    judged in the conversation it belongs to. Uses the indexed thread_id column,
     never scans the whole source table."""
     if not thread_id:
         return ""
@@ -546,7 +546,7 @@ def relationship_history(db, project_id, counterparty_email: str) -> dict:
     # outbound: the address appears in the payload's To.
     #
     # Normally pre-filtered in C with LIKE, parsing only the small candidate set.
-    # That is impossible once the column is encrypted — ciphertext contains no
+    # That is impossible once the column is encrypted - ciphertext contains no
     # substring of the plaintext, so the LIKE would match nothing and this would
     # report zero outbound messages while looking like it worked. So when
     # encryption is on, the filter moves into Python: more rows are read and each

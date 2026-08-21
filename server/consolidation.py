@@ -14,15 +14,15 @@ Hierarchy implemented:
                     cross-agent, with the reinforcing agent recorded
     RELATIONSHIP    facts whose class is 'relational' (works_at_*, uses_*)
     PATTERN/GENERALIZED  an engine assertion by agent:omem-consolidation whose
-                    DERIVATION antecedents are the supporting assertions —
-                    provenance is engine-native, never a metadata claim
+                    DERIVATION antecedents are the supporting assertions.
+                    Provenance is engine-native, never a metadata claim
 
 "Supported by N observations" is a count of real rows. No confidence numbers
 are invented anywhere: the frozen model defines none, so this layer reports
 counts and timestamps, not fabricated certainty.
 
 ──────────────────────────────────────────────────────────────────────────────
-P3 GENERALIZATION POLICY (explicit, intelligence-layer policy — NOT normative
+P3 GENERALIZATION POLICY (explicit, intelligence-layer policy, NOT normative
 OMEM semantics; documented here because the frozen model does not define one):
 
   A proposition P generalizes into `pattern_P` on subject `cohort:P` only if:
@@ -185,7 +185,7 @@ def consolidate(p, db, scopes, record, mint, contradictions=None) -> dict:
         # TEMPORAL DIVERSITY: prefer event_time (when the supporting events
         # actually happened) and fall back to assertion_time when no event
         # time is known. Since P8 distinguishes event_time from assertion_time,
-        # this preserves the original "not one batch" intent — which was
+        # this preserves the original "not one batch" intent - which was
         # event-time diversity before the two fields were split.
         def _when(a):
             et = getattr(a, "event_time", None)
@@ -274,7 +274,7 @@ def consolidate(p, db, scopes, record, mint, contradictions=None) -> dict:
             result["unchanged"] += 1
             continue
         # supporters changed but pattern still holds: new evidence reinforces
-        # the EXISTING generalization — never a duplicate assertion
+        # the EXISTING generalization - never a duplicate assertion
         old_ids = set(json.loads(state["support_ids"] or "[]"))
         for new_id in [s for s in supporters if s not in old_ids]:
             na = p.engine.store.assertion(new_id)

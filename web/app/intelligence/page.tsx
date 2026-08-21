@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/primitives";
 import Link from "next/link";
 
 // Enterprise memory intelligence. Grounding/provenance coverage and conflicts
-// are computed by the engine over live data — never synthesized.
+// are computed by the engine over live data, never synthesized.
 export default function Intelligence() {
   const { project } = useApp();
   const { data } = useQuery({ queryKey: ["intelligence", project], queryFn: () => api.intelligence(project), refetchInterval: 5000 });

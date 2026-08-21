@@ -27,7 +27,7 @@ const config: Config = {
       },
       // 1.25 ratio from a 13px base, rounded to whole pixels. Each entry carries
       // its own line-height because overriding a key here discards Tailwind's
-      // paired leading — leaving it out would silently inherit body leading.
+      // paired leading. Leaving it out would silently inherit body leading.
       fontSize: {
         "2xs": ["11px", { lineHeight: "16px" }],
         xs:    ["12px", { lineHeight: "18px" }],

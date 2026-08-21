@@ -101,7 +101,7 @@ Empirical complexity, single process, in-memory. The engine's query primitives
 were quadratic and near-cubic; they are not any more, and both sets of numbers
 are kept because the second only means something against the first.
 
-BEFORE (measured over sizes 25–800):
+BEFORE (measured over sizes 25-800):
 
 | Operation             | Exponent | Reading                     |
 |-----------------------|----------|-----------------------------|
@@ -119,7 +119,7 @@ the coreference-reduced subject set (which itself computes the partition) inside
 their per-assertion and per-pair loops. Coreference and ingestion were already
 linear; the cost was in re-reducing, not in the union-find.
 
-AFTER (measured over 200–40,000 assertions on the same machine):
+AFTER (measured over 200-40,000 assertions on the same machine):
 
 | assertions | `proposition_state` | `conflicts` |
 |-----------:|--------------------:|------------:|
@@ -143,7 +143,7 @@ That the answers did not change is not asserted, it is tested.
 `server/tests_engine_equivalence.py` re-implements the query primitives in their
 original naive form and requires both to agree on every question across randomly
 generated stores containing coreference merges, splits, supersessions,
-retractions and as-of queries at points before and after each — and asserts that
+retractions and as-of queries at points before and after each, and asserts that
 the generated workload actually contained each of those operations, so agreement
 cannot be reached over a world too simple to disagree in.
 
@@ -217,7 +217,7 @@ priority order:
    large scale needs measurements at their volume and a decision on whether the
    quadratic/cubic query paths are acceptable or require an indexing/caching
    layer (which would be an engine change and would need re-validation against
-   items 1–4).
+   items 1-4).
 
 ## Reproducing this validation
 

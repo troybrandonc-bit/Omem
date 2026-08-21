@@ -259,6 +259,27 @@ check("consent URL carries client_id and signed state",
       "test-client" in _bg2["auth_url"] and "state=" in _bg2["auth_url"])
 _st, _cb = _c2("GET", "/oauth/gmail/callback?code=x&state=forged")
 check("browser callback rejects forged state", _st == 400)
+
+# The bundled dashboard must not shadow this route. It is the ONE API path that
+# does not live under /v1/ (Google redirects a browser to it, so it cannot be
+# namespaced), and _serve_dashboard runs before every GET route. web/out does not
+# exist in a source checkout or in CI, so the collision was invisible in exactly
+# the two places anyone would have looked, and present in every shipped wheel:
+# the static page was returned and the handler above never ran.
+_saved_root = api.DASHBOARD_ROOT
+try:
+    import tempfile as _tf
+    _fake = _tf.mkdtemp()
+    _os_path = os.path.join(_fake, "oauth", "gmail", "callback")
+    os.makedirs(_os_path, exist_ok=True)
+    with open(os.path.join(_os_path, "index.html"), "w") as _fh:
+        _fh.write("<html>static page that must NOT be served here</html>")
+    api.DASHBOARD_ROOT = _fake
+    _st3, _cb3 = _c2("GET", "/oauth/gmail/callback?code=x&state=forged")
+    check("bundled dashboard does not shadow the oauth callback",
+          _st3 == 400 and _cb3.get("connected") is False, f"status={_st3} body={_cb3}")
+finally:
+    api.DASHBOARD_ROOT = _saved_root
 for _v in ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"):
     os.environ.pop(_v, None)
 _srv2.shutdown()

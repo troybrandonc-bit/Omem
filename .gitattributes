@@ -1,0 +1,47 @@
+# Line endings, pinned rather than left to whoever cloned it.
+#
+# Without this file, a clone on Windows (git's default `core.autocrlf=true`)
+# checks every file out with CRLF. That is harmless for most of the repo and
+# fatal for one part of it: `server/omem_engine/` is byte-frozen and verified
+# against the SHA-256 digests in ENGINE_HASHES.txt, which are computed over LF
+# bytes. A Windows contributor cloning the repo and running the suite would get
+# "frozen engine byte-identical: FAIL" in a dozen files before touching
+# anything, with no hint that the cause was a line ending.
+#
+# Reproduced, not theorised: restoring those files with `git checkout` on Windows
+# turned the whole suite red until they were converted back to LF.
+
+# Normalise text in the index, and check it out as LF everywhere.
+* text=auto eol=lf
+
+# The frozen reference engine. Never CRLF, on any platform, for any reason.
+server/omem_engine/** text eol=lf
+
+# Shell scripts must be LF or they will not run.
+*.sh text eol=lf
+*.mjs text eol=lf
+
+# Windows-only scripts genuinely want CRLF.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binaries: never touch.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+
+# Generated: keep them out of diffs so a lockfile churn does not bury a review.
+package-lock.json linguist-generated=true
+web/out/** linguist-generated=true
+
+# Let GitHub's language stats reflect the project rather than its vendored UI.
+web/** linguist-detectable=true

@@ -4,7 +4,7 @@ services:
     image: omem
     # Published on loopback ONLY. A container has to bind 0.0.0.0 internally for
     # the dashboard process and the host to reach it, so the container's bind
-    # address says nothing about who can connect — the published port does.
+    # address says nothing about who can connect - the published port does.
     # "8787:8787" would put an OMEM in local mode, which has no passwords, on
     # every interface of the host. If you want other machines to reach this,
     # drop the 127.0.0.1 prefix AND set OMEM_AUTH/OMEM_MASTER_KEY below.

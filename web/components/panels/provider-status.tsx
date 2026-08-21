@@ -31,7 +31,7 @@ export function ProviderStatus() {
       dns: data.llm.dns,
       state: llmState,
       note: !data.llm.configured
-        ? "not configured — deterministic extraction in use"
+        ? "not configured, deterministic extraction in use"
         : data.llm.reachable === false
           ? data.llm.error
           : data.llm.reachable

@@ -92,7 +92,7 @@ export default function Admin() {
                   <td className="num px-3 py-2.5 text-right">{o.projects}</td>
                   <td className="num px-3 py-2.5 text-right">{o.members}</td>
                   <td className="num px-3 py-2.5 text-right">{o.usage_total}</td>
-                  <td className="num px-4 py-2 text-right text-2xs text-faint">{o.last_activity ? new Date(o.last_activity * 1000).toLocaleString() : "–"}</td>
+                  <td className="num px-4 py-2 text-right text-2xs text-faint">{o.last_activity ? new Date(o.last_activity * 1000).toLocaleString() : "-"}</td>
                 </tr>
               ))}
             </tbody>

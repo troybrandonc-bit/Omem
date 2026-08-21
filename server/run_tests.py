@@ -3,7 +3,7 @@
 
 WHY THIS EXISTS. Each suite is its own script, so "run the tests" meant a shell
 loop, and a shell loop counts exit codes. The PostgreSQL suites exit 0 when no
-database is configured — they print SKIP and stop — so a run with no database
+database is configured (they print SKIP and stop) so a run with no database
 was indistinguishable from a run that verified PostgreSQL. Three suites and
 several hundred checks could quietly verify nothing while the summary said
 everything passed, which is how DEPLOYMENT.md came to describe PostgreSQL as
@@ -62,7 +62,7 @@ def run(name: str) -> dict:
     m = COUNTS.search(out)
     checks, failed = (int(m.group(1)), int(m.group(2))) if m else (0, 0)
     # Three outcomes, not two, because "skipped" is not one thing:
-    #   SKIPPED  ran nothing at all — the suite verified precisely zero.
+    #   SKIPPED  ran nothing at all - the suite verified precisely zero.
     #   PARTIAL  ran real checks, then skipped an optional section. tests_github
     #            passes 41 offline checks and skips only the live api.github.com
     #            calls; filing that next to a suite that did nothing is the same
@@ -113,13 +113,13 @@ def main() -> int:
           f'{len(skipped)} skipped · {len(bad)} failed   ({checks} checks)')
 
     if skipped:
-        print("\nSKIPPED — these verified NOTHING in this run:")
+        print("\nSKIPPED. These verified NOTHING in this run:")
         for r in skipped:
             print(f'  {r["name"]}')
         if not os.environ.get("OMEM_DATABASE_URL"):
             print("  Set OMEM_DATABASE_URL to a live PostgreSQL to run the PG suites.")
     if partial:
-        print("\nPARTIAL — ran, but skipped an optional section:")
+        print("\nPARTIAL, ran, but skipped an optional section:")
         for r in partial:
             print(f'  {r["name"]} ({r["checks"]} checks ran)')
 

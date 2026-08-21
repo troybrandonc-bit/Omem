@@ -1,11 +1,11 @@
-"""OMEM Cloud API — a thin HTTP layer over the authoritative OMEM engine.
+"""The OMEM API, a thin HTTP layer over the authoritative OMEM engine.
 
 DESIGN RULE (enforced): this server invents NO memory semantics. Every memory
 operation delegates to exactly one method on omem_engine.Engine (the CTS-verified
 reference). The only things this layer adds are (a) multi-tenant store management
 (projects/environments each own an Engine instance) and (b) response *shaping* that
 assembles existing query results into UI-friendly objects. Where a UI needs a value,
-it is always computed by calling a frozen query — never recomputed here.
+it is always computed by calling a frozen query, never recomputed here.
 
 Stdlib only (http.server) so it runs with no pip install. JSON in/out. CORS enabled
 for the Next.js dev frontend.
@@ -207,7 +207,7 @@ def _auto_declare_negation(p: Project, proposition: str) -> None:
     p.engine.declare_contradiction(proposition, other)
     # Membership through a set, not a scan of the list. This runs on every
     # assert, and a linear check would make ingestion quadratic in the number of
-    # distinct propositions — the exact shape of the performance problem this
+    # distinct propositions - the exact shape of the performance problem this
     # engine already has, and not one worth adding another instance of.
     seen = _DECLARED_PAIRS.setdefault(p.id, set())
     pair = frozenset((proposition, other))
@@ -273,7 +273,7 @@ def record(p: Project, kind: str, a: dict):
     STORE.record_op(p.id, kind, a, p.clock)
     # P7 candidate index: keep the above-engine projection in lockstep with
     # every accepted assert/supersede. Pure projection of identity + subjects
-    # + proposition; never decides belief. Best-effort — the index is
+    # + proposition; never decides belief. Best-effort - the index is
     # rebuildable from the engine and its absence only falls back to scanning.
     if kind in ("assert", "supersede"):
         try:
@@ -285,7 +285,7 @@ def record(p: Project, kind: str, a: dict):
 
 def source_view(src, connector=None):
     """Readable rendering of stored source material (the original email/message).
-    Values come straight from the persisted payload — nothing is reconstructed."""
+    Values come straight from the persisted payload. Nothing is reconstructed."""
     if not src:
         return None
     from connectors import readable_body
@@ -322,7 +322,7 @@ def boot():
     """Rehydrate every project by replaying its op log through a fresh engine,
     then reconcile above-engine PROJECTIONS (P5 graph edges, P7 candidate index)
     from the replayed engine state. The op log is the source of truth; the
-    projections are disposable and rebuilt to match it — so a crash between an
+    projections are disposable and rebuilt to match it, so a crash between an
     op write and a projection write, or a partial DB restore, self-heals at
     boot instead of leaving a projection silently diverged."""
     for row in STORE.projects_all():
@@ -335,7 +335,7 @@ def boot():
             apply_op(p, op["kind"], op["args"])
         _reconcile_projections(p)
     # first boot: optionally create a labeled demo project. OFF by default so a
-    # tester's dashboard shows ONLY their own real data — never placeholder rows.
+    # tester's dashboard shows ONLY their own real data - never placeholder rows.
     # Set OMEM_SEED_DEMO=1 to restore the sample project (e.g. for a screenshot).
     if os.environ.get("OMEM_SEED_DEMO", "0") == "1" and "demo" not in PROJECTS:
         STORE.create_project("org_demo", "Demo (shared sandbox)", "development",
@@ -350,10 +350,10 @@ def _reconcile_projections(p):
     """Rebuild the candidate index from engine state, and rebuild graph edges
     from open relational assertions, so both match the replayed engine. Both
     rebuilds are idempotent and cheap (single pass over assertions); failures
-    are non-fatal — a missing projection only degrades to the scan path.
+    are non-fatal, a missing projection only degrades to the scan path.
 
     P8-hardening (observability): capture projection row counts before and after
-    the rebuild. If they differ, drift was actually repaired — record it in
+    the rebuild. If they differ, drift was actually repaired. Record it in
     PROJECTION_DRIFT and log it so an operator can tell recovery occurred,
     rather than the repair being silent. This changes no engine state."""
     def _count(table):
@@ -587,7 +587,7 @@ def _classify_for_pipeline(project_id, conn, payload, source_record_id):
             })
         CLASSIFICATIONS.record(project_id, conn["id"], source_record_id, payload,
                                result, entered_pipeline=result.allowed)
-        # fine-grained category for EVERY message, including excluded ones —
+        # fine-grained category for EVERY message, including excluded ones -
         # the quality view must account for the whole mailbox, not just winners
         try:
             from email_analysis import analyze as _analyze
@@ -672,7 +672,7 @@ def _relationship_overrides(project_id: str) -> dict:
 def _role_for(project_id: str, email: str | None = None,
               entity_id: str | None = None, overrides: dict | None = None) -> str | None:
     """User corrections first (they are ground truth about the relationship),
-    else None — we do not guess roles."""
+    else None. We do not guess roles."""
     ov = overrides if overrides is not None else _relationship_overrides(project_id)
     if entity_id and ("entity", entity_id) in ov:
         return ov[("entity", entity_id)]
@@ -749,7 +749,7 @@ def _viewer_scope_ok(pid: str, assertion_id: str, viewer: str | None,
                      acting_user: str | None = None) -> bool:
     """Scope check for agent-parameterized reads. Reads WITHOUT a viewer are
     the human control plane (org operators) and see org-scope plus everything
-    — governance requires it; agent-facing paths always pass a viewer."""
+    governance requires it; agent-facing paths always pass a viewer."""
     scope = SCOPES.of(pid, assertion_id)
     if viewer is None:
         return True
@@ -783,7 +783,7 @@ def _memories_for_entities(project_id: str, entity_ids: list[str]) -> list[dict]
 
 def _semantic_sink_for(project_id: str, connector_id: str, model_name: str):
     """Persists each analysed email's decision (reasoning summary, rejection
-    reason, dropped candidates) — the observability the model owes us. Source
+    reason, dropped candidates), the observability the model owes us. Source
     id is recomputed from the connector + message id, matching ingest."""
     def sink(payload: dict, analysis: dict, raw: str):
         ext_id = payload.get("message_id") or payload.get("external_id") or ""
@@ -873,7 +873,7 @@ def _quality_gate(project_id, conn, payload, facts, verdict, source_record_id):
             # Semantic-layer fact: the model read the FULL email. A blunt
             # category label ("this looks like marketing") may not kill a
             # candidate whose evidence is a verbatim quote of genuine business
-            # prose — the §mixed case (marketing footer + real discussion in
+            # prose - the §mixed case (marketing footer + real discussion in
             # one mail). It becomes a penalty the candidate must overcome.
             # The saas_self block stays absolute: notifications about the
             # owner's own account are never relationship memory.
@@ -892,7 +892,7 @@ def _quality_gate(project_id, conn, payload, facts, verdict, source_record_id):
                 # The model read the whole email; its relevance judgment stands
                 # in for the keyword category/verdict it escalated past. The
                 # confidence penalty above still applies when noise flags were
-                # overridden — the model must EARN the storage.
+                # overridden - the model must EARN the storage.
                 if not f_analysis.get("is_business_category"):
                     if f_analysis is analysis:
                         f_analysis = dict(analysis)
@@ -951,7 +951,7 @@ TENANT_LIMITER = RateLimiter(capacity=_TENANT_RL_CAPACITY, refill_per_sec=_TENAN
 
 
 class _Metrics:
-    """Tiny in-process operational counters. Not a metrics platform — just the
+    """Tiny in-process operational counters. Not a metrics platform, just the
     highest-value signals an operator needs (request volume, rate-limit
     rejections, auth failures, and coarse latency) exposed via /v1/observability.
     In-process only: correct for a single node; a multi-node deployment would
@@ -1272,7 +1272,7 @@ class Handler(BaseHTTPRequestHandler):
                 pass
 
     def _observability(self):
-        # real counts from the SaaS tables — no synthetic metrics
+        # real counts from the SaaS tables - no synthetic metrics
         db = STORE.db
         def c(sql, *a):
             return db.execute(sql, a).fetchone()[0]
@@ -1324,7 +1324,7 @@ class Handler(BaseHTTPRequestHandler):
             return "public"  # browser redirect from Google; signed state is the auth
         # The bundled dashboard's own files (HTML, JS, CSS) are public: they are
         # a static app, and the API calls it then makes carry the session like
-        # any other client. Deliberately narrow — it requires a real file inside
+        # any other client. Deliberately narrow - it requires a real file inside
         # the bundle to exist, and never applies to /v1, so this cannot be used
         # to reach an API route without credentials.
         if DASHBOARD_ROOT and parts[:1] != ["v1"]:
@@ -1430,7 +1430,7 @@ class Handler(BaseHTTPRequestHandler):
     def _require(self, auth, permission, org_id, project_id=None):
         """Enforce RBAC. Session callers resolve their org role. API keys are
         project-scoped and now honor their STORED role (P9.7): previously every
-        key acted developer-equivalent regardless of keys.role — a 'viewer' key
+        key acted developer-equivalent regardless of keys.role, a 'viewer' key
         could still write. A key's role gates its permissions within its project.
         Unknown/legacy roles default to developer for backward compatibility."""
         if "key" in auth:
@@ -1473,6 +1473,131 @@ class Handler(BaseHTTPRequestHandler):
         if "user" in auth:
             return "user:" + str(auth["user"]["id"])
         return "unknown"
+
+    def _omem_components(self):
+        """Health of OMEM's OWN infrastructure, computed live at read time.
+
+        Why this exists: `HEAL_COMPONENTS` is an in-process registry an embedding
+        application registers into, so on a plain server install nothing has ever
+        registered and nothing has ever reported. The health screen would read
+        "no component has reported yet" forever, on a product that advertises
+        self-healing. These five are the parts of OMEM whose state OMEM already
+        knows for certain.
+
+        Two deliberate constraints:
+
+          * Computed, never persisted. These are server-scoped, not project-scoped,
+            and writing five rows into every project's `heal_health` on every poll
+            would both flood the table and imply per-project measurement that did
+            not happen. `origin` distinguishes them from reported components so the
+            dashboard never presents OMEM's own reading as the caller's.
+          * Only signals with an unambiguous reading. Cumulative counters since
+            boot (total 5xx, total rate-limited) are deliberately absent: one 500
+            six hours ago is not a degraded server, and a threshold picked here
+            would be a guess presented as a measurement.
+        """
+        now = time.time()
+        out = []
+
+        def add(name, status, reason):
+            out.append({"component": name, "status": status, "reason": reason,
+                        "ts": now, "origin": "omem"})
+
+        # 1. the database
+        if self._db_reachable():
+            add("omem.store", "healthy", f"{type(STORE.db).__name__} reachable")
+        else:
+            add("omem.store", "failed", "database is not reachable")
+
+        # 2. the writer lock - "one process holds authoritative state" is enforced,
+        #    and losing the lock is the failure the enforcement exists to make loud.
+        try:
+            lock = STORE.writer_lock
+            cur = lock.current() or {}
+            if not lock.held:
+                add("omem.writer-lock", "unknown", "this process does not hold the lock")
+            elif cur.get("owner") != lock.owner:
+                add("omem.writer-lock", "failed",
+                    f"lock is held by {cur.get('owner')}, not this process")
+            else:
+                age = now - float(cur.get("heartbeat") or now)
+                add("omem.writer-lock",
+                    "healthy" if age < lock.STALE_AFTER else "degraded",
+                    f"held by {lock.owner}, heartbeat {int(age)}s ago")
+        except Exception as e:
+            add("omem.writer-lock", "unknown", str(e)[:200])
+
+        # 3. the scheduler - a live thread proves nothing on its own, because the
+        #    loop swallows tick exceptions on purpose. A stale last_tick does.
+        thread_alive = bool(getattr(SCHEDULER, "_thread", None)
+                            and SCHEDULER._thread.is_alive())
+        if not thread_alive:
+            add("omem.scheduler", "unknown", "not started in this process")
+        elif SCHEDULER.last_tick is None:
+            add("omem.scheduler", "healthy",
+                f"running, first tick due within {int(SCHEDULER.interval)}s")
+        else:
+            age = now - SCHEDULER.last_tick
+            stale = SCHEDULER.interval * 4
+            add("omem.scheduler", "healthy" if age < stale else "degraded",
+                f"last completed tick {int(age)}s ago"
+                + ("" if age < stale else ". Ticks are failing or hung"))
+
+        # 4. the ingest queue - dead-lettered jobs are work that will never retry.
+        try:
+            dead = STORE.db.execute(
+                "SELECT COUNT(*) AS c FROM ingest_jobs WHERE state='dead'").fetchone()
+            n = (dead["c"] if "c" in dead.keys() else dead[0]) if dead else 0
+            add("omem.ingest", "healthy" if not n else "degraded",
+                "no dead-lettered jobs" if not n
+                else f"{n} job(s) dead-lettered. They will not retry")
+        except Exception as e:
+            add("omem.ingest", "unknown", str(e)[:200])
+
+        # 5. backups
+        try:
+            st = BACKUPS.status()
+            if st.get("failing"):
+                add("omem.backups", "degraded", "the most recent backup run failed")
+            elif st.get("last_successful"):
+                add("omem.backups", "healthy", "last backup completed")
+            else:
+                add("omem.backups", "unknown", "no backup has run yet")
+        except Exception as e:
+            add("omem.backups", "unknown", str(e)[:200])
+
+        return out
+
+    def _healing_health(self, org_id, project_id):
+        """Reported component health merged with OMEM's own, one aggregate over
+        both. `overall` is recomputed here rather than taken from the store,
+        because a store that only knows about reported components would answer
+        "healthy" while OMEM's own database was unreachable.
+
+        The aggregate answers one question (is anything wrong) so it reports the
+        worst ACTIONABLE state, and falls back to "unknown" only when nothing is
+        known at all. `HealingStore.health` ranks a single unknown component above
+        healthy, which is right when the only components are ones a caller reported
+        (if the one thing you told us about is unknown, the project's health is
+        unknown) and wrong here: OMEM always contributes five components now, and a
+        backup that has simply never run must not make a working server read "not
+        reporting". An unknown component still shows its own mark in the list."""
+        stored = HEAL_STORE.health(org_id, project_id)
+        reported = [dict(c, origin="agent") for c in stored["components"]]
+        components = self._omem_components() + reported
+        rank = {"failed": 3, "degraded": 2, "recovering": 1, "healthy": 0}
+        overall, worst = None, -1
+        for c in components:
+            w = rank.get(c["status"])
+            if w is None:      # "unknown", not a verdict, so it does not outvote one
+                continue
+            if w > worst:
+                worst, overall = w, c["status"]
+        return {"overall": overall or "unknown",
+                "components": components,
+                # so the UI can say "nothing of yours has reported yet" without
+                # having to infer it from a list that is never empty any more
+                "reported_count": len(reported)}
 
     def _make_healer(self, can_fn):
         """Build a Healer bound to this request's authorization. Reuses the shared
@@ -1527,9 +1652,11 @@ class Handler(BaseHTTPRequestHandler):
     def _route_get(self, parts, qs, u, auth):
         # The bundled dashboard, before anything else. It has to be first
         # because the API routes below resolve ?project= and bail out with
-        # "project not found" — a request for / or /memory/ carries no project
-        # and never survived that far. Safe to be first because
-        # _serve_dashboard refuses /v1/ outright, so it cannot shadow the API.
+        # "project not found" - a request for / or /memory/ carries no project
+        # and never survived that far. Safe to be first because _serve_dashboard
+        # refuses /v1/ AND the handful of API paths that live outside it
+        # (_NON_V1_API_PREFIXES) - the OAuth callback is one, because Google
+        # redirects a browser to it and it cannot be namespaced.
         if self._serve_dashboard(u.path):
             return
         # ── self-healing reads (RBAC-gated, project-scoped) ──
@@ -1542,7 +1669,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._err(403, "permission", "requires heal.read")
             # GET /v1/healing/health
             if parts[2:] == ["health"]:
-                return self._send(200, HEAL_STORE.health(org_id, p.id))
+                return self._send(200, self._healing_health(org_id, p.id))
             # GET /v1/healing/failures[?component=]
             if parts[2:] == ["failures"]:
                 comp = qs.get("component", [None])[0]
@@ -1553,8 +1680,14 @@ class Handler(BaseHTTPRequestHandler):
                 failure = HEAL_STORE.failure(org_id, p.id, fid)
                 if not failure:
                     return self._err(404, "not_found", "failure not found")
-                return self._send(200, {"failure": failure,
-                                        "recoveries": HEAL_STORE.recoveries_for(org_id, p.id, fid)})
+                return self._send(200, {
+                    "failure": failure,
+                    "recoveries": HEAL_STORE.recoveries_for(org_id, p.id, fid),
+                    # Plans that never ran. A denied plan has no recovery row, so
+                    # without this the dashboard reports "no recovery was
+                    # attempted" for a failure where OMEM refused the repair.
+                    "diagnoses": HEAL_STORE.diagnoses_for(org_id, p.id, fid),
+                })
             return self._err(404, "not_found", "unknown healing route")
         # /v1/health
         if parts == ["v1", "health"]:
@@ -1618,9 +1751,16 @@ class Handler(BaseHTTPRequestHandler):
             INGEST.clear_connector_errors(cid)  # a successful reconnect clears stale failures
             ENT.audit("connector.connected", resource=cid, metadata={"provider": "google"},
                       correlation_id=self._corr())
-            # send the operator back to the dashboard
+            # Send the operator back to the dashboard. The default used to be an
+            # unconditional http://localhost:3000, which is right for `npm run dev`
+            # and wrong for every `pip install` - there is no second process and no
+            # port 3000, so a successful connection ended on a dead link. When the
+            # dashboard is bundled the redirect is same-origin and relative, which
+            # is correct whatever host, port or scheme the server is reached on.
             self.send_response(302)
-            self.send_header("Location", os.environ.get("OMEM_APP_URL", "http://localhost:3000") + "/sources?connected=gmail")
+            app_url = os.environ.get("OMEM_APP_URL")
+            base = app_url if app_url else ("" if DASHBOARD_ROOT else "http://localhost:3000")
+            self.send_header("Location", base + "/sources?connected=gmail")
             self._security_headers()
             self.end_headers()
             return
@@ -1785,7 +1925,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"org": oid, "exported_at": time.time(),
                                     "chain": ENT.verify_audit_chain(oid),
                                     "events": ENT.audit_log(oid, limit=10000)})
-        # GET /v1/audit/verify — recompute the chain and report where it breaks
+        # GET /v1/audit/verify - recompute the chain and report where it breaks
         if parts == ["v1", "audit", "verify"]:
             oid = STORE.org_for_user(auth["user"]["id"])["id"] if isinstance(auth, dict) and "user" in auth else None
             if not oid or not self._require(auth, "audit.read", oid):
@@ -2035,7 +2175,7 @@ class Handler(BaseHTTPRequestHandler):
             self_addrs = set(ident["emails"])
             self_doms = set(ident["domains"])
             overrides = _relationship_overrides(pid)
-            # aggregate in SQL over the indexed from_addr column — never parse
+            # aggregate in SQL over the indexed from_addr column - never parse
             # the whole mailbox in Python (real mailboxes made this endpoint
             # a multi-second full-table JSON scan)
             rows = STORE.db.execute(
@@ -2345,7 +2485,7 @@ class Handler(BaseHTTPRequestHandler):
             sa = shape_assertion(p, parts[2], T)
             return self._send(200, sa) if sa else self._err(404, "not_found", "assertion not found")
 
-        # /v1/assertions/{id}/why  — the signature explanation, all from frozen queries
+        # /v1/assertions/{id}/why - the signature explanation, all from frozen queries
         if len(parts) == 4 and parts[:2] == ["v1", "assertions"] and parts[3] == "why":
             aid = parts[2]
             a = e.store.assertion(aid)
@@ -2362,7 +2502,7 @@ class Handler(BaseHTTPRequestHandler):
             chain = e.revision_chain(aid)
             # contradictions: open assertions conflicting with THIS assertion at
             # T. Use the P7 narrow query (only aid's neighbourhood) instead of
-            # the full O(n²) engine.conflicts(T) — byte-identical for pairs
+            # the full O(n²) engine.conflicts(T) - byte-identical for pairs
             # touching aid (tests_p7_conflict_equiv.py), scope-filtered so the
             # explanation never leaks private memory.
             contradictory = []
@@ -2470,7 +2610,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"data": [shape_agent(p, ag.id) for ag in e.store.agents()]})
         if len(parts) == 3 and parts[:2] == ["v1", "agents"]:
             # include the agent's asserted claims (accountability view), but
-            # only those the authenticated viewer is permitted to see — an
+            # only those the authenticated viewer is permitted to see - an
             # agent-bound key must not read another agent's private memory here.
             sa = shape_agent(p, parts[2])
             if not sa:
@@ -2518,7 +2658,7 @@ class Handler(BaseHTTPRequestHandler):
             for pair in _pairs:
                 a, b = tuple(pair)
                 # a conflict pair is only visible if the caller may see BOTH
-                # sides — otherwise it leaks the existence/content of private
+                # sides - otherwise it leaks the existence/content of private
                 # memory. Unbound/operator callers (viewer=None) still see all.
                 if not (_viewer_scope_ok(p.id, a, _v, _u)
                         and _viewer_scope_ok(p.id, b, _v, _u)):
@@ -2531,7 +2671,7 @@ class Handler(BaseHTTPRequestHandler):
             part = [sorted(list(c)) for c in e.referent_partition(T)]
             return self._send(200, {"as_of": T, "partition": part})
 
-        # /v1/graph — nodes+edges assembled from primitives (for the memory graph)
+        # /v1/graph - nodes+edges assembled from primitives (for the memory graph)
         if parts == ["v1", "graph"]:
             nodes, edges = [], []
             for en in e.store.entities():
@@ -2560,9 +2700,22 @@ class Handler(BaseHTTPRequestHandler):
 
         return self._err(404, "not_found", f"no route: /{'/'.join(parts)}")
 
+    # API paths that do NOT live under /v1/ and must never be served as a static
+    # page. There is one: Google redirects a BROWSER to the OAuth callback, so it
+    # cannot be namespaced like the rest of the API.
+    #
+    # This list exists because the comment in _route_get used to say the dashboard
+    # "cannot shadow the API" since it refuses /v1/ - which was true of every route
+    # except this one. The collision only appears once web/out is built, so a source
+    # checkout and CI both looked fine while every shipped wheel had the API handler
+    # for the callback dead behind a static page.
+    _NON_V1_API_PREFIXES = ("/oauth/",)
+
     def _serve_dashboard(self, url_path):
         """Serve a file from the bundled dashboard. True if it handled the request."""
         if not DASHBOARD_ROOT or url_path.startswith("/v1/"):
+            return False
+        if url_path.startswith(self._NON_V1_API_PREFIXES):
             return False
         full = _dashboard_file(url_path)
         if not full:
@@ -2773,7 +2926,7 @@ class Handler(BaseHTTPRequestHandler):
             mode = qs.get("mode", ["soft"])[0]
             if mode == "erase":
                 # COMPLETE tenant erasure (GDPR right-to-erasure at tenant grain).
-                # Log the erasure at the ORG level FIRST — the project's own audit
+                # Log the erasure at the ORG level FIRST - the project's own audit
                 # rows are about to be removed, so the durable record must live on
                 # the org, not inside the deleted project.
                 ENT.audit("project.erased", actor=auth.get("user", {}).get("id"),
@@ -2787,7 +2940,7 @@ class Handler(BaseHTTPRequestHandler):
                     "note": ("complete tenant erasure: all project-scoped tables, "
                              "connector OAuth credentials, and the op-log were removed; "
                              "reboot replay cannot resurrect this project. Backups taken "
-                             "before erasure still contain the data — see governance notes.")})
+                             "before erasure still contain the data, see governance notes.")})
             # default: documented soft delete (source material + jobs), history retained
             STORE.db.execute("DELETE FROM source_records WHERE project_id=?", (pid,))
             STORE.db.execute("DELETE FROM ingest_jobs WHERE project_id=?", (pid,))
@@ -2807,7 +2960,7 @@ class Handler(BaseHTTPRequestHandler):
             cust = providers.stripe_create_customer(email)
             # Record the customer, NOT the plan. This used to set plan="pro" here,
             # which granted the paid tier at the moment a customer object was
-            # created — before any checkout, let alone any payment. The plan is
+            # created - before any checkout, let alone any payment. The plan is
             # the webhook's business, because only Stripe knows if it was paid for.
             ENT.set_billing(oid, stripe_customer=cust["id"])
             ENT.audit("billing.customer_created", actor=auth["user"]["id"], org_id=oid, correlation_id=self._corr())
@@ -2820,7 +2973,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._err(503, "unavailable", "Billing webhooks not configured (no STRIPE_WEBHOOK_SECRET).")
             sig = self.headers.get("Stripe-Signature", "")
             # The EXACT bytes Stripe signed. This used to be json.dumps(body),
-            # rebuilding the payload from the parsed dict — which reintroduces
+            # rebuilding the payload from the parsed dict - which reintroduces
             # Python's ", " item separator where Stripe sent ",", so the HMAC
             # covered different bytes and verification could only ever fail
             # against real Stripe. tests_e2e signed the same reconstruction, so
@@ -2979,7 +3132,7 @@ class Handler(BaseHTTPRequestHandler):
                         "message": str(ex), "provider": ex.provider,
                         "action": "Reconnect and approve mailbox read access."}})
                 if isinstance(ex, providers.ProviderUnreachable):
-                    # Network problem between this server and Google — not a
+                    # Network problem between this server and Google - not a
                     # credential problem on either side. Keep status untouched
                     # so a transient outage doesn't demand reconnection.
                     return self._send(503, {"error": {"type": "provider_unreachable",
@@ -3244,7 +3397,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 facts = ext.extract(payload)
             except Exception as ex:
-                # Provider failure must be legible and recorded — never a bare 500,
+                # Provider failure must be legible and recorded - never a bare 500,
                 # and never a memory invented to paper over the outage.
                 ENT.log_extraction(p.id, None, type(ext).__name__,
                                    model=ENT.setting(p.id, "llm_model"),
@@ -3371,7 +3524,7 @@ class Handler(BaseHTTPRequestHandler):
             def _bound_can(permission):
                 return self._require(auth, permission, org_id, p.id)
 
-            # POST /v1/healing/failures — report a failure, get prior memory back
+            # POST /v1/healing/failures - report a failure, get prior memory back
             if parts[2:] == ["failures"]:
                 if not _bound_can("heal.report"):
                     return self._err(403, "permission", "requires heal.report")
@@ -3382,7 +3535,7 @@ class Handler(BaseHTTPRequestHandler):
                           resource=failure["id"], metadata={"component": failure["component"]})
                 return self._send(201, {"failure": failure, "memory": HEAL._memory_summary(memory)})
 
-            # POST /v1/healing/handle — full autonomous loop (no LLM here; server
+            # POST /v1/healing/handle - full autonomous loop (no LLM here; server
             # side uses prior memory. An LLM-in-the-loop is driven client-side and
             # submits a plan via this same endpoint's optional 'plan' field.)
             if parts[2:] == ["handle"]:
@@ -3398,10 +3551,15 @@ class Handler(BaseHTTPRequestHandler):
                 result = healer.handle(org_id, p.id, error, owner=actor,
                                        diagnose_fn=diagnose, approved_by=approved_by)
                 ENT.audit("healing.handle", actor=actor, org_id=org_id, project_id=p.id,
-                          resource=result.get("failure_id"), metadata={"status": result["status"]})
+                          resource=result.get("failure_id"),
+                          # approved_by is what unlocks the only actions OMEM will
+                          # not run unattended, so it belongs in the tamper-evident
+                          # record, not just in the request that used it.
+                          metadata={"status": result["status"],
+                                    "approved_by": approved_by or None})
                 return self._send(200, result)
 
-            # POST /v1/healing/health — component health report
+            # POST /v1/healing/health - component health report
             if parts[2:] == ["health"]:
                 if not _bound_can("heal.report"):
                     return self._err(403, "permission", "requires heal.report")
@@ -3412,7 +3570,7 @@ class Handler(BaseHTTPRequestHandler):
                                          reason=str(body.get("reason", "")), metadata=body.get("metadata"))
                 return self._send(201, {"ok": True})
 
-            # POST /v1/healing/snapshots — record a known-good state
+            # POST /v1/healing/snapshots - record a known-good state
             if parts[2:] == ["snapshots"]:
                 if not _bound_can("heal.report"):
                     return self._err(403, "permission", "requires heal.report")
@@ -3487,7 +3645,7 @@ class Handler(BaseHTTPRequestHandler):
             ev = _mint_global("evt")
             # event_time = when the interaction happened. For 'now' we advance
             # the logical clock (p.tick) so each observation gets a fresh,
-            # distinct time — matching the prior behaviour that consolidation's
+            # distinct time - matching the prior behaviour that consolidation's
             # temporal-diversity policy depends on. For an explicit 'at', use it.
             _obs_event_T = p.tick() if at in ("now", None) else int(at)
             record(p, "event", {"id": ev, "ekind": "observation",
@@ -3502,7 +3660,7 @@ class Handler(BaseHTTPRequestHandler):
                     record(p, "entity", {"id": subj["id"], "type": subj["type"],
                                          "label": subj.get("label")})
                 # supersession: a stronger observation closes open weaker
-                # beliefs about the same subject — via the ENGINE's op
+                # beliefs about the same subject - via the ENGINE's op
                 olds = []
                 try:
                     from extraction import SUPERSEDES as _sup, canonical_proposition as _cp
@@ -3526,7 +3684,7 @@ class Handler(BaseHTTPRequestHandler):
                     Td = p.now()
                     # Duplicate control + REINFORCEMENT: an open identical
                     # belief that THIS AGENT CAN SEE is confirmation of one
-                    # underlying fact — recorded as a reinforcement row with
+                    # underlying fact - recorded as a reinforcement row with
                     # the reinforcing agent, never a duplicate assertion.
                     # Invisible (out-of-scope) beliefs are never matched:
                     # matching them would leak their existence, so the agent
@@ -4020,7 +4178,7 @@ LOCAL_EMAIL = "local@omem.dev"
 # ── the bundled dashboard ────────────────────────────────────────────────────
 # A static export of web/, copied into the wheel at build time (see
 # sdk/python/hatch_build.py) so `pip install omem-infrastructure` gives you a
-# dashboard as well as an API — no Node, no second process, no second port.
+# dashboard as well as an API - no Node, no second process, no second port.
 #
 # Absent when running from a source checkout that has not built it, and absent
 # from any wheel whose dashboard build failed. Both degrade to "API only" with a
@@ -4076,7 +4234,7 @@ def bootstrap_local_workspace():
 
     Before this, `omem-server` started an API and stopped. Getting to a first
     memory meant reading the README, POSTing to /v1/signup by hand, and digging
-    the key out of the response — for a product whose pitch is that setup takes
+    the key out of the response. For a product whose pitch is that setup takes
     a minute. Now the thing you need is on screen when it boots.
 
     Only in local mode, and only when the database has no projects yet. A server
@@ -4101,7 +4259,7 @@ def print_local_quickstart(ws, host, port, scheme):
     """Print the first-run banner, and FLUSH it.
 
     stdout is block-buffered whenever it is not a terminal, and this process
-    then runs forever without filling the buffer — so `omem-server > omem.log &`,
+    then runs forever without filling the buffer, so `omem-server > omem.log &`,
     which is how anyone backgrounds it, printed the "starting on ..." line (that
     one goes to stderr) and then appeared to hang with the API key still sitting
     in memory. The key is the entire onboarding; it has to reach the pipe.
@@ -4129,8 +4287,8 @@ def wrap_tls(srv) -> bool:
 
     The server spoke plaintext HTTP and nothing else, so every deployment needed
     a terminating proxy in front of it and the docs had to say so in four places.
-    A proxy is still the right answer at scale — it does OCSP, session resumption
-    and renewal better than this will — but "you must run nginx" is a strange
+    A proxy is still the right answer at scale. It does OCSP, session resumption
+    and renewal better than this will, but "you must run nginx" is a strange
     prerequisite for a thing whose selling point is that it installs with no
     dependencies, and it left the honest answer to "does OMEM do TLS" as "no".
 
@@ -4172,7 +4330,7 @@ def enforce_auth_safety(host: str):
     it to a non-loopback address publishes an unauthenticated dashboard onto the
     network; that must be a deliberate act, not a default. Password mode encrypts
     OAuth refresh tokens with OMEM_MASTER_KEY, whose development default is a
-    constant published in this repository — using it on a real deployment means
+    constant published in this repository. Using it on a real deployment means
     the ciphertext protects nothing.
 
     Raising SystemExit rather than warning is the point: a warning scrolls past.
@@ -4203,7 +4361,7 @@ def enforce_auth_safety(host: str):
     if host not in LOOPBACK_HOSTS and not os.environ.get("OMEM_ALLOW_INSECURE_BIND"):
         raise SystemExit(
             f"OMEM refuses to start: OMEM_HOST={host} would expose this server\n"
-            "beyond this machine, but OMEM_AUTH=local means it has no passwords —\n"
+            "beyond this machine, but OMEM_AUTH=local means it has no passwords, \n"
             "anyone who can reach the port gets full access to every project.\n"
             "  For a server other people reach:  OMEM_AUTH=password\n"
             "  If the network really is trusted (a container on a private host, a\n"
@@ -4214,12 +4372,12 @@ def main(port=8787):
     import signal
     host = os.environ.get("OMEM_HOST", "127.0.0.1")
     enforce_auth_safety(host)
-    print(f"OMEM Cloud API starting on {host}:{port}")
+    print(f"OMEM starting on {host}:{port}")
     if PASSWORD_MODE:
         print("  auth: password (accounts require a password; signup will not "
               "reissue one for a registered address)")
     else:
-        print(f"  auth: local, no login — safe only because this binds {host}. "
+        print(f"  auth: local, no login, safe only because this binds {host}. "
               "Set OMEM_AUTH=password before exposing it.")
     if _BACKFILLED:
         print(f"  granted owner role to {len(_BACKFILLED)} pre-existing org owner(s)")
@@ -4230,7 +4388,7 @@ def main(port=8787):
         print("  env file: none found (looked for server/.env.local, .env, repo .env*)")
     print("  engine: authoritative reference, CTS 29/29")
     validate_env()
-    # Before anything is served: one writer per database. See store.WriterLock —
+    # Before anything is served: one writer per database. See store.WriterLock -
     # a second process would hold a second in-memory engine, and the two would
     # answer the same question differently with nothing erroring.
     STORE.writer_lock.acquire()
@@ -4244,7 +4402,7 @@ def main(port=8787):
     # the developer to POST /v1/signup by hand before they can write anything.
     _ws = bootstrap_local_workspace()
     if scheme == "http" and host not in LOOPBACK_HOSTS:
-        print("  TLS: OFF — this is plaintext HTTP on a non-loopback address.")
+        print("  TLS: OFF. This is plaintext HTTP on a non-loopback address.")
         print("       Terminate TLS at a proxy, or set OMEM_TLS_CERT/OMEM_TLS_KEY.")
     if DASHBOARD_ROOT:
         print(f"  dashboard   {scheme}://{host}:{port}")

@@ -4,24 +4,24 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   OMEM — "the register"
+   OMEM, "the register"
 
    This is not a SaaS dashboard, it is an evidentiary record: what was believed,
    when, on whose word, and what contradicted it. Somebody opens it mid-incident
-   asking why an agent said a thing, so the interface is built like a registry —
-   dated, ruled, quotable — rather than like a product tour.
+   asking why an agent said a thing, so the interface is built like a registry:
+   dated, ruled, quotable, rather than like a product tour.
 
    Three decisions carry the whole thing:
 
    1. Warm ground, cool ink. Surfaces are paper-neutral (never blue-white);
       text and the single accent are an iron-gall blue-black. The previous
-      palette was Stripe's, verbatim — #635bff is Stripe indigo and #1a1f36 is
+      palette was Stripe's, verbatim. #635Bff is Stripe indigo and #1a1f36 is
       Stripe ink, and the comment said "matched to the reference shot". A memory
       ledger has no reason to look like a payments dashboard.
 
    2. Belief state is the ONLY chroma. Every other pixel is neutral. Buttons and
-      links are ink, not brand-blue, so the four colours that mean something —
-      believed, unknown, contradicted, closed — are the only colours competing
+      links are ink, not brand-blue, so the four colours that mean something:
+      believed, unknown, contradicted, closed. Are the only colours competing
       for the eye. Colour here is data, not decoration.
 
    3. Borders, never shadows. One depth strategy, committed. A record has rules
@@ -32,7 +32,7 @@
 :root {
   color-scheme: light;
 
-  /* Surfaces: warm paper. Elevation moves in ~2% steps — you feel it, you do
+  /* Surfaces: warm paper. Elevation moves in ~2% steps. You feel it, you do
      not see it. Sidebar shares --bg with the canvas on purpose; a different
      colour there splits the screen into two worlds. */
   --bg: #faf9f6;
@@ -40,11 +40,16 @@
   --panel-raised: #f6f4ef;
   --chip: #f1efe9;
 
-  /* Ink, four levels. Anything less and the hierarchy is too flat to read. */
-  --fg: #1b1a17;          /* warm near-black — iron gall, not cool navy */
-  --muted: #625e56;
-  --faint: #8b867c;
-  --disabled: #b0aba1;
+  /* Ink, four levels. Anything less and the hierarchy is too flat to read.
+     --faint is the lightest level that still carries TEXT, so it is pinned at the
+     4.5:1 floor rather than chosen by eye: it was #8b867c (3.62:1 on --panel),
+     which fails WCAG for anything under 24px, and every timestamp in the product
+     is 11px. --disabled is deliberately below the floor, it marks controls that
+     cannot be used, where low contrast is the message. */
+  --fg: #1b1a17;          /* warm near-black, iron gall, not cool navy */
+  --muted: #625e56;       /* 6.45:1 on --panel */
+  --faint: #6f695f;       /* 5.44:1 on --panel, 4.73:1 on --chip, its worst case */
+  --disabled: #b0aba1;    /* 2.29:1, not text, and not meant to be read */
 
   /* Rules. Low-opacity warm greys: findable when you look for structure,
      invisible when you are not. */
@@ -79,7 +84,7 @@
 
   --fg: #ece8e0;
   --muted: #a29c92;
-  --faint: #7d776d;
+  --faint: #999286;       /* 5.47:1 on --panel, 4.70:1 on --chip, see light note */
   --disabled: #5c574f;
 
   /* Shadows do not read on dark; borders carry all the structure, so they
@@ -91,7 +96,7 @@
   --accent-fg: #171614;
   --accent-bg: rgba(143, 168, 204, 0.14);
 
-  /* Desaturated one notch further — saturated semantics glare on dark. */
+  /* Desaturated one notch further, saturated semantics glare on dark. */
   --believed: #6fae8c;
   --believed-bg: rgba(111, 174, 140, 0.14);
   --unknown: #c39a4e;
@@ -142,14 +147,14 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
    size is the third lever, not the only one. */
 .display {
   font-weight: 600;
-  letter-spacing: -0.021em;   /* tighter as it gets bigger — optical sizing */
+  letter-spacing: -0.021em;   /* tighter as it gets bigger, optical sizing */
   line-height: 1.15;
   text-wrap: balance;
 }
 .display em { font-style: normal; color: var(--accent); }
 
 /* A claim quoted at size is evidence, so it is set like a quotation in a
-   record — the one place a serif appears, and the reason a serif is loaded. */
+   record, the one place a serif appears, and the reason a serif is loaded. */
 .claim {
   font-family: 'IBM Plex Serif', Georgia, serif;
   font-size: 20px;
@@ -214,7 +219,7 @@ p, .prose { text-wrap: pretty; }
                 border-style: dotted; border-width: 1.5px; }
 .led.closed   { color: var(--closed);   background: transparent; }
 .led.accent   { color: var(--accent);   background: var(--accent); }
-/* contradicted: struck through — two claims crossing is the whole idea */
+/* contradicted: struck through. Two claims crossing is the whole idea */
 .led.conflict { color: var(--conflict); background: var(--conflict-bg); }
 .led.conflict::after {
   content: ""; position: absolute; inset: -1.5px;
@@ -227,9 +232,9 @@ p, .prose { text-wrap: pretty; }
 /* ── the belief rail ───────────────────────────────────────────────────────
    The signature. A claim's belief interval drawn on a hairline span:
 
-     ├━━━━━━━━━━┤        closed  — believed then superseded, hard end-cap
-     ├━━━━━━━━━━▶        open    — still believed, no terminator, fades out
-     ├╳╳╳╳╳╳╳╳╳╳┤        contradicted — hatched
+     ├━━━━━━━━━━┤        closed. Believed then superseded, hard end-cap
+     ├━━━━━━━━━━▶        open: still believed, no terminator, fades out
+     ├╳╳╳╳╳╳╳╳╳╳┤        contradicted, hatched
 
    An open interval deliberately has no right edge. "No end recorded" is a real
    state in this system and a bar that simply stops would read as "ended here". */
@@ -257,7 +262,7 @@ p, .prose { text-wrap: pretty; }
   position: absolute; top: 50%; width: 1px; height: 9px; margin-top: -4.5px;
   background: var(--line-strong);
 }
-.rail-now {                            /* "as of" — full height, ink */
+.rail-now {                            /* "as of", full height, ink */
   position: absolute; top: 0; bottom: 0; width: 1px; background: var(--accent);
 }
 

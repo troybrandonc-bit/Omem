@@ -1,11 +1,11 @@
 import { MarketingShell } from "@/components/marketing/chrome";
 import { Section } from "@/components/marketing/ui";
 
-export const metadata = { title: "Changelog / OMEM Cloud" };
+export const metadata = { title: "Changelog / OMEM" };
 
 const ENTRIES = [
   { date: "2026-08", version: "v1.0", tag: "GA",
-    title: "OMEM Cloud is generally available",
+    title: "OMEM is generally available",
     items: [
       "The full memory model, hosted and multi-tenant, with as-of time travel on every query.",
       "Dashboard: memory explorer, provenance viewer, timeline, conflict viewer, memory graph, live inspector.",
@@ -33,7 +33,7 @@ export default function Changelog() {
     <MarketingShell>
       <Section className="pt-20 pb-14">
         <div className="tech-label mb-4">Changelog</div>
-        <h1 className="display max-w-xl text-[40px]">What&apos;s new in OMEM Cloud</h1>
+        <h1 className="display max-w-xl text-[40px]">What&apos;s new in OMEM</h1>
         <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-muted">
           Product updates, shipped. The underlying OMEM standard stays frozen and is versioned separately.
         </p>

@@ -56,7 +56,7 @@ export default function Sources() {
       window.location.href = b.auth_url;
       return;
     }
-    // Not configured on the API server — say so plainly instead of pretending.
+    // Not configured on the API server. Say so plainly instead of pretending.
     throw new Error(
       b.note ??
         "Gmail is not configured on the API server. Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI to server/.env.local and restart it."
@@ -186,7 +186,7 @@ function SourceCard({ c, busy, act }: { c: Connector; busy: string | null; act: 
             onClick={() => {
               const ok = window.confirm(
                 `Remove "${c.name}"?\n\nThis deletes its stored messages and jobs. ` +
-                `Memories already recorded stay — they are immutable history.`
+                `Memories already recorded stay. They are immutable history.`
               );
               if (ok) act(c.id + "rm", () => api.deleteConnector(project, c.id));
             }}

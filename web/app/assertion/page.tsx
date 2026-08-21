@@ -2,7 +2,7 @@
 /* Query-param route, not /assertions/[id].
  *
  * `output: "export"` emits a file per route at build time, and a route whose id
- * only exists at runtime has no file to emit — Next needs generateStaticParams,
+ * only exists at runtime has no file to emit. Next needs generateStaticParams,
  * which cannot enumerate ids that have not been created yet. So the id moves
  * into the query string, which is a client-side concern and needs no file.
  *
@@ -11,7 +11,7 @@
  *
  * useSearchParams() suspends during prerender, so the body sits inside a
  * Suspense boundary. Without it the export fails with "useSearchParams() should
- * be wrapped in a suspense boundary" — a build error, not a runtime one.
+ * be wrapped in a suspense boundary", a build error, not a runtime one.
  */
 import { Suspense, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -45,7 +45,7 @@ function AssertionDetailInner() {
         <ArrowLeft className="h-3.5 w-3.5" /> Memory
       </Link>
 
-      {/* Header: claim, state, and the facts that matter — one dense block. */}
+      {/* Header: claim, state, and the facts that matter, one dense block. */}
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="display text-[24px] leading-tight">{titleOf(a)}</h1>
@@ -59,7 +59,7 @@ function AssertionDetailInner() {
 
       <div className="mb-5 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-y py-2.5 text-2xs text-muted">
         <span>about <Link href={`/entity?id=${encodeURIComponent(why.subjects[0]?.id ?? "")}`}
-          className="font-medium text-fg hover:text-accent">{why.subjects[0]?.label || why.subjects[0]?.id || "—"}</Link></span>
+          className="font-medium text-fg hover:text-accent">{why.subjects[0]?.label || why.subjects[0]?.id || "unknown"}</Link></span>
         <span>asserted by <Link href={`/agent?id=${encodeURIComponent(a.agent)}`}
           className="font-medium text-fg hover:text-accent">{why.agent?.label || a.agent}</Link></span>
         <span>at <span className="num text-fg">t={a.assertion_time}</span></span>
@@ -179,7 +179,7 @@ function titleOf(a: { label?: string | null; proposition: string }): string {
 }
 
 // State explanation. Every branch maps exactly onto the frozen proposition_state
-// semantics — stated plainly, with nothing inferred beyond the query result.
+// semantics, stated plainly, with nothing inferred beyond the query result.
 function explainState(why: { state: string; contradictions: unknown[]; assertion: { open: boolean }; grounded: boolean }): string {
   const grounded = isGrounded(why.grounded);
   switch (why.state) {
@@ -212,7 +212,7 @@ function WhySkeleton() {
 
 
 // The original source material behind a memory. This is what lets a business
-// answer "which email did this come from?" — rendered from the stored source
+// answer "which email did this come from?", rendered from the stored source
 // record, never reconstructed or paraphrased.
 function SourceMessage({ why }: { why: WhyResult }) {
   const [open, setOpen] = useState(false);
