@@ -93,14 +93,14 @@ and to rebuild the bundled copy, `OMEM_STATIC=1 npm run build`.
 OMEM runs in one of two modes, and the difference matters before you put it
 anywhere other than your own machine.
 
-**`OMEM_AUTH=local`** — the default, and what makes the quickstart a minute.
+**`OMEM_AUTH=local`**  the default, and what makes the quickstart a minute.
 There is no login: the dashboard provisions a session against the server it can
 see. That is only safe while nothing else can reach the server, so local mode
 **refuses to bind a non-loopback address**. If you mean it (a container whose
 ports are published to `127.0.0.1`, a single-user VM), set
 `OMEM_ALLOW_INSECURE_BIND=1`.
 
-**`OMEM_AUTH=password`** — required for a server other people can reach.
+**`OMEM_AUTH=password`**  required for a server other people can reach.
 Accounts have passwords, hashed with PBKDF2-SHA256. Signing up with an address
 that already has a password returns 409 rather than a session, TOTP is enforced
 where it is enrolled, and the server refuses to start unless `OMEM_MASTER_KEY`
