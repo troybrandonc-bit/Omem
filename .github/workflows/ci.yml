@@ -67,10 +67,23 @@ jobs:
           OMEM_DATABASE_URL: postgres://omem:omem-dev@localhost:5432/omem
         # A skip here would mean this job proved nothing, which is exactly the
         # failure mode it exists to catch.
+        #
+        # Anchored to the start of a line, because tests_pg_live.py legitimately
+        # prints "SKIP LOCKED" - the name of the PostgreSQL feature it tests for
+        # double-claims. A bare case-insensitive grep for SKIP matched that and
+        # failed the job on a suite that had just passed 32 of 32. It went
+        # unnoticed only because the job used to die at the previous step.
         run: |
           out=$(python tests_pg_live.py)
           echo "$out"
-          echo "$out" | grep -qi "SKIP" && { echo "::error::PG suite skipped in the PG job"; exit 1; }
+          if echo "$out" | grep -qE '^[[:space:]]*SKIP:'; then
+            echo "::error::PG suite skipped in the PG job"; exit 1
+          fi
+          # A skip is not the only way to prove nothing: assert it reported a
+          # pass count, so a crash before the summary cannot read as success.
+          if ! echo "$out" | grep -qE '^[0-9]+ passed, [0-9]+ failed'; then
+            echo "::error::PG suite printed no pass/fail summary"; exit 1
+          fi
           exit 0
 
   encrypted-at-rest:
