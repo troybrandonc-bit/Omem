@@ -1,10 +1,12 @@
 """API JSON contract. Run: python3 tests_json_contract.py
 
 The dashboard does JSON.parse on every response, so the backend must NEVER
-emit a non-JSON body — not on missing params, bad ids, malformed request
+emit a non-JSON body: not on missing params, bad ids, malformed request
 bodies, broken Content-Length headers, or internal errors. This suite fuzzes
 every route family with garbage and asserts the response parses.
 """
+from __future__ import annotations
+
 import http.client
 import json
 import os

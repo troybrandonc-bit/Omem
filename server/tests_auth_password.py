@@ -2,7 +2,7 @@
 
 The defect these cover: `POST /v1/session {"email": "..."}` used to return a
 valid 30-day session for ANY address, with no password, no verification and no
-second factor. Knowing an email address was the entire credential — including
+second factor. Knowing an email address was the entire credential, including
 for the addresses in OMEM_ADMIN_EMAILS, which reach every tenant's data through
 /v1/admin. Enrolling TOTP did not help either, because /v1/signup returned a
 session for an existing address without ever consulting MFA.

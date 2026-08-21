@@ -16,7 +16,7 @@ A memory belongs to exactly one scope row (memory_scopes):
 No scope row = "org": connector-ingested knowledge (the company's own mailbox)
 and everything created before scopes existed is organisational by design.
 observe() writes agent-private rows BY DEFAULT; sharing is an explicit
-promotion that changes visibility only — attribution (which agent learned it,
+promotion that changes visibility only, attribution (which agent learned it,
 from where, when) is engine-side and immutable.
 
 Determinism
@@ -110,7 +110,7 @@ _WORD = re.compile(r"[a-z0-9][a-z0-9_@.-]{2,}")
 def extract_context_entities(text: str, p, explicit: list[str] | None = None) -> list[str]:
     """Which known entities does this context concern? Deterministic: explicit
     ids first, then known entity ids/labels/email-locals found in the text.
-    OMEM's job — the developer never pre-extracts ids."""
+    OMEM's job, the developer never pre-extracts ids."""
     found: list[str] = []
     seen = set()
 
@@ -227,7 +227,7 @@ class CandidateRetriever:
             if tags:
                 out[a.id] = tags
         # recency source: only when nothing else matched anything (cold start),
-        # a small window of the newest memories — never a database dump
+        # a small window of the newest memories - never a database dump
         if not out:
             for a in assertions[:10]:
                 out[a.id] = ["recent"]
@@ -259,7 +259,7 @@ def build_memory_pack(p, db, scope_store: ScopeStore, *,
             for e, info in sorted(hops.items()):
                 related.append(e)
                 v = info["via"]
-                rel_paths[e] = f"{v['src']} —{v['relation']}→ {v['dst']}"
+                rel_paths[e] = f"{v['src']}, {v['relation']}→ {v['dst']}"
         except Exception:
             related = []
     t1 = time.perf_counter()
@@ -268,7 +268,7 @@ def build_memory_pack(p, db, scope_store: ScopeStore, *,
     # surfaces memories whose MEANING matches the context even without shared
     # tokens/entities. These are merged as additional candidates tagged
     # "semantic"; they go through the identical scope-filter, engine validation,
-    # and deterministic ranking below — this only WIDENS the candidate set, it
+    # and deterministic ranking below - this only WIDENS the candidate set, it
     # never changes belief state or ranking authority. Bounded and fail-open.
     import os as _os
     if _os.environ.get("OMEM_SEMANTIC_RECALL", "1") == "1" and ctx_text.strip():
@@ -286,9 +286,9 @@ def build_memory_pack(p, db, scope_store: ScopeStore, *,
     included, excluded, seen_props = [], [], set()
     # P8: compute the coreference partition at T ONCE and reuse it for every
     # candidate's proposition_state (the frozen engine otherwise rebuilds it
-    # per candidate — the O(n²) bottleneck). Byte-identical to per-call engine
+    # per candidate - the O(n²) bottleneck). Byte-identical to per-call engine
     # queries (tests_p8_partition_equiv.py). Fall back to direct engine calls
-    # on any error — the engine stays authoritative.
+    # on any error - the engine stays authoritative.
     try:
         import partition_view as _pv
         _pview = _pv.PartitionView(p.engine, T)
@@ -298,7 +298,7 @@ def build_memory_pack(p, db, scope_store: ScopeStore, *,
     # not the whole project. conflict_narrow reuses the engine's own predicates
     # (same-referent + declared-contradiction), so the pairs are byte-identical
     # to filtering the full engine.conflicts(T) to these candidates (proven in
-    # tests_p7_conflict_equiv.py). Falls back to the full call on any error —
+    # tests_p7_conflict_equiv.py). Falls back to the full call on any error -
     # the engine stays the sole authority either way.
     try:
         import conflict_narrow as _cnarrow
@@ -361,7 +361,7 @@ def build_memory_pack(p, db, scope_store: ScopeStore, *,
                  if _pview is not None
                  else p.engine.proposition_state(list(a.subjects), a.proposition, T))
         if not p.engine.ledger.is_open_at(a, T):
-            excluded.append({"id": aid, "reason": "superseded or retracted — not current belief",
+            excluded.append({"id": aid, "reason": "superseded or retracted, not current belief",
                              "proposition": a.proposition})
             continue
         extras = (extras_lookup(aid) if extras_lookup else None) or {}
@@ -388,7 +388,7 @@ def build_memory_pack(p, db, scope_store: ScopeStore, *,
                                  "agent": oa.agent})
         why = []
         if a.proposition.startswith("pattern_"):
-            why.append("general knowledge from repeated organisational experience — "
+            why.append("general knowledge from repeated organisational experience, "
                        "specific facts about the entities in context take precedence")
         if "entity" in tags:
             direct = sorted(set(a.subjects) & set(ents))
@@ -412,7 +412,7 @@ def build_memory_pack(p, db, scope_store: ScopeStore, *,
                 rec = conflict_analysis["recommendation"]
                 why.append("best-supported side of an open conflict"
                            if rec["assertion"] == aid else
-                           "conflicted — a better-supported opposing memory exists")
+                           "conflicted. A better-supported opposing memory exists")
         kind = ("GENERAL_PATTERN" if a.proposition.startswith("pattern_")
                 or any(s.startswith("cohort:") for s in a.subjects)
                 else "CONFLICTING_FACT" if conf else "SPECIFIC_FACT")

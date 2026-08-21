@@ -1,7 +1,7 @@
 """P8 authenticated agent identity. Run: python3 tests_p8_agent_auth.py
 
 Agent-bound API keys make agent-private scope a real security boundary:
-- an UNBOUND key keeps the prior behaviour (caller asserts agent freely) —
+- an UNBOUND key keeps the prior behaviour (caller asserts agent freely),
   backward compatible;
 - a BOUND key forces its agent identity: it fills in a missing agent, rejects
   a mismatched one (403), and cannot read another agent's private memory

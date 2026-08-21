@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CodeBlock } from "@/components/marketing/ui";
 import { ArrowRight } from "lucide-react";
 
-export const metadata = { title: "Quickstart / OMEM Cloud" };
+export const metadata = { title: "Quickstart / OMEM" };
 
 const STEPS = [
   { title: "Install the SDK", body: "The embedded engine runs offline with full semantics. No key is needed to start.",

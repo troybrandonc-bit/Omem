@@ -125,7 +125,7 @@ check("contradicted edges are annotated, never shown as uncontested fact",
       all(e.get("contradicted") for e in zed_edges), str(zed_edges))
 
 print("== projection rebuild: determinism, idempotency, dangling cleanup ==")
-# inject a dangling edge row (no backing assertion) — rebuild must drop it
+# inject a dangling edge row (no backing assertion) - rebuild must drop it
 api.STORE.db.execute("INSERT OR REPLACE INTO memory_edges VALUES(?,?,?,?,?,?)",
                      (PID, "a_ghost", "person:ghost", "works_at", "company:void", time.time()))
 api.STORE.db.commit()
@@ -134,7 +134,7 @@ st, rb2 = call("POST", f"/v1/memory/graph/rebuild?project={PID}", {}, KEY)
 check("rebuild drops dangling edges", rb1["dropped_dangling"] >= 1, str(rb1))
 check("rebuild is idempotent (second run reconciles nothing)",
       rb2["reconciled"] == 0 and rb2["dropped_dangling"] == 0, str(rb2))
-# snapshot the whole projection, rebuild, compare — restart-consistency proof
+# snapshot the whole projection, rebuild, compare - restart-consistency proof
 def snapshot():
     return sorted(tuple(r) for r in api.STORE.db.execute(
         "SELECT assertion_id, src, relation, dst FROM memory_edges WHERE project_id=?", (PID,)))

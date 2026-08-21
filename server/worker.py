@@ -1,8 +1,8 @@
 """Durable job worker. Runs as its own process (python3 worker.py), separate
 from the API, claiming jobs from the ingest_jobs table.
 
-On PostgreSQL, claiming uses FOR UPDATE SKIP LOCKED — the standard production
-DB-queue pattern — so any number of worker processes can run concurrently
+On PostgreSQL, claiming uses FOR UPDATE SKIP LOCKED, the standard production
+DB-queue pattern, so any number of worker processes can run concurrently
 without double-claiming. On SQLite (dev), the single-writer model already
 serializes claims. The pipeline itself (extraction -> primitives -> frozen
 engine) is untouched: workers just drive Ingestor.process_pending safely.

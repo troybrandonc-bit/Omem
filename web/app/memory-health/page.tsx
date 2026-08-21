@@ -9,7 +9,7 @@ import { cn } from "@/lib/cn";
 
 // Memory hygiene control plane. Every number comes from the scanner's persisted
 // state; scans are dry-runs until "Apply corrections" is pressed. Corrections
-// are engine retractions — history stays auditable, nothing is deleted.
+// are engine retractions. History stays auditable, nothing is deleted.
 
 const CLS_TONE: Record<string, "believed" | "unknown" | "conflict" | "closed" | "muted"> = {
   VALID: "believed",
@@ -80,7 +80,7 @@ export default function MemoryHealth() {
     const review = s?.summary?.proposed_review ?? 0;
     if (!window.confirm(
       `Apply corrections from this scan?\n\n` +
-      `${proposed} memories will be RETRACTED (via the engine's append-only retract — history stays auditable).\n` +
+      `${proposed} memories will be RETRACTED (via the engine's append-only retract. History stays auditable).\n` +
       `${review} borderline memories will be sent to the review queue.\n\n` +
       `This cannot be undone silently, but every retraction is recorded and inspectable.`)) return;
     return act(`apply-${id}`, () => api.applyMemoryScan(project, id));
@@ -126,7 +126,7 @@ export default function MemoryHealth() {
         </div>
       )}
 
-      {/* Health summary — real counts only */}
+      {/* Health summary. Real counts only */}
       <section className="panel overflow-hidden">
         <header className="flex items-center justify-between border-b px-4 py-2.5">
           <h2 className="text-[14px] font-semibold">Current state</h2>
@@ -159,7 +159,7 @@ export default function MemoryHealth() {
         )}
       </section>
 
-      {/* Quality funnel — every number from persisted pipeline state */}
+      {/* Quality funnel, every number from persisted pipeline state */}
       {quality && quality.emails_scanned > 0 && (
         <section className="panel overflow-hidden">
           <header className="border-b px-4 py-2.5">
@@ -337,7 +337,7 @@ export default function MemoryHealth() {
         )}
       </section>
 
-      {/* Recent corrections — from the ops log, not synthesized */}
+      {/* Recent corrections, from the ops log, not synthesized */}
       <section className="panel overflow-hidden">
         <header className="border-b px-4 py-2.5">
           <h2 className="text-[14px] font-semibold">Recent corrections</h2>

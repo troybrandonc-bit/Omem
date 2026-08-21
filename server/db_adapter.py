@@ -1,4 +1,4 @@
-"""PostgreSQL adapter for the OMEM Cloud SaaS persistence layer.
+"""PostgreSQL adapter for the OMEM persistence layer.
 
 Exposes the same API surface the codebase already uses on sqlite3
 (execute / executescript / commit, rows addressable by name AND index,
@@ -38,7 +38,7 @@ _UPSERT_PK = {
     "project_settings": ["project_id", "key"],
     "assertion_evidence": ["assertion_id"],
     "user_mfa": ["user_id"],
-    # P3–P7 above-engine projections (all use INSERT OR REPLACE/IGNORE);
+    # P3-P7 above-engine projections (all use INSERT OR REPLACE/IGNORE);
     # PKs mirror each table's own PRIMARY KEY declaration.
     "memory_scopes": ["project_id", "assertion_id"],
     "team_members": ["project_id", "team_id", "agent_id"],
@@ -47,7 +47,7 @@ _UPSERT_PK = {
     "memory_edges": ["project_id", "assertion_id"],
     "candidate_subjects": ["project_id", "subject", "assertion_id"],
     "candidate_tokens": ["project_id", "token", "assertion_id"],
-    # relationship_overrides (P5-era) — PK is the composite below
+    # relationship_overrides (P5-era) - PK is the composite below
     "relationship_overrides": ["project_id", "key_type", "key"],
     # source_records uses INSERT OR IGNORE with the UNIQUE(connector_id,
     # external_id) constraint as the conflict target (NOT the 'id' primary key)
@@ -159,7 +159,7 @@ _columns_of = {
     "project_settings": ["project_id", "key", "value", "updated"],
     "assertion_evidence": ["assertion_id", "project_id", "source_record_id", "evidence", "confidence", "extractor", "created"],
     "user_mfa": ["user_id", "secret", "enabled", "created"],
-    # P3–P7 above-engine projection tables (column order matches CREATE TABLE)
+    # P3-P7 above-engine projection tables (column order matches CREATE TABLE)
     "memory_scopes": ["project_id", "assertion_id", "scope", "granted_by", "created"],
     "team_members": ["project_id", "team_id", "agent_id"],
     "memory_class": ["project_id", "assertion_id", "mclass", "ttl", "created"],

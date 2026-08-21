@@ -119,7 +119,7 @@ st, _ = call("POST", f"/v1/oauth/gmail/callback?project={PID}",
 check("forged state rejected 403", st == 403)
 
 # pilot org gets the pro plan (as the founder would set for a pilot) so multiple
-# sources fit the quota — this also proves entitlements read live billing state
+# sources fit the quota - this also proves entitlements read live billing state
 _OID = api.STORE.org_for_user(api.STORE.user_for_session(SESS)["id"])["id"]
 api.ENT.set_billing(_OID, plan="pro")
 

@@ -1,7 +1,7 @@
 """P7 narrow-conflict equivalence. Run: python3 tests_p7_conflict_equiv.py
 
 Proves conflict_narrow.conflicts_for(engine, candidates, T) returns EXACTLY
-the same pairs as filtering the full engine.conflicts(T) to those candidates —
+the same pairs as filtering the full engine.conflicts(T) to those candidates,
 across every semantic situation. If they ever differ, the narrow path is
 wrong and must not ship. The engine's own conflicts(T) is the oracle.
 """

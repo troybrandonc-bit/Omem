@@ -11,7 +11,7 @@ Two design constraints shape this:
    install". So the default embedding is a deterministic, dependency-free
    character n-gram hashing vector (a lightweight semantic signal that catches
    morphological variants and paraphrase overlap far better than exact tokens).
-   It is not a neural embedding — but it needs no model, no network, no GPU, and
+   It is not a neural embedding: but it needs no model, no network, no GPU, and
    is fully reproducible.
 
 2. PLUGGABLE REAL EMBEDDINGS. If a real embedding function is provided (OpenAI,
@@ -19,7 +19,7 @@ Two design constraints shape this:
    ranking/decision layer is untouched either way: this only FINDS candidates;
    the deterministic ranker still decides, and the frozen engine still validates.
 
-The retriever never changes belief state or ranking authority — it only widens
+The retriever never changes belief state or ranking authority, it only widens
 the candidate set, tagged with the "semantic" source and a similarity score used
 as a soft signal, never as ground truth.
 """

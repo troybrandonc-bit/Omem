@@ -10,7 +10,7 @@ Verifies the guarantees P9.1 actually introduces:
 - existing OAuth/connector secret encryption (string API) is unchanged.
 
 LIMITATION (labeled): deployment/volume-level DB-at-rest encryption cannot be
-exercised in this test environment — it is a deployment requirement, documented,
+exercised in this test environment: it is a deployment requirement, documented,
 not code-verified here.
 """
 import os

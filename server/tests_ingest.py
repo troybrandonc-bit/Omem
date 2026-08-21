@@ -91,7 +91,7 @@ check("competing ingested facts -> CONTRADICTED", st == "CONTRADICTED", st)
 print("== retry / dead-letter ==")
 # a connector whose extraction always yields a dangling subject would fail at
 # the engine; simulate a poisoned job by injecting a source record for a fact
-# referencing an agent we then make invalid is hard — instead assert DLQ plumbing
+# referencing an agent we then make invalid is hard - instead assert DLQ plumbing
 # by processing an item with no customer (extract yields [], job completes clean)
 conn4 = api.INGEST.add_connector(PID, "support_inbox", "Empty",
     {"items": [{"subject": "no customer", "body": "prefer email"}]}, agent_id="connector:empty")

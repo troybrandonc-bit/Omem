@@ -28,9 +28,11 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/troybrandonc-bit/Omem"
-Documentation = "https://github.com/troybrandonc-bit/Omem#readme"
+Homepage = "https://infrastructure.omem-cloud.com"
+Documentation = "https://infrastructure.omem-cloud.com/docs"
 Source = "https://github.com/troybrandonc-bit/Omem"
+Changelog = "https://github.com/troybrandonc-bit/Omem/blob/main/CHANGELOG.md"
+Issues = "https://github.com/troybrandonc-bit/Omem/issues"
 
 [project.scripts]
 # `omem-mcp` starts the MCP server over stdio, so any MCP client can launch it.

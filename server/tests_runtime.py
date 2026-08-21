@@ -69,7 +69,7 @@ seen_prompts = []
 
 def support_agent(prompt: str) -> str:
     seen_prompts.append(prompt)
-    return "Thanks — noted. We have decided to renew the annual contract."
+    return "Thanks. Noted. We have decided to renew the annual contract."
 
 
 agent = omem.wrap(support_agent, mem, agent_id="support", debug=True)

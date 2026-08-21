@@ -1,0 +1,37 @@
+name: Proposal
+description: A change to how OMEM works.
+labels: [proposal]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Worth reading the **design rules** in CONTRIBUTING.md first. Some
+        proposals are rejected however well argued — in particular anything that
+        has OMEM decide two claims contradict by reading them, anything that lets
+        model output or error text select an executable action, and any
+        third-party runtime dependency in the server or Python SDK.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that OMEM makes hard or impossible? Describe the situation, not the solution.
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+    validations: { required: true }
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried instead
+      description: Including whether an existing endpoint nearly does it.
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Design rules
+      options:
+        - label: This does not require OMEM to infer a contradiction from text
+        - label: This does not let model output or error text choose an executable action
+        - label: This adds no third-party runtime dependency to the server or Python SDK
+        - label: Nothing this displays would be fabricated or estimated

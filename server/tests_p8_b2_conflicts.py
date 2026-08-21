@@ -1,7 +1,7 @@
 """P8 Step 7 B2 regression. Run: python3 tests_p8_b2_conflicts.py
 
 Proves the two routes that previously ran the unbounded O(n²)
-engine.conflicts(T) — GET /v1/conflicts and GET /v1/assertions/{id}/why —
+engine.conflicts(T) (GET /v1/conflicts and GET /v1/assertions/{id}/why)
 now use the P7 narrowed path: same results, bounded latency.
 """
 import json
@@ -101,10 +101,10 @@ t0 = time.perf_counter()
 st, c = call("GET", f"/v1/conflicts?project={PID}", None, KEY)
 dt = time.perf_counter() - t0
 check("/v1/conflicts at 1500 assertions returns 200", st == 200, str(st))
-# generous ceiling — the point is "seconds, not tens of seconds"; the old full
+# generous ceiling - the point is "seconds, not tens of seconds"; the old full
 # O(n²) path was ~tens of seconds by 5k and unusable. 10s is a safe bound that
 # still fails loudly if the narrowing regresses.
-check(f"/v1/conflicts at 1500 stays bounded (<10s, was O(n^2)) — {dt:.1f}s", dt < 10.0,
+check(f"/v1/conflicts at 1500 stays bounded (<10s, was O(n^2)), {dt:.1f}s", dt < 10.0,
       f"{dt:.1f}s")
 
 print("== C2: /v1/conflicts uses the narrow path, not the O(n^2) fallback ==")

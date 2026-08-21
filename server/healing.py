@@ -1,4 +1,4 @@
-"""OMEM self-healing subsystem — infrastructure for agent self-repair.
+"""OMEM self-healing subsystem, infrastructure for agent self-repair.
 
 This is OMEM capability, not per-agent application logic. It provides the memory
 (failures, diagnoses, recovery history), the safety boundary (policy + risk
@@ -57,7 +57,7 @@ class HealingError(Exception):
 # ── redaction ────────────────────────────────────────────────────────────────
 class Redactor:
     """Strip secrets/credentials/tokens before anything is persisted. Failure
-    context routinely contains request bodies, headers, and env — none of which
+    context routinely contains request bodies, headers, and env, none of which
     should land in durable failure memory."""
     _KEY_RE = re.compile(
         r"(?i)(pass(word)?|secret|token|api[_-]?key|authorization|bearer|credential|"
@@ -200,7 +200,7 @@ class Policy:
         if not isinstance(act, dict) or "type" not in act:
             return {"permit": False, "reason": "malformed action"}
         at = act["type"]
-        # 1. must be a registered, executable action — error text can't invent one
+        # 1. must be a registered, executable action - error text can't invent one
         if not self.registry.known(at):
             return {"permit": False, "reason": f"unknown action type '{at}' (not registered)"}
         risk = self.registry.risk_of(at)       # authoritative risk (not from plan)
@@ -281,14 +281,38 @@ class HealingStore:
                 "plan": json.loads(r["plan"] or "{}"), "outcome": r["outcome"]}
 
     def record_diagnosis(self, org_id, project_id, failure_id, fingerprint, diagnosis,
-                         confidence, plan, outcome):
+                         confidence, plan, outcome, decisions=None):
         self.db.execute(
             "INSERT INTO heal_diagnoses(id,org_id,project_id,failure_id,fingerprint,diagnosis,"
-            "confidence,plan,outcome,ts) VALUES(?,?,?,?,?,?,?,?,?,?)",
+            "confidence,plan,outcome,decisions,ts) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
             ("diag_" + uuid.uuid4().hex[:12], org_id, project_id, failure_id, fingerprint,
              str(diagnosis)[:4000], float(confidence or 0.0), json.dumps(plan or {}),
-             outcome, time.time()))
+             outcome, json.dumps(Redactor.scrub(decisions)) if decisions else None,
+             time.time()))
         self.db.commit()
+
+    def diagnoses_for(self, org_id, project_id, failure_id) -> list[dict]:
+        """Every plan considered for a failure, including the ones that never ran.
+
+        A plan denied by policy writes a diagnosis and NO recovery row, because
+        nothing was ever claimed or executed, correct, and the reason the
+        dashboard used to say "no recovery was attempted" about a failure where
+        OMEM had just refused an unregistered action. That refusal is the
+        strongest thing the system does; it needs to be readable."""
+        rows = self.db.execute(
+            "SELECT * FROM heal_diagnoses WHERE org_id=? AND project_id=? AND failure_id=? "
+            "ORDER BY ts", (org_id, project_id, failure_id)).fetchall()
+        out = []
+        for r in rows:
+            plan = json.loads(r["plan"] or "{}")
+            raw = _col(r, "decisions")
+            out.append({
+                "diagnosis": r["diagnosis"], "confidence": r["confidence"],
+                "outcome": r["outcome"], "ts": r["ts"],
+                "actions": plan.get("actions") or [],
+                "decisions": json.loads(raw) if raw else [],
+            })
+        return out
 
     # -- recovery claim (atomic; one active recovery per component) --
     def claim_recovery(self, org_id, project_id, failure_id, component, owner, fingerprint) -> str | None:
@@ -299,7 +323,7 @@ class HealingStore:
         Single-active-claim is DB-ENFORCED via heal_active_claims' primary key
         (org,project,component): two instances racing on separate connections both
         try INSERT ... ON CONFLICT DO NOTHING, and only one row can exist, so only
-        one wins. This is race-free on both SQLite and Postgres — unlike a
+        one wins. This is race-free on both SQLite and Postgres, unlike a
         check-then-insert, which two independent connections can interleave."""
         # advisory guards first (cheap; not the correctness-critical part)
         since = time.time() - BUDGET_WINDOW_S
@@ -311,7 +335,8 @@ class HealingStore:
         tried = self.db.execute(
             "SELECT COUNT(*) AS c FROM heal_recoveries WHERE org_id=? AND project_id=? AND fingerprint=?",
             (org_id, project_id, fingerprint)).fetchone()
-        if tried and (tried["c"] if "c" in tried.keys() else tried[0]) >= MAX_ATTEMPTS_PER_FINGERPRINT:
+        tried_n = (tried["c"] if "c" in tried.keys() else tried[0]) if tried else 0
+        if tried_n >= MAX_ATTEMPTS_PER_FINGERPRINT:
             return None
 
         rid = "rec_" + uuid.uuid4().hex[:12]
@@ -328,13 +353,18 @@ class HealingStore:
         if not won or won["recovery_id"] != rid:
             return None  # another instance holds the claim
 
-        # we own the slot -> create the recovery row
+        # we own the slot -> create the recovery row. `attempts` is this attempt's
+        # ordinal for the strategy signature (1-based), not a counter that is later
+        # incremented: the row is written once per claim, and the cap above means
+        # it is always in 1..MAX_ATTEMPTS_PER_FINGERPRINT. Recording it here is what
+        # lets an operator read "attempt 3 of 3 - this strategy is now exhausted"
+        # instead of discovering exhaustion only when a claim silently returns None.
         self.db.execute(
             "INSERT INTO heal_recoveries(id,org_id,project_id,failure_id,component,fingerprint,"
             "state,owner,plan,actions_run,verification,outcome,attempts,ts) "
             "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (rid, org_id, project_id, failure_id, component, fingerprint, S_CLAIMED, owner,
-             "{}", "[]", "{}", "", 0, time.time()))
+             "{}", "[]", "{}", "", tried_n + 1, time.time()))
         self.db.commit()
         return rid
 
@@ -349,12 +379,13 @@ class HealingStore:
 
     # Column names are interpolated into the UPDATE below, so they are checked
     # against this list rather than trusted. Every caller today passes a literal
-    # keyword, so nothing is exploitable — but "no caller passes user input yet"
+    # keyword, so nothing is exploitable - but "no caller passes user input yet"
     # is a property of today's callers, not of this function, and it is one
     # refactor away from being untrue.
     RECOVERY_COLUMNS = frozenset({
         "failure_id", "component", "fingerprint", "state", "owner",
-        "plan", "actions_run", "verification", "outcome", "attempts", "ts",
+        "plan", "actions_run", "verification", "outcome", "attempts", "plan_source",
+        "approved_by", "ts",
     })
 
     def set_recovery(self, org_id, project_id, rid, **fields):
@@ -443,10 +474,25 @@ def _row_to_failure(r) -> dict:
             "context": json.loads(r["context"] or "{}"), "ts": r["ts"]}
 
 
+def _col(r, name, default=None):
+    """Read a column that may be absent on a database written before it existed.
+    `_add_missing_columns` adds it on the next boot, but a row read in the same
+    process that upgraded, or against a DB whose ALTER did not apply, must degrade
+    to "not recorded" rather than raising."""
+    try:
+        v = r[name]
+    except (KeyError, IndexError):
+        return default
+    return default if v is None else v
+
+
 def _row_to_recovery(r) -> dict:
     return {"id": r["id"], "failure_id": r["failure_id"], "component": r["component"],
             "state": r["state"], "owner": r["owner"], "outcome": r["outcome"],
             "attempts": r["attempts"], "plan": json.loads(r["plan"] or "{}"),
+            "plan_source": _col(r, "plan_source"),
+            "approved_by": _col(r, "approved_by"),
+            "max_attempts": MAX_ATTEMPTS_PER_FINGERPRINT,
             "actions_run": json.loads(r["actions_run"] or "[]"),
             "verification": json.loads(r["verification"] or "{}"), "ts": r["ts"]}
 
@@ -519,7 +565,7 @@ class Healer:
             return self._handle_inner(org_id, project_id, error, owner, diagnose_fn, approved_by)
         except HealingError:
             raise
-        except Exception as e:  # fail closed — never self-retry uncontrolled
+        except Exception as e:  # fail closed, never self-retry uncontrolled
             self.audit("healing.internal_error", metadata={"error": Redactor.scrub_text(str(e))[:300]})
             return {"status": "escalated", "reason": "healer internal error (failed closed)",
                     "error": Redactor.scrub_text(str(e))[:300]}
@@ -557,7 +603,7 @@ class Healer:
         if not decision["ok"]:
             self.store.record_diagnosis(org_id, project_id, failure["id"], failure["fingerprint"],
                                         plan.get("diagnosis", ""), plan.get("confidence", 0.0),
-                                        plan, "denied")
+                                        plan, "denied", decisions=decision["decisions"])
             self.audit("healing.plan.denied", resource=failure["id"],
                        metadata={"decisions": decision["decisions"]})
             return {"status": "denied", "reason": "plan not permitted by policy",
@@ -574,7 +620,16 @@ class Healer:
                     "reason": "recovery already active, budget exceeded, or strategy already exhausted",
                     "failure_id": failure["id"]}
 
-        self.store.set_recovery(org_id, project_id, rid, state=S_REPAIRING, plan=plan)
+        # plan_source is persisted, not just returned, because "a prior repair that
+        # already verified" and "something the model just made up" are the same
+        # actions on screen and very different things to have authorised.
+        self.store.set_recovery(org_id, project_id, rid, state=S_REPAIRING, plan=plan,
+                                plan_source=source,
+                                # Only meaningful when the plan contained a high-risk
+                                # action, which is the only case policy demands it -
+                                # but it is the case where "who said this was ok" is
+                                # the question the record has to be able to answer.
+                                approved_by=str(approved_by)[:200] if approved_by else None)
 
         # execute permitted actions (registered handlers only)
         actions_run = []
@@ -587,7 +642,7 @@ class Healer:
                 break
         self.store.set_recovery(org_id, project_id, rid, actions_run=actions_run)
 
-        # verify — explicit, never assume success from a returned-ok action
+        # verify - explicit, never assume success from a returned-ok action
         self.store.set_recovery(org_id, project_id, rid, state=S_VERIFYING)
         verification = self._verify(component, plan)
         verified = executed_ok and verification["ok"]
@@ -734,7 +789,7 @@ def _accepts_arg(fn):
 
 def default_action_registry() -> ActionRegistry:
     """Built-in low-risk repairs. They only ever call a hook the agent explicitly
-    registered on the component — OMEM gains no ambient capability. Medium/high
+    registered on the component, OMEM gains no ambient capability. Medium/high
     actions are intentionally NOT built in: an agent must register its own handler
     and hold the permission, so OMEM never invents infrastructure access."""
     reg = ActionRegistry()

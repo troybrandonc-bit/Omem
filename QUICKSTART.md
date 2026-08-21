@@ -14,9 +14,9 @@ Python 3.9+. No other dependencies, no database to set up, no account anywhere.
 The first run prints a project id and an API key:
 
 ```
-OMEM Cloud API starting on 127.0.0.1:8787
+OMEM starting on 127.0.0.1:8787
   listening on http://127.0.0.1:8787
-  auth: local, no login — safe only because this binds 127.0.0.1.
+  auth: local, no login, safe only because this binds 127.0.0.1.
 
   Your workspace is ready. The key is shown once:
 
@@ -42,10 +42,10 @@ mem.believes(about="customer:alice", claim="prefers_annual_billing")
 # -> 'BELIEVED_TRUE'
 ```
 
-`about` is any entity id you choose — `customer:alice`, `repo:omem`,
+`about` is any entity id you choose: `customer:alice`, `repo:omem`,
 `user:42`. `claim` is a token, not a sentence: OMEM normalises spelling, so
 `prefers_annual_billing`, `Prefers Annual Billing` and `prefers-annual-billing`
-are the same claim about the same customer. Meaning is still yours — it will not
+are the same claim about the same customer. Meaning is still yours. It will not
 decide that `wants_annual` and `prefers_annual` are the same thing.
 
 ## 3. Recall it
@@ -75,7 +75,7 @@ mem.believes(about="customer:alice", claim="prefers_annual_billing")
 
 Nothing was overwritten and nothing was lost. Both claims are still on record,
 the state is computed from the evidence, and `mem.why(assertion_id)` returns the
-chain that led there — which agent said it, when, and on what basis.
+chain that led there: which agent said it, when, and on what basis.
 
 Claims named `X` and `not:X` are opposed automatically; anything else you say
 once, as above. OMEM never decides two claims disagree by reading them, because
@@ -84,14 +84,14 @@ from now.
 
 ## 5. Look at it
 
-Open **http://127.0.0.1:8787** — the same address the server is already on.
+Open **http://127.0.0.1:8787**: the same address the server is already on.
 
 The dashboard ships inside the package and is served by the server itself, so
 there is nothing else to install and no second process. It opens on the project
 you have been writing to, with no login: memory, conflicts, the belief graph,
 the timeline, and the provenance behind any claim.
 
-If it says the dashboard is not bundled, you have a build without it — the API
+If it says the dashboard is not bundled, you have a build without it, the API
 works exactly the same, and `cd web && OMEM_STATIC=1 npm run build` produces one.
 
 ## Use it from Claude Desktop, or any MCP client
@@ -111,7 +111,7 @@ The client gets `omem_recall`, `omem_observe` and `omem_why` as tools.
 
 ## Before anyone else can reach it
 
-Local mode has **no passwords** — it is safe because it refuses to bind anything
+Local mode has **no passwords**: it is safe because it refuses to bind anything
 but loopback. The moment you put OMEM on a network, read the Authentication
 section of `README.md`: you want `OMEM_AUTH=password`, a real `OMEM_MASTER_KEY`,
 and TLS. The server will refuse the dangerous configurations rather than let you

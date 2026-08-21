@@ -1,7 +1,7 @@
-# OMEM Cloud, Deployment
+# Deploying OMEM
 
 > **On the word "verified" below.** Each section marked verified was verified
-> against a live dependency at the time it was written — not by the default test
+> against a live dependency at the time it was written, not by the default test
 > run. `server/run_tests.py` reports SKIPPED separately for exactly this reason:
 > the PostgreSQL suites exit 0 with no database configured, so a run that touched
 > no database used to be indistinguishable from one that proved PostgreSQL works.
@@ -54,7 +54,7 @@ swapping the file and restarting (boot replays the ops log through the engine).
 `pip install psycopg2-binary`. It is an optional extra so the SQLite default
 keeps installing with no build tools; nothing declared it before, so setting
 `OMEM_DATABASE_URL` failed on `ModuleNotFoundError` for anyone who followed this
-section. The bundled Docker image does NOT include it — that image is SQLite-only.
+section. The bundled Docker image does NOT include it. That image is SQLite-only.
 
 Then set `OMEM_DATABASE_URL=postgres://user:pass@host/db` and the SaaS layer runs
 on PostgreSQL through `db_adapter.py` (same code paths; all 214 SQLite checks pass
@@ -107,7 +107,7 @@ For a deployment other people reach, set `OMEM_AUTH=password` and a real
 `OMEM_MASTER_KEY` (the server will not start on the development default).
 Accounts then use PBKDF2-SHA256 passwords, signup returns 409 rather than a
 session for an already-registered address, and TOTP is enforced where enrolled.
-`OMEM_ADMIN_EMAILS` gates `/v1/admin/*`, which spans every tenant — it is only a
+`OMEM_ADMIN_EMAILS` gates `/v1/admin/*`, which spans every tenant. It is only a
 boundary in password mode.
 
 The server speaks plain HTTP. Terminate TLS at a proxy in front of it.
@@ -119,30 +119,30 @@ error rather than a silent fall back to plaintext, and a missing file is caught
 at boot rather than on the first request. On a non-loopback bind with no
 certificate, the server says out loud that it is serving plaintext.
 
-A terminating proxy is still better at scale — renewal, OCSP, session resumption
-— but running without one no longer means running in the clear.
+A terminating proxy is still better at scale: renewal, OCSP, session resumption
+but running without one no longer means running in the clear.
 
 ## Encryption of memory content at rest
 **Install the AEAD library first:** `pip install "omem-infrastructure[encryption]"`
 (or `pip install cryptography`). Content encryption refuses to start without it
-rather than falling back to the stdlib HMAC keystream used for OAuth tokens —
-that is not what an entire memory store should be encrypted with. The Docker
+rather than falling back to the stdlib HMAC keystream used for OAuth tokens.
+That is not what an entire memory store should be encrypted with. The Docker
 image ships `python3-cryptography`, so it works there out of the box.
 
 `OMEM_ENCRYPT_AT_REST=1` encrypts, with AES-GCM under `OMEM_MASTER_KEY`:
-- `ops.args` — the operations log, which is the memory itself and the thing the
+- `ops.args`. The operations log, which is the memory itself and the thing the
   engine is rebuilt from
-- `source_records.payload` — ingested third-party content
-- `assertion_evidence.evidence` — the quoted text behind each memory
+- `source_records.payload`, ingested third-party content
+- `assertion_evidence.evidence`, the quoted text behind each memory
 
 Stored OAuth tokens are encrypted regardless. Before enabling:
 - **Lose the key and you lose the data.** There is no recovery path, by design.
 - **No rotation tooling.** Rotating means decrypting and re-encrypting by hand.
 - **Encrypted columns cannot be filtered in SQL.** The one query that did
   (`classifier.relationship_stats`) now scans and decrypts in Python, bounded at
-  2000 rows — slower on large mailboxes, and it degrades rather than lying.
+  2000 rows, slower on large mailboxes, and it degrades rather than lying.
 - The content key is derived ONCE per process, not per row. `LocalSecretsProvider`
-  salts every value and so runs PBKDF2 per value — ~336 ms each, fine for a
+  salts every value and so runs PBKDF2 per value, ~336 ms each, fine for a
   handful of OAuth tokens and ruinous for content, where it would have made a
   10,000-operation boot replay take most of an hour. Steady state is ~53 us to
   encrypt and ~36 us to decrypt.
@@ -159,7 +159,7 @@ reason, and the head hash; `GET /v1/export/audit` carries the same block.
 
 This is tamper-EVIDENCE, not tamper-proofing: someone with write access can
 rewrite the chain from the edit forward. **Anchor the head hash somewhere OMEM
-does not control** — that is what turns the log into evidence. Rows written
+does not control**: that is what turns the log into evidence. Rows written
 before hashing existed are reported as `predates_chain`, not as a break.
 
 ## One writer per database (enforced)
@@ -173,7 +173,7 @@ A second process therefore refuses to start and names the holder. Ownership is
 over via compare-and-swap, so exactly one of two racing starters wins. Clean
 shutdown releases the lock so a redeploy does not wait out the timeout.
 
-**This is not high availability. It is the honest absence of it** — a loud
+**This is not high availability. It is the honest absence of it**: a loud
 startup failure instead of silent divergence. Horizontal scaling would need the
 engine's authoritative state moved out of process, which is a re-architecture,
 not a setting. `OMEM_ALLOW_MULTIPLE_WRITERS=1` overrides the refusal and is
@@ -185,7 +185,7 @@ almost always the wrong answer.
 - No object storage, no CDN, no secrets manager wired (env vars only).
 - One process only: no horizontal scaling and no rolling deploy. This is now
   enforced rather than merely documented (see above), but enforcement is not
-  availability — a restart is a gap in service, and it replays the whole ops log
+  availability. A restart is a gap in service, and it replays the whole ops log
   before serving, with no snapshotting or compaction.
 - No key rotation tooling for `OMEM_MASTER_KEY`.
 - The audit chain detects tampering; it cannot prevent it, and detection depends
