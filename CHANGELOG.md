@@ -3,11 +3,15 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
-## 0.2.1 - unreleased
+## 0.2.1 - 21 Aug 2026
 
-Self-healing was in the server and nowhere in the product. This release is
-mostly about making what OMEM already does visible, and fixing two places
-where the dashboard described what it did as *less* than it did.
+**If you are on Python 3.9, upgrade.** 0.2.0 did not import at all on it, so
+`pip install omem-infrastructure` failed for the oldest version this project
+says it supports. See below.
+
+Otherwise this release is mostly about self-healing, which was in the server and
+nowhere in the product, and about fixing three places where the dashboard
+described what OMEM did as *less* than it did.
 
 ### New
 
@@ -34,6 +38,33 @@ where the dashboard described what it did as *less* than it did.
   named as approving it when the plan contained a high-risk action.
 
 ### Fixed
+
+- **The package did not import on Python 3.9.** `omem/__init__.py` annotated the
+  `Memory` constructor with `project: str | None`. PEP 604 unions are evaluated
+  when the class is defined and are a `TypeError` before 3.10, so every 3.9 user
+  got this on `import omem`, and `omem-server` never started:
+
+  ```
+  TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'
+  ```
+
+  Annotations are now deferred, so the syntax stays readable and 3.9 works.
+  `requires-python` was always `>=3.9`; now that is true.
+
+- **A repair OMEM refused left no readable trace.** A plan proposing an action
+  that is not registered is denied and nothing executes, which has always been
+  the case, but it produced a diagnosis and no recovery, and the dashboard reads
+  recoveries. So the refusal displayed as "no recovery was attempted". Refused
+  plans are now shown with the risk class and the policy's reason for each
+  proposed action.
+
+- **The bundled dashboard shadowed the Gmail OAuth callback.**
+  `/oauth/gmail/callback` is the one API route that cannot live under `/v1/`,
+  because Google redirects a browser to it. The static-file handler runs before
+  every GET route and excluded only `/v1/`, so in any build with the dashboard
+  bundled, which is every published wheel, the page was served and the handler
+  never ran. On success it also redirected to `OMEM_APP_URL`, defaulting to
+  `localhost:3000`, which is right for `npm run dev` and dead for `pip install`.
 
 - **A failed repair rendered as though nothing had been attempted.** The
   recovery rail matched the loop's five success states against the state the
