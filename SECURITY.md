@@ -8,17 +8,16 @@ treated as the highest-priority class of issue in this project.
 
 **Do not open a public issue.**
 
-**[Report it privately through GitHub](https://github.com/troybrandonc-bit/Omem/security/advisories/new)**
-(Security → Report a vulnerability). This goes straight to the maintainer, stays
-private until we publish, and needs no email address from you.
+Use either:
 
-<!-- TODO before relying on this: add a monitored security@ address on a domain
-     you actually own, and list it here as an alternative for people who will not
-     use GitHub. Do not list one until the mailbox exists, an unanswered security
-     address is worse than none. -->
+- **[GitHub private vulnerability reporting](https://github.com/troybrandonc-bit/Omem/security/advisories/new)**
+  (Security → Report a vulnerability). Preferred: it goes straight to the
+  maintainer, stays private until we publish, and needs no email address from you.
+- **security@omem-cloud.com**, if you would rather not use GitHub. Encrypted mail
+  is welcome; say so and we will exchange keys before you send details.
 
-There is deliberately no email address here yet, because there is no monitored
-mailbox to put behind one. GitHub's private reporting is the channel.
+Either reaches the same person. Do not open a public issue for a vulnerability,
+and do not post details in a pull request comment.
 
 Include what you need to include and nothing more: the version, what you did,
 what happened, and what you expected. A proof of concept helps and is not
