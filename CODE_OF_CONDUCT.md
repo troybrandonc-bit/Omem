@@ -39,13 +39,14 @@ in scope wherever it happened.
 
 ## Enforcement
 
-Report by [opening a private security advisory](https://github.com/troybrandonc-bit/Omem/security/advisories/new).
-It is the only private channel this repository has today, and it reaches the
-maintainer directly. Say at the top that it is a conduct report, not a
-vulnerability.
+Email **security@omem-cloud.com** and put "conduct" in the subject, or
+[open a private security advisory](https://github.com/troybrandonc-bit/Omem/security/advisories/new)
+and say at the top that it is a conduct report.
 
-<!-- TODO: replace with a monitored conduct@ address once a domain exists. Using
-     the advisory form for this is a workaround, not a design. -->
+That address is shared with security reporting rather than being a dedicated
+conduct@ mailbox, which is worth stating plainly: on a project with one
+maintainer a separate address would be the same inbox with a different label. If
+that changes, this section changes with it.
 
 Reports are read by the maintainer and kept confidential. You will get an
 acknowledgement within 3 business days.
