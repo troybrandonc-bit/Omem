@@ -102,8 +102,8 @@ class Server:
 
         The old version called kill() without waiting for it, so a server that
         ignored terminate() left this function having merely ASKED it to die.
-        POSIX tolerates that — the next phase unlinks the database while the
-        handle is still open — but Windows refuses to delete an open file, so the
+        POSIX tolerates that, the next phase unlinks the database while the
+        handle is still open, but Windows refuses to delete an open file, so the
         drill died at 'simulate primary-DB loss' with PermissionError. Waiting is
         also what the drill is meant to model: a primary that is gone, not one
         that is on its way out.
@@ -252,7 +252,7 @@ os.remove(_tmpchk)
 check("backup captured the full durable op-log (WAL-checkpointed)",
       backup_ops == pre_ops, f"backup_ops={backup_ops} live_ops={pre_ops}")
 
-# ══ PHASE 3.8: SIMULATE DISASTER — destroy the primary DB ══
+# ══ PHASE 3.8: SIMULATE DISASTER - destroy the primary DB ══
 print("== simulate primary-DB loss ==")
 for p in (DB, DB + "-wal", DB + "-shm"):
     if os.path.exists(p):

@@ -3,7 +3,7 @@
 The op log is the source of truth; the P5 graph-edge and P7 candidate-index
 projections are disposable. This proves that after a projection is lost or
 corrupted, a restart (boot: replay ops + reconcile projections) restores it to
-match engine state — graph queries, recall candidates, and as_of history all
+match engine state: graph queries, recall candidates, and as_of history all
 come back identical.
 """
 import json

@@ -48,7 +48,7 @@ No gradients, no glassmorphism, no glow, no pills, no cards-inside-cards.
 ## Spacing
 
 4px base scale. Content max-widths: 1120px (marketing), 64rem (dashboard work surfaces),
-narrower for reading (42–48rem). Chrome: 48px header, 224px sidebar. Section rhythm on
+narrower for reading (42-48rem). Chrome: 48px header, 224px sidebar. Section rhythm on
 marketing: py-20/24; dashboard: mb-6/8 blocks.
 
 ## Navigation model

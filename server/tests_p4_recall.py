@@ -103,7 +103,7 @@ call("POST", f"/v1/declare-contradiction?project={PID}",
      {"token_a": "prefers_annual_billing", "token_b": "prefers_monthly_billing"}, KEY)
 a_mon = seed("agent:support", "company:acme", "prefers_monthly_billing",
              "Customer explicitly stated monthly billing")  # NEWER assertion
-# reinforce the OLDER annual side twice — recency must still win
+# reinforce the OLDER annual side twice - recency must still win
 import consolidation as _c
 _c.reinforce(api.STORE.db, PID, a_ann, "agent:sales", "obs1")
 _c.reinforce(api.STORE.db, PID, a_ann, "agent:billing", "obs2")

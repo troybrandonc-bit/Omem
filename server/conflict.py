@@ -1,6 +1,6 @@
 """P4 conflict reasoning. The frozen engine preserves contradictions; this
 layer makes them USEFUL: for a conflicted pair it assembles each side's real
-evidence and produces a deterministic, explainable recommendation — while the
+evidence and produces a deterministic, explainable recommendation, while the
 engine's truth state remains untouched and both sides remain retrievable.
 
 ──────────────────────────────────────────────────────────────────────────────
@@ -8,7 +8,7 @@ P4 RECOMMENDATION POLICY (explicit intelligence-layer policy, documented here
 because the frozen model deliberately does not rank open contradictions):
 
   Given two OPEN conflicting assertions, compare in strict order:
-  1. RECENCY      the side asserted at the later logical time wins — newer
+  1. RECENCY      the side asserted at the later logical time wins, newer
                   direct information supersedes older inference in practice
                   even when no formal supersession was recorded.
   2. CORROBORATION if asserted at the same logical time, the side with more
@@ -100,14 +100,14 @@ def analyze_pair(p, db, pair) -> dict | None:
         },
         "note": ("both sides remain preserved and retrievable; the engine's "
                  "contradiction state is unchanged" if winner is not None else
-                 "evidence is tied — OMEM does not guess; both sides preserved"),
+                 "evidence is tied. OMEM does not guess; both sides preserved"),
     }
 
 
 def conflicts_overview(p, db, scopes, viewer: str | None = None,
                        acting_user: str | None = None, limit: int = 50) -> list[dict]:
     """All open conflicts, scope-safe: a pair is listed only when the viewer
-    may see BOTH sides — a half-visible pair would leak the hidden side's
+    may see BOTH sides. A half-visible pair would leak the hidden side's
     existence. Control-plane reads (no viewer) see everything."""
     T = p.now()
     teams = scopes.teams_of(p.id, viewer) if viewer else set()

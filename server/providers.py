@@ -47,7 +47,7 @@ class ProviderConfigError(Exception):
             f"{provider} rejected this deployment's OAuth client credentials"
             f"{': ' + detail if detail else ''}. Fix GOOGLE_CLIENT_ID / "
             "GOOGLE_CLIENT_SECRET in the server environment; reconnecting the "
-            "account will not help — this is an operator configuration problem, "
+            "account will not help. This is an operator configuration problem, "
             "not a credential problem with the connected mailbox.")
 
 
@@ -68,7 +68,7 @@ class ProviderApiDisabled(Exception):
         super().__init__(
             f"The Gmail API is not enabled for this Google Cloud project. "
             f"Enable it{' at ' + url if url else ''}, wait a minute for Google to "
-            f"propagate the change, then sync again. Reconnecting will not help — "
+            f"propagate the change, then sync again. Reconnecting will not help, "
             f"this is a project setting, not a credential problem.")
 
 
@@ -90,7 +90,7 @@ class NeedsReauth(Exception):
         self.provider = provider
         super().__init__(
             f"{provider} rejected the stored credentials{': ' + detail if detail else ''}. "
-            "The account must be reconnected — the refresh token is no longer valid "
+            "The account must be reconnected. The refresh token is no longer valid "
             "(revoked, expired, or consent withdrawn).")
 
 
@@ -173,7 +173,7 @@ def google_refresh(refresh_token: str) -> dict:
             # refresh token itself is dead (revoked / expired / consent
             # withdrawn / password change).
             raise NeedsReauth("Google", "token endpoint returned invalid_grant "
-                              "— the refresh token was revoked or has expired") from None
+                              "(the refresh token was revoked or has expired)") from None
         if "invalid_client" in low or "unauthorized_client" in low:
             # Operator misconfiguration, NOT a user problem. Reconnecting
             # cannot fix a wrong client id/secret.
@@ -243,7 +243,7 @@ class RealGmailTransport(GmailTransport):
             if retried:
                 raise NeedsReauth(
                     "Google", "Gmail rejected even a freshly refreshed access "
-                    "token — the grant's scopes or account state changed") from None
+                    "token, the grant's scopes or account state changed") from None
             self._ensure_access(force=True)
             return self._gmail_get(url, retried=True)
 
@@ -281,7 +281,7 @@ def llm_configured() -> bool:
 
 def dns_check(url: str) -> dict:
     """Resolve the host of a provider URL. Separates 'bad config' from 'network
-    blocked' — the two causes of getaddrinfo failures."""
+    blocked', the two causes of getaddrinfo failures."""
     import socket
     import urllib.parse as _up
     parts = _up.urlsplit(url or "")
@@ -338,7 +338,7 @@ def _host_of(url: str) -> str:
 
 class OpenAICompatClient(LLMClient):
     """Vendor-agnostic chat-completions client. Works with OpenAI, Together,
-    Groq, local vLLM — any /chat/completions endpoint. Records model + token
+    Groq, local vLLM. Any /chat/completions endpoint. Records model + token
     usage via the usage callback. Timeout + retry + structured output."""
     def __init__(self, usage_cb=None):
         self.base = os.environ.get("OMEM_LLM_BASE_URL", "https://api.openai.com/v1")

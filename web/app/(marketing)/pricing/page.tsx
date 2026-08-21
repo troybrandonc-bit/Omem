@@ -5,18 +5,18 @@ import { Section } from "@/components/marketing/ui";
 export const metadata = { title: "Pricing / OMEM" };
 
 // OMEM is free while it is in beta. This page used to advertise $25 and $299
-// tiers with SSO, US/EU residency, a 99.9% uptime SLA, SOC 2, HIPAA and BYOK —
-// none of which exist, and none of which could be bought anyway: the checkout
+// tiers with SSO, US/EU residency, a 99.9% uptime SLA, SOC 2, HIPAA and BYOK.
+// None of which exist, and none of which could be bought anyway: the checkout
 // endpoint never created a Stripe Checkout Session, so there was no way to pay.
 // Rather than price a product that cannot take payment, this says what is true.
 
 const INCLUDED = [
-  "The full memory model — belief state, contradiction, provenance, recall",
+  "The full memory model: belief state, contradiction, provenance, recall",
   "Unlimited memories and sources",
   "Python and TypeScript SDKs, and an MCP server",
   "The dashboard: memory, conflicts, graph, timeline, audit",
   "Self-host it anywhere, on SQLite or PostgreSQL",
-  "MIT licensed — fork it, keep it, no take-backs",
+  "MIT licensed: fork it, keep it, no take-backs",
 ];
 
 export default function Pricing() {
@@ -27,7 +27,7 @@ export default function Pricing() {
         <h1 className="display max-w-xl text-[40px]">Free while it is in beta.</h1>
         <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-muted">
           There is no paid plan, no card, and no quota. OMEM is early software and what it
-          needs right now is people using it and telling us where it breaks — which is worth
+          needs right now is people using it and telling us where it breaks, which is worth
           more than the revenue a product at this stage would make.
         </p>
       </Section>
@@ -62,7 +62,7 @@ export default function Pricing() {
         <div className="mt-10 max-w-xl text-[13px] leading-relaxed text-muted">
           <p className="font-medium text-fg">When that changes</p>
           <p className="mt-2">
-            The reference engine and the SDKs stay free and self-hostable regardless — you should
+            The reference engine and the SDKs stay free and self-hostable regardless. You should
             never pay to define what a memory means. If a hosted service is ever charged for, it
             will be for running it at scale, and it will be announced before it is billed, not
             after.

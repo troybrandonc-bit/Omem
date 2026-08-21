@@ -149,7 +149,7 @@ function IdentitySettings() {
     <div className="space-y-3 px-4 py-3">
       <p className="text-[13px] text-muted">
         Tells OMEM who &ldquo;we&rdquo; are. Mail from these addresses or domains is treated as
-        sent by your organization — so your own &ldquo;I&rsquo;d like to upgrade our subscription&rdquo;
+        sent by your organization, so your own &ldquo;I&rsquo;d like to upgrade our subscription&rdquo;
         becomes a memory about <em>your company</em>, never about a customer.
       </p>
       <div>

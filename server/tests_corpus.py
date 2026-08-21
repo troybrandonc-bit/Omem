@@ -156,7 +156,7 @@ def iprops(fs):
     return [(f["subject"]["id"], f["proposition"]) for f in fs]
 
 
-# 3. supplier (human sales) offering an upgrade — a CTA aimed at us, no memory
+# 3. supplier (human sales) offering an upgrade - a CTA aimed at us, no memory
 f = ifacts("sales@vendorco.com", "Grow with VendorCo",
            "Would you like to upgrade to our Enterprise tier? I can walk you through it.")
 check("supplier's upsell question -> no customer memory", f == [], str(iprops(f)))

@@ -83,7 +83,7 @@ class BundleServerHook(BuildHookInterface):
 
         Deliberately NOT fatal when absent. The dashboard needs `npm ci && npm
         run build` with OMEM_STATIC=1, which is a Node toolchain and a good deal
-        of memory — CI has both and plenty of machines do not. A wheel without
+        of memory. CI has both and plenty of machines do not. A wheel without
         it is a perfectly good wheel that serves the API and says the dashboard
         is not bundled, which is a far better failure than being unable to cut a
         release at all. The server bundle above IS fatal, because without it
@@ -106,6 +106,6 @@ class BundleServerHook(BuildHookInterface):
         n = sum(len(f) for _, _, f in os.walk(dest))
         if not os.path.isfile(os.path.join(dest, "index.html")):
             raise RuntimeError(
-                "web/out exists but has no index.html — a partial or failed "
+                "web/out exists but has no index.html, a partial or failed "
                 "export would ship a dashboard that 404s on its own front page")
         self.app.display_info(f"bundled {n} dashboard files into omem/_dashboard")

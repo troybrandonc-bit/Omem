@@ -2,7 +2,7 @@
 
 All of this is REAL and enforced (not toggles): roles gate actions, audit rows
 are append-only, usage counters increment on real events, retention deletes real
-storage rows. None of it touches the frozen engine — these are storage/policy
+storage rows. None of it touches the frozen engine. These are storage/policy
 layers around it. What is deleted vs. what remains as immutable engine history is
 documented in delete_project() and retention_sweep().
 """
@@ -103,7 +103,7 @@ def _audit_digest(prev_hash: str, row: dict) -> str:
     """The hash a row commits to.
 
     Canonical JSON with sorted keys, so the digest depends on the VALUES and not
-    on dict ordering — otherwise the same row rehashed by a different Python
+    on dict ordering, otherwise the same row rehashed by a different Python
     version could fail to verify and look like tampering.
     """
     payload = json.dumps({
@@ -166,7 +166,7 @@ class Enterprise:
 
         This is tamper-EVIDENCE, not tamper-proofing. Someone with write access
         can still rewrite the whole chain from the edit forward. Detecting that
-        needs the head hash anchored somewhere OMEM does not control — export it
+        needs the head hash anchored somewhere OMEM does not control, export it
         (`GET /v1/audit/verify` returns it) and keep it elsewhere.
 
         Chains are per-org so that a tenant can verify their own exported log
@@ -218,7 +218,7 @@ class Enterprise:
                 return {"ok": False, "checked": checked,
                         "broken_at": {"id": d["id"], "seq": d["seq"], "ts": d["ts"]},
                         "reason": f"sequence jumps to {d['seq']}, expected {expect_seq} "
-                                  "— a row was deleted",
+                                  "(a row was deleted)",
                         "predates_chain": unhashed, "head": prev_hash or None}
             if (d["prev_hash"] or "") != prev_hash:
                 return {"ok": False, "checked": checked,
@@ -228,7 +228,7 @@ class Enterprise:
             if _audit_digest(prev_hash, d) != d["hash"]:
                 return {"ok": False, "checked": checked,
                         "broken_at": {"id": d["id"], "seq": d["seq"], "ts": d["ts"]},
-                        "reason": "row contents do not match its hash — it was altered",
+                        "reason": "row contents do not match its hash. It was altered",
                         "predates_chain": unhashed, "head": prev_hash or None}
             prev_hash = d["hash"]
             expect_seq += 1
@@ -293,7 +293,7 @@ class Enterprise:
     def retention_sweep(self, project_id) -> dict:
         """Delete source records past their retention window. IMPORTANT: this
         removes stored SOURCE MATERIAL (the raw payload) only. The engine's
-        assertions/derivations remain as immutable memory history — retention is
+        assertions/derivations remain as immutable memory history. Retention is
         a storage policy over source material, not a memory-semantic operation.
         Provenance that pointed at a deleted source will show 'source expired'."""
         pol = self.retention(project_id)
@@ -311,14 +311,14 @@ class Enterprise:
     # This is the ONE deletion that hard-removes an entire tenant. It is NOT an
     # intra-tenant memory-semantic operation: it does not retract or rewrite
     # history within a living tenant (which would need a separate governance
-    # decision). It removes the whole project so nothing survives — including
+    # decision). It removes the whole project so nothing survives - including
     # the op-log, so a reboot's replay cannot resurrect the deleted memory, and
     # the encrypted OAuth credentials of the project's connectors.
     #
     # The set of project-scoped tables is derived, not hardcoded blindly: any
     # table with a project_id column plus the connector-scoped oauth_creds and
     # the project row itself. Backups taken BEFORE erasure still contain the
-    # data — restoring one re-introduces it. That is an operational/governance
+    # data - restoring one re-introduces it. That is an operational/governance
     # boundary (documented, flagged), not something code silently guarantees.
     PROJECT_SCOPED_TABLES = [
         "ops", "keys", "source_records", "connectors", "candidate_subjects",
@@ -338,7 +338,7 @@ class Enterprise:
         erasure at the org level BEFORE calling this. Idempotent: deleting a
         non-existent project simply reports zeros."""
         report = {}
-        # 1. OAuth creds are keyed by connector_id, not project_id — resolve and
+        # 1. OAuth creds are keyed by connector_id, not project_id - resolve and
         #    delete them first so encrypted secrets don't outlive the project.
         try:
             conn_ids = [r["id"] for r in self.db.execute(
@@ -501,7 +501,7 @@ class Enterprise:
 
 # Plans are configurable data, not scattered constants.
 # OMEM is free while it is in beta, so the default plan has no ceiling. The
-# quota machinery below is untouched and still enforced — flipping these two
+# quota machinery below is untouched and still enforced - flipping these two
 # values back to numbers is all it takes to meter the free tier again. Leaving
 # the old 1,000-memory cap in place would have been the more surprising choice:
 # every account would hit a paywall-shaped wall with nothing to buy.

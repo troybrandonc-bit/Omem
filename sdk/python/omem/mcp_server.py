@@ -1,4 +1,4 @@
-"""OMEM MCP server — memory as MCP tools over stdio JSON-RPC 2.0.
+"""OMEM MCP server, memory as MCP tools over stdio JSON-RPC 2.0.
 
     OMEM_API_KEY=omem_sk_... OMEM_BASE_URL=... OMEM_PROJECT=... \\
     OMEM_AGENT=support-agent  python -m omem.mcp_server

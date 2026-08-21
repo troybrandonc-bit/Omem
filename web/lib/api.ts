@@ -1,4 +1,4 @@
-// Typed client for the OMEM Cloud API. Every method hits a real endpoint on the
+// Typed client for the OMEM API. Every method hits a real endpoint on the
 // backend (server/api.py), which delegates to the authoritative OMEM engine.
 // No memory semantics live here. This is transport + types only.
 
@@ -206,6 +206,82 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
 const enc = encodeURIComponent;
 
 export interface ApiKey { id: string; name: string; prefix: string; role: string; created: number; last_used: number | null; revoked: number; secret?: string; }
+// ── self-healing ────────────────────────────────────────────────────────────
+// The server watches its own components, records failures with a fingerprint so
+// repeats are one entry rather than a thousand, and runs a recovery loop:
+// claimed -> diagnosing -> repairing -> verifying -> recovered, or escalated
+// when it cannot fix it. Shapes mirror server/healing.py exactly.
+export type HealthState = "healthy" | "degraded" | "failed" | "recovering" | "unknown";
+export type RecoveryState =
+  | "failed" | "claimed" | "diagnosing" | "repairing" | "verifying" | "recovered" | "escalated";
+
+// `origin` separates OMEM's own infrastructure (computed live by the server, and
+// present on a fresh install) from components an agent reported. They are read the
+// same way but they are not the same claim, and the UI must not merge them into one
+// undifferentiated list of green marks.
+export type HealthOrigin = "omem" | "agent";
+export interface HealComponent {
+  component: string; status: HealthState; reason: string | null; ts: number;
+  origin: HealthOrigin;
+}
+export interface HealHealth {
+  overall: HealthState; components: HealComponent[];
+  /** How many components an agent has reported. Zero is the honest default state
+   *  and reads differently from "zero components exist". */
+  reported_count: number;
+}
+export interface HealFailure {
+  id: string; component: string; error_type: string; message: string;
+  severity: string; fingerprint: string; occurrences: number; resolved: boolean;
+  context: Record<string, unknown>; ts: number;
+}
+/** What the policy layer let run. `type` is the only field OMEM trusts from a
+ *  proposed plan; risk comes from the server's registry, never from here. */
+export interface HealAction { type: string; args?: Record<string, unknown>; }
+export interface HealPlan {
+  diagnosis?: string; confidence?: number;
+  actions?: HealAction[]; rollback?: HealAction[];
+}
+/** One executed action, as recorded. `detail` is redacted server-side. */
+export interface HealActionRun {
+  type: string; ok: boolean; error?: string;
+  detail?: Record<string, unknown> | string;
+}
+export interface HealCheck { check: string; status: string; reason?: string; }
+export interface HealVerification { ok?: boolean; checks?: HealCheck[]; }
+
+export interface HealRecovery {
+  id: string; failure_id: string; component: string; state: RecoveryState;
+  owner: string | null; outcome: string | null;
+  /** 1-based ordinal of this attempt for the strategy signature. */
+  attempts: number;
+  /** The cap after which this strategy is refused for this failure. */
+  max_attempts: number;
+  /** "memory" (a prior repair that verified) or "llm" (a fresh proposal).
+   *  null on rows written before this was recorded, rendered as "not recorded",
+   *  never guessed. */
+  plan_source: "memory" | "llm" | null;
+  /** Who the caller named as approving a high-risk action. A claim by the caller,
+   *  not a verified second-party approval. The UI must say which. */
+  approved_by: string | null;
+  plan: HealPlan; actions_run: HealActionRun[];
+  verification: HealVerification; ts: number;
+}
+
+/** The policy verdict on one proposed action. `risk` is the registry's, never the
+ *  plan's. A plan cannot downgrade its own risk. */
+export interface HealDecision {
+  index?: number; permit: boolean; reason: string;
+  risk?: "low" | "medium" | "high"; requires_approval?: boolean;
+}
+/** A plan that was considered. Outcomes "denied" and "escalated" produce one of
+ *  these and NO recovery, because nothing was ever claimed or executed. */
+export interface HealDiagnosis {
+  diagnosis: string | null; confidence: number | null;
+  outcome: "recovered" | "failed" | "denied" | "escalated" | string;
+  actions: HealAction[]; decisions: HealDecision[]; ts: number;
+}
+
 export type AuthMode = "local" | "password";
 export interface SignupResult { token: string; email: string; existing: boolean; org?: { id: string; name: string }; project?: { id: string; name: string; env: string }; api_key?: ApiKey; }
 
@@ -284,6 +360,13 @@ export const api = {
   adminOrgs: () => req<{ data: AdminOrg[] }>("GET", "/v1/admin/orgs"),
   assertionSource: (p: string, id: string) => req<SourceRecord>("GET", `/v1/assertions/${enc(id)}/source?project=${enc(p)}`),
   projects: () => req<{ data: Project[] }>("GET", "/v1/projects"),
+  healing: (p: string) => req<HealHealth>("GET", `/v1/healing/health?project=${enc(p)}`),
+  healingFailures: (p: string, component?: string) =>
+    req<{ data: HealFailure[] }>("GET",
+      `/v1/healing/failures?project=${enc(p)}${component ? `&component=${enc(component)}` : ""}`),
+  healingFailure: (p: string, id: string) =>
+    req<{ failure: HealFailure; recoveries: HealRecovery[]; diagnoses?: HealDiagnosis[] }>(
+      "GET", `/v1/healing/failures/${enc(id)}?project=${enc(p)}`),
   overview: (p: string) => req<Overview>("GET", `/v1/overview?project=${enc(p)}`),
 
   assertions: (p: string, opts?: { as_of?: number | "now"; subject?: string; agent?: string; open?: boolean }) => {

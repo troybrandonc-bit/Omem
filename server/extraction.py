@@ -8,7 +8,7 @@ Rules enforced here (from the product brief):
   * Questions, marketing CTAs and suggestions NEVER become flat facts.
   * Requests become requested_*; considerations considering_*; only decisions,
     completed actions and plain statements are strong.
-  * The proposition's SUBJECT is whoever the sentence is about — not blindly
+  * The proposition's SUBJECT is whoever the sentence is about, not blindly
     the sender. Inbound "we want to cancel" is about the counterparty; the
     owner's outbound "we've extended your subscription" is about the owner's
     action on the counterparty's account; "John has approved" is about John.
@@ -170,7 +170,7 @@ def extract_relations(sentence: str, party_entity: dict | None) -> list[dict]:
             name = m.group(1)
             target = {"id": f"person:{name.lower()}", "type": "person", "label": name}
             src_ent, dst_ent = party_entity, target
-        else:  # person_pair: "A reports to B" — anchored people, org context only
+        else:  # person_pair: "A reports to B", anchored people, org context only
             a_name, b_name = m.group(1), m.group(2)
             src_ent = {"id": f"person:{a_name.lower()}", "type": "person", "label": a_name}
             dst_ent = {"id": f"person:{b_name.lower()}", "type": "person", "label": b_name}
@@ -200,7 +200,7 @@ class ContextualBusinessExtractor(Extractor):
         self.owner_email = owner_email
 
     def _self_entity(self, pp: dict) -> dict | None:
-        """The owner organisation as a memory subject — only when an explicit
+        """The owner organisation as a memory subject, only when an explicit
         identity is configured (company name or domain). Without configuration
         we refuse to guess who 'we' are."""
         name = pp.get("self_company")
@@ -243,7 +243,7 @@ class ContextualBusinessExtractor(Extractor):
                 # The owner speaking. If the action's object is the reader's
                 # account ("I've extended YOUR subscription"), the durable fact
                 # concerns the counterparty. Otherwise it is the owner's own
-                # intent/action ("I'd like to upgrade our subscription") —
+                # intent/action ("I'd like to upgrade our subscription") -
                 # that becomes a memory about OUR company, never about a
                 # customer, and only when an org identity is configured.
                 if counter and re.search(r"\byour\b", sentence.lower()):
@@ -255,7 +255,7 @@ class ContextualBusinessExtractor(Extractor):
         if party == "recipient_party":
             if direction == "outbound" and counter:
                 return company_of(counter)          # owner writing about the counterparty
-            # inbound "you/your ..." is about the OWNER — platform notifications
+            # inbound "you/your ..." is about the OWNER - platform notifications
             # land here and must not become counterparty memory
             return None
         if party == "third_party":
@@ -300,7 +300,7 @@ class ContextualBusinessExtractor(Extractor):
                     facts.append(rf)
             if party == "unknown" and act == "REQUEST":
                 # An imperative request ("Please cancel our contract") has no
-                # grammatical subject — the REQUESTER is by definition the
+                # grammatical subject - the REQUESTER is by definition the
                 # writer. requested_* attaches to the sender's side.
                 party = "sender_party"
             if party == "unknown" and last_party in ("sender_party",) and \
@@ -401,13 +401,13 @@ def memory_quality(fact: dict, analysis: dict, classification: dict | None) -> d
                 "reasons": [f"Source categorised as {cat}"]}
     if analysis.get("marketing_score", 0) >= 0.9:
         return {"quality": "DO_NOT_STORE", "score": 0.0,
-                "reasons": ["Template/marketing mail — commercial vocabulary is copy, not a relationship"]}
+                "reasons": ["Template/marketing mail. Commercial vocabulary is copy, not a relationship"]}
 
     if analysis.get("is_business_category"):
         score += 0.35
         reasons.append(f"Business category: {cat}")
     elif cat == "UNKNOWN":
-        reasons.append("Category unknown — graded down")
+        reasons.append("Category unknown, graded down")
     conf = float(fact.get("confidence") or 0)
     score += conf * 0.4
     reasons.append(f"Extraction confidence {conf:.2f} ({fact.get('speech_act', 'STATEMENT')})")
@@ -418,14 +418,14 @@ def memory_quality(fact: dict, analysis: dict, classification: dict | None) -> d
         reasons.append("Strong speech act")
     elif act == "CONSIDERATION":
         score -= 0.1
-        reasons.append("Consideration only — weak language")
+        reasons.append("Consideration only, weak language")
 
     direction = analysis.get("participants", {}).get("direction")
     if direction in ("inbound", "outbound"):
         score += 0.1
         reasons.append(f"Direction resolved ({direction})")
     else:
-        reasons.append("Owner identity unavailable — direction unknown")
+        reasons.append("Owner identity unavailable, direction unknown")
 
     cls = (classification or {}).get("classification")
     if cls == "BUSINESS_RELEVANT":

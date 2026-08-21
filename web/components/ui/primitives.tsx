@@ -60,7 +60,7 @@ export function SectionLabel({ children, className }: { children: React.ReactNod
   return <div className={cn("tech-label", className)}>{children}</div>;
 }
 
-/** Primary is ink, not a brand hue — see the colour rule above. 32px high at
+/** Primary is ink, not a brand hue, see the colour rule above. 32px high at
  *  md, which is the row height everywhere else in the app. */
 export function Button({ children, onClick, variant = "primary", size = "md", disabled, type = "button", className }:
   { children: React.ReactNode; onClick?: () => void; variant?: "primary" | "secondary" | "ghost" | "danger"; size?: "sm" | "md"; disabled?: boolean; type?: "button" | "submit"; className?: string }) {
@@ -109,12 +109,12 @@ export function Skeleton({ className }: { className?: string }) {
 export function Spinner() { return <Loader2 className="h-4 w-4 animate-spin text-muted" />; }
 
 /**
- * The belief rail — the signature element.
+ * The belief rail, the signature element.
  *
  * A claim's belief interval drawn against a ruled span. The detail that matters:
  * an OPEN interval (end === null) gets no right-hand terminator and fades out
  * instead. "Still believed, nothing has ended it" is a real state in this
- * engine, and a bar that simply stopped would read as "ended here" — which is
+ * engine, and a bar that simply stopped would read as "ended here", which is
  * the single most consequential thing a reader could get wrong on this screen.
  * A closed interval gets a hard end-cap; a contradicted one is hatched.
  *
@@ -146,5 +146,5 @@ export function BeliefRail({ start, end, now, min, max, state }: {
   );
 }
 
-/** @deprecated name kept so existing pages keep working — this is BeliefRail. */
+/** @deprecated name kept so existing pages keep working. This is BeliefRail. */
 export const IntervalStrip = BeliefRail;

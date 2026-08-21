@@ -1,6 +1,6 @@
 """Semantic recall + the utility learning loop. Locks in that (1) recall finds
 paraphrased memories with no shared tokens, and (2) memories that prove useful
-rank higher over time while ones marked incorrect fall back — deterministically."""
+rank higher over time while ones marked incorrect fall back, deterministically."""
 import os, sys, json, threading, time, urllib.request, urllib.error
 os.chdir(os.path.dirname(__file__))
 for f in ("data/omem.db","data/omem.db-shm","data/omem.db-wal"):

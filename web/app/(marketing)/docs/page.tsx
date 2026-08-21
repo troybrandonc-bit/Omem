@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CodeBlock } from "@/components/marketing/ui";
 import { ArrowRight } from "lucide-react";
 
-export const metadata = { title: "Docs / OMEM Cloud" };
+export const metadata = { title: "Docs / OMEM" };
 
 export default function DocsIntro() {
   return (
@@ -10,7 +10,7 @@ export default function DocsIntro() {
       <div className="tech-label mb-4">Documentation</div>
       <h1 className="display text-[36px]">Memory that answers for itself</h1>
       <p className="mt-4 text-pretty leading-relaxed text-muted">
-        OMEM Cloud is the hosted platform for giving AI agents memory that answers for itself. You store beliefs; OMEM tracks who claimed what, when, on what
+        OMEM is a memory layer for AI agents that answers for itself. You store beliefs; OMEM tracks who claimed what, when, on what
         basis, and whether anything contradicts it, so you can always answer <em>why</em> your
         agent believes something.
       </p>

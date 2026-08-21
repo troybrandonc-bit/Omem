@@ -7,13 +7,13 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import {
   Home, Brain, Bot, Box, Clock, AlertTriangle, Network, FlaskConical, Braces,
-  ScrollText, Gauge, Settings, Share2, ChevronDown, Search, Sun, Moon, User, Activity, Users, ShieldCheck, HeartPulse, Stethoscope,
+  ScrollText, Gauge, Settings, Share2, ChevronDown, Search, Sun, Moon, User, Activity, Users, ShieldCheck, HeartPulse, ShieldPlus, Stethoscope,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getSession, setSession, ApiError, type AuthMode } from "@/lib/api";
 
 /* Grouped by the question you arrived with, not by feature name. Somebody opens
-   this because an agent said something wrong — they are asking "what does it
+   this because an agent said something wrong. They are asking "what does it
    believe / what disagrees / where did that come from", and the nav should
    answer in those terms. The destinations are unchanged; the framing is not. */
 const NAV = [
@@ -37,6 +37,13 @@ const NAV = [
   { group: "Build", items: [
     { href: "/playground", label: "Playground", icon: FlaskConical },
     { href: "/developers", label: "API", icon: Braces },
+  ]},
+  /* Nobody opens these while building; they open them because something broke.
+     "Is it running" is the question they arrived with, and it was the one
+     question the four original groups did not ask, self-healing sat under
+     Build, next to Playground, which is where the top-bar health mark pointed. */
+  { group: "Is it running", items: [
+    { href: "/healing", label: "Self-healing", icon: ShieldPlus },
     { href: "/diagnostics", label: "Diagnostics", icon: Stethoscope },
   ]},
   { group: "Account", items: [
@@ -78,7 +85,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         setSession(res.token);
         if (!cancelled) setAuthed(true);
       } catch {
-        // server not reachable yet — say so rather than bouncing to a page
+        // server not reachable yet. Say so rather than bouncing to a page
         if (!cancelled) { setMode(null); setAuthed(false); }
       }
     })();
@@ -171,7 +178,7 @@ function TopBar({ onSearch }: { onSearch: () => void }) {
           <kbd className="mono ml-auto rounded-sm border bg-raised px-1.5 text-2xs text-faint">⌘K</kbd>
         </button>
         <div className="ml-auto flex items-center gap-2.5">
-          {/* Time travel is the product's whole premise — every belief on screen
+          {/* Time travel is the product's whole premise, every belief on screen
               is "as of" this clock. It reads as a stated position, and says so
               plainly when it is not now. */}
           <div className={cn("panel hidden h-8 items-center gap-2.5 px-3 sm:flex",
@@ -189,6 +196,7 @@ function TopBar({ onSearch }: { onSearch: () => void }) {
                 className="text-2xs font-medium text-accent hover:underline">now</button>
             )}
           </div>
+          <HealthIndicator />
           <button onClick={toggleTheme} aria-label="Toggle theme"
             className="panel grid h-8 w-8 place-items-center text-muted transition-colors duration-150 ease-out hover:text-fg">
             {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
@@ -228,6 +236,55 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
   );
 }
 
+
+/** Server health, on every screen.
+ *
+ *  Self-healing is worth nothing if you only find out it happened by visiting a
+ *  page you had no reason to visit. This sits in the top bar so a degraded or
+ *  failed component is visible wherever you are, and stays deliberately quiet
+ *  when everything is healthy. A permanent green badge is noise, and noise is
+ *  what people learn to stop seeing.
+ */
+function HealthIndicator() {
+  const { project } = useApp();
+  const { data, isError, isPending } = useQuery({
+    queryKey: ["healing", project],
+    queryFn: () => api.healing(project),
+    refetchInterval: 15000,
+    enabled: !!project,
+    retry: false,
+  });
+  // Nothing to say before the first response lands.
+  if (isPending || (!data && !isError)) return null;
+
+  // An unreadable health endpoint gets its own mark rather than disappearing.
+  // Returning null on error meant a 403 or an unreachable server rendered
+  // exactly like a healthy one, the failure mode looked like the success.
+  const state = isError || !data ? "unreadable" : data.overall;
+  const tone = state === "unreadable" ? "closed"
+    : state === "healthy" ? "believed"
+    : state === "failed" ? "conflict"
+    : state === "unknown" ? "closed" : "unknown";
+  const bad = state !== "healthy" && state !== "unknown" && state !== "unreadable";
+  const broken = data ? data.components.filter(c => c.status !== "healthy").length : 0;
+  const label = state === "unreadable" ? "Health unreadable" : `System health: ${state}`;
+
+  return (
+    <Link href="/healing"
+      title={label}
+      className={cn("panel flex h-8 items-center gap-2 px-2.5 transition-colors duration-150 ease-out hover:border-[color:var(--line-strong)]",
+                    bad && "border-[color:var(--conflict)]")}>
+      <span className={cn("led", tone)} aria-hidden="true" />
+      {/* Only the interesting states get words. Healthy is just the mark. */}
+      {bad && (
+        <span className="text-2xs font-medium text-conflict">
+          {broken > 1 ? `${broken} components` : state}
+        </span>
+      )}
+      <span className="sr-only">{label}</span>
+    </Link>
+  );
+}
 
 /** Sign-in for password mode. Shown only when the server reports auth:"password",
  *  which is also the only mode in which a password exists to ask for. */

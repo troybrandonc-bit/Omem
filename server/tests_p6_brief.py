@@ -1,6 +1,6 @@
 """P6 situation brief. Run: python3 tests_p6_brief.py
 
-The situation brief composes P1–P5 into one task-shaped answer. Tests cover
+The situation brief composes P1-P5 into one task-shaped answer. Tests cover
 sectioning (facts/relationships/conflicts/patterns), deterministic priority
 ranking over real state, graph-fed relationships with paths, conflict
 recommendations inside the brief, specific-over-general precedence, size
@@ -121,7 +121,7 @@ check("summary counts match section sizes",
 
 print("== graph-fed relationships ==")
 b2 = brief(agent="agent:sales", about="company:acme",
-           context="renewal call prep — who are the people involved?", limit=20)
+           context="renewal call prep. Who are the people involved?", limit=20)
 rel_items = b2["sections"]["relationships"]
 sarah_reached = any(m["subjects"] == ["person:sarah", "company:acme"]
                     or "person:sarah" in m["subjects"] for m in rel_items)

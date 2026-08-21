@@ -1,6 +1,6 @@
 import { CodeBlock } from "@/components/marketing/ui";
 
-export const metadata = { title: "SDK / OMEM Cloud" };
+export const metadata = { title: "SDK / OMEM" };
 
 const VERBS = [
   { verb: "remember", sig: "remember(agent, *, about, claim, because=None)", d: "Record a belief, optionally grounded in events." },

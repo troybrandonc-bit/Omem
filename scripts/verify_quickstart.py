@@ -55,7 +55,7 @@ def wait_for_key(logfile: str, timeout=60):
         time.sleep(1)
     raise SystemExit(
         "omem-server printed no API key within "
-        f"{timeout}s — the first-run quickstart is broken.\n"
+        f"{timeout}s. The first-run quickstart is broken.\n"
         + (open(logfile, encoding="utf-8", errors="replace").read()
            if os.path.exists(logfile) else "(no output)"))
 
@@ -86,7 +86,7 @@ def main() -> int:
     try:
         from omem import Memory
     except ImportError:
-        raise SystemExit("the omem package is not importable — install the wheel first")
+        raise SystemExit("the omem package is not importable, install the wheel first")
 
     mem = Memory(api_key=key, base_url=url, project=project)
 
