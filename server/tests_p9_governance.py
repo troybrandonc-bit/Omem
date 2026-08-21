@@ -90,7 +90,14 @@ def proj_footprint(pid):
 
 
 print("== complete tenant erasure ==")
-A = setup_tenant("a@k.com")
+# Suite-unique address. Every suite shares one database on PostgreSQL
+# (OMEM_DATABASE_URL wins over the per-suite OMEM_DB tempfile), so a
+# signup address used by two suites makes the second one receive an
+# existing-account response with no api_key/project, and the test dies on
+# a KeyError far from the cause. Invisible on SQLite.
+# Were "a@k.com"/"b@k.com", which tests_p9_abuse.py also signs up. Domain
+# preserved: identity resolution matches on it.
+A = setup_tenant("a-gov@k.com")
 before = proj_footprint(A["pid"])
 check("tenant A has data before erasure", before > 0, str(before))
 st, r = call("DELETE", f"/v1/projects/{A['pid']}?mode=erase", None, A["sess"])
@@ -123,7 +130,7 @@ erased_audits = api.STORE.db.execute(
 check("org-level 'project.erased' audit record persists", erased_audits >= 1, str(erased_audits))
 
 print("== erasure is owner-only ==")
-B = setup_tenant("b@k.com")
+B = setup_tenant("b-gov@k.com")
 check("bound API key cannot erase (403)",
       call("DELETE", f"/v1/projects/{B['pid']}?mode=erase", None, B["key"])[0] == 403)
 
