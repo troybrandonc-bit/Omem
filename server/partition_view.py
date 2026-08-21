@@ -1,16 +1,16 @@
-"""P8 Step 1 — request-scoped coreference reuse (infrastructure optimization).
+"""P8 Step 1, request-scoped coreference reuse (infrastructure optimization).
 
 The frozen engine's proposition_state() and _reduced_subject_set() rebuild the
 coreference partition on EVERY call (coreference.partition_at). During one
 pack build the time T and the open-assertion set are fixed, so that partition
-is identical across all candidates — yet the engine recomputes it once per
+is identical across all candidates, yet the engine recomputes it once per
 candidate, giving O(n) partition rebuilds per pack (each O(n)), i.e. the
 observed O(n²).
 
 This module computes the partition ONCE (via the engine's own partition_at)
 and reuses it to answer proposition_state / reduced_subject_set for every
 candidate in that pack. It does NOT reimplement coreference, contradiction, or
-belief semantics — it calls:
+belief semantics, it calls:
 
     engine.coref.partition_at(...)        the engine's partition (once)
     engine.prop.contra.contradicts(...)   the engine's contradiction predicate
@@ -61,7 +61,7 @@ class PartitionView:
         # snapshot the exact inputs the engine would use, at this T
         self._assertions = {a.id: a for a in engine.store.assertions()}
         self._all_ent = {e.id for e in engine.store.entities()}
-        # THE partition — computed once via the engine's own algorithm
+        # THE partition - computed once via the engine's own algorithm
         self._partition = self.coref.partition_at(
             self._all_ent, self._assertions, self.ledger, T)
         # member -> its class, for O(1) class_of
@@ -79,7 +79,7 @@ class PartitionView:
     def reduced_subject_set(self, subjects) -> frozenset:
         """Mirror of prop._reduced_subject_set, using the cached partition and
         the engine's own canonical-representative rule (smallest member under
-        the engine's identifier order — we reuse the class the engine built, and
+        the engine's identifier order, we reuse the class the engine built, and
         pick the representative exactly as the engine does: min over the class
         by the engine's key)."""
         reps = set()
@@ -90,7 +90,7 @@ class PartitionView:
 
     def _rep(self, cls: frozenset) -> str:
         # The engine picks the canonical representative as
-        # min(cls, key=identifier_order_key) — we reuse that EXACT key function
+        # min(cls, key=identifier_order_key) - we reuse that EXACT key function
         # imported from omem_engine.canon, so the representative is identical.
         return min(cls, key=identifier_order_key)
 

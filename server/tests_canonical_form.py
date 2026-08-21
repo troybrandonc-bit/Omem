@@ -3,8 +3,8 @@
 THE PROBLEM. Proposition identity is byte-equality of canonical form
 (Profile 3.1), which is right and unforgiving. `prefers annual billing`,
 `Prefers_Annual_Billing` and `prefers-annual-billing` were three unrelated facts
-about the same customer. Two agents written by two people — or one agent after
-somebody reworded a prompt — filled a project with beliefs that could never
+about the same customer. Two agents written by two people, or one agent after
+somebody reworded a prompt. Filled a project with beliefs that could never
 contradict each other, never corroborate each other and never be recalled
 together, and nothing anywhere looked wrong. Silent fragmentation is the worst
 failure a memory can have, because the product keeps answering confidently.
@@ -36,7 +36,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 # A fresh database per run. Pinning one path meant the second run signed up an
 # address that already existed, and signup only returns an api_key for a NEW
-# account — so the suite passed once and then failed forever after.
+# account - so the suite passed once and then failed forever after.
 _DB = os.path.join(HERE, "data", "test_canonical.db")
 for _stale in (_DB, _DB + "-wal", _DB + "-shm"):
     if os.path.exists(_stale):

@@ -2,8 +2,8 @@
 
 Proves the indexed candidate path produces SEMANTICALLY IDENTICAL results to
 the original scan path, for the same DB state and query. The decision layer,
-scope enforcement, engine state, conflict analysis, and ordering are shared —
-only candidate GENERATION differs — so identical output demonstrates the index
+scope enforcement, engine state, conflict analysis, and ordering are shared,
+only candidate GENERATION differs, so identical output demonstrates the index
 narrows without changing meaning.
 
 Strategy: build one populated project covering all 20 adversarial vectors,
@@ -158,7 +158,7 @@ def pack_both(**kw):
                   conflict_analyzer=ca, entities=ents, **kw)
     # NEW: indexed
     new = _recall.build_memory_pack(proj, db, api.SCOPES, **common)
-    # OLD: forced scan — temporarily disable the index path
+    # OLD: forced scan - temporarily disable the index path
     orig = _recall.CandidateRetriever.retrieve
     _recall.CandidateRetriever.retrieve = _recall.CandidateRetriever._retrieve_scan
     try:

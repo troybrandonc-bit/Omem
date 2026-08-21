@@ -6,7 +6,7 @@ export of web/ alongside the API, and these are the properties that has to hold.
 
 The one that actually bit during development: the dashboard handler was placed
 at the END of _route_get, which is unreachable, because every API route above it
-resolves ?project= and bails out with "project not found" — and a request for
+resolves ?project= and bails out with "project not found", and a request for
 `/` carries no project. It looked correct and served 404s for everything.
 
 Run: python3 tests_dashboard.py

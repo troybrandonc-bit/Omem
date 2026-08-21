@@ -1,4 +1,4 @@
-"""OMEM Cloud server test suite. Run: python3 tests.py
+"""OMEM server test suite. Run: python3 tests.py
 Covers: signup/session/keys, auth enforcement, project isolation, empty project,
 assert/believe/why, contradiction, retraction, supersession, coreference,
 provenance, timeline, multi-agent, error paths, and restart replay."""

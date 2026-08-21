@@ -9,7 +9,7 @@ own predicates:
     engine.prop.contra.contradicts     (the declared-contradiction predicate)
     engine.prop._open_assertions_at    (open-at-T filter)
 so for any candidate the result is byte-identical to filtering the full
-engine.conflicts(T) down to pairs touching that candidate — proven in
+engine.conflicts(T) down to pairs touching that candidate, proven in
 tests_p7_conflict_equiv.py. The engine remains the sole authority; this only
 avoids computing conflicts we will never look at.
 """
@@ -29,14 +29,14 @@ def conflicts_for(engine, candidate_ids, T, pview=None):
     but evaluated only over each candidate's same-subject neighbourhood.
 
     pview (optional): a PartitionView at T. When supplied, reduced-subject-set
-    computations reuse its cached partition instead of rebuilding per call —
-    same values, less work."""
+    computations reuse its cached partition instead of rebuilding per call.
+    Same values, less work."""
     prop = engine.prop
     cand = [cid for cid in dict.fromkeys(candidate_ids)]
     if not cand:
         return set()
     store = engine.store
-    # open assertions at T, indexed by id — the engine's own open filter
+    # open assertions at T, indexed by id - the engine's own open filter
     open_list = prop._open_assertions_at(T)
     open_by_id = {a.id: a for a in open_list}
 
@@ -45,7 +45,7 @@ def conflicts_for(engine, candidate_ids, T, pview=None):
             return pview.reduced_subject_set(subjects)
         return prop._reduced_subject_set(subjects, T)
     # precompute reduced subject sets once per open assertion (the expensive
-    # part of the pairwise scan) — but only for assertions that SHARE a subject
+    # part of the pairwise scan) - but only for assertions that SHARE a subject
     # with some candidate, which is all a same-referent conflict can involve.
     cand_subject_union = set()
     for cid in cand:

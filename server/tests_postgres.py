@@ -1,6 +1,6 @@
 """PostgreSQL persistence + durable worker tests.
 Run: OMEM_DATABASE_URL=postgres://omem:omem-dev@127.0.0.1/omem python3 tests_postgres.py
-Skips (exit 0 with notice) if no OMEM_DATABASE_URL is set or PG is unreachable —
+Skips (exit 0 with notice) if no OMEM_DATABASE_URL is set or PG is unreachable,
 the SQLite suites remain the credential-free path.
 
 Verifies: boot + demo seed on PG, engine replay across process-equivalent
@@ -15,8 +15,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 URL = os.environ.get("OMEM_DATABASE_URL", "")
 
-# ── credential-free: verify the SQL TRANSLATION for P3–P7 upsert tables ──
-# Does NOT require a live Postgres server — checks that db_adapter produces
+# ── credential-free: verify the SQL TRANSLATION for P3-P7 upsert tables ──
+# Does NOT require a live Postgres server - checks that db_adapter produces
 # valid ON CONFLICT SQL for the tables added after the adapter was written
 # (the P7 audit found these missing from the upsert maps).
 import db_adapter as _dba  # noqa: E402
@@ -76,7 +76,7 @@ if _tx_fail:
 
 if not URL.startswith("postgres"):
     print("SKIP: OMEM_DATABASE_URL not set to a postgres URL; SQLite suites cover the default path.")
-    print("NOT VERIFIED — no Postgres instance available (live-DB checks skipped).")
+    print("NOT VERIFIED. No Postgres instance available (live-DB checks skipped).")
     sys.exit(0)
 try:
     import psycopg2

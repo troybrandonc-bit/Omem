@@ -1,6 +1,6 @@
 """P9.7 enterprise identity readiness. Run: python3 tests_p9_identity.py
 
-Verifies the one justified hardening — keys now honor their stored RBAC role —
+Verifies the one justified hardening (keys now honor their stored RBAC role)
 plus the existing identity-lifecycle invariants that must not regress:
 - a 'viewer' key is genuinely read-only (reads ok, writes 403);
 - 'developer'/default keys keep full write access (backward compatible);

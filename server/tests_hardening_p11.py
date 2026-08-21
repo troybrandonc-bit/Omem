@@ -65,7 +65,7 @@ check("each row links to its predecessor",
       all(r["prev_hash"] for r in api.STORE.db.execute(
           "SELECT prev_hash FROM audit_events WHERE org_id=? AND seq>1", (ORG,)).fetchall()))
 
-# editing a row in place — what someone with database access would do
+# editing a row in place - what someone with database access would do
 api.STORE.db.execute("UPDATE audit_events SET resource='COVERED-UP' WHERE org_id=? AND seq=3", (ORG,))
 api.STORE.db.commit()
 v = E.verify_audit_chain(ORG)
@@ -125,7 +125,7 @@ check("on when asked", secrets_provider.content_encryption_enabled())
 
 # Content encryption REFUSES to run on the stdlib HMAC fallback, so without the
 # `cryptography` extra there is nothing to round-trip. That is the correct
-# behaviour and the default install, not a broken environment — so assert the
+# behaviour and the default install, not a broken environment - so assert the
 # refusal is clean and skip the rest. Asserting otherwise made this suite fail
 # in every CI job that did not install the extra, which is most of them.
 if not secrets_provider._HAVE_AESGCM:

@@ -1,5 +1,5 @@
 """Automated backups. Real scheduled backups with retention, explicit
-success/failure state, and restore verification — not just documentation.
+success/failure state, and restore verification, not just documentation.
 
 PostgreSQL: pg_dump via subprocess (custom scratch-db restore verification).
 SQLite: the online .backup API.
@@ -48,7 +48,7 @@ class BackupManager:
         self.retain = int(os.environ.get("OMEM_BACKUP_RETAIN", retain))
         # P9.1: optionally encrypt the backup ARTIFACT at rest (a distinct file
         # from the source volume, so volume encryption doesn't automatically
-        # cover it). Reuses the existing SecretsProvider — no new key system.
+        # cover it). Reuses the existing SecretsProvider - no new key system.
         # Off by default so local dev stays simple; enabled with
         # OMEM_BACKUP_ENCRYPT=1 (requires OMEM_MASTER_KEY or OMEM_KMS_KEY_ID).
         self.encrypt_backups = os.environ.get("OMEM_BACKUP_ENCRYPT", "0") == "1"
@@ -108,7 +108,7 @@ class BackupManager:
                 src_path = os.environ.get("OMEM_DB", "data/omem.db")
                 # Closed in `finally`, not after the copy. These used to be closed
                 # only on the success path, so every failed backup leaked two
-                # connections — and a backup fails for exactly the reasons that
+                # connections - and a backup fails for exactly the reasons that
                 # repeat (disk full, a locked database), on a schedule that runs
                 # forever. The handle to the LIVE database is the costly half: on
                 # Windows it also blocks anything that needs to replace the file.
@@ -220,7 +220,7 @@ class BackupManager:
         shredded and the existing target is left untouched. Returns a report.
 
         Postgres restore is a managed-DB operation (pg_restore/psql into a fresh
-        database) — out of scope here and covered by verify_restore's PG path;
+        database), out of scope here and covered by verify_restore's PG path;
         this atomic-promote flow is SQLite-specific by design."""
         import sqlite3
         if self.is_pg:

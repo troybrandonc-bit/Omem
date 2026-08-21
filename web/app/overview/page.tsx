@@ -47,8 +47,8 @@ export default function Overview() {
       )}
       {/* The state of the record.
           Six identical boxes gave every number the same voice, so nothing led
-          and the eye had nowhere to go. There is one question on this screen —
-          "is anything wrong?" — so conflicts take the focal position whenever
+          and the eye had nowhere to go. There is one question on this screen.
+          "Is anything wrong?", so conflicts take the focal position whenever
           there are any, and the counts that are merely context drop to a
           tertiary row. Three tiers, built from size + weight + colour. */}
       <section className="panel overflow-hidden">
@@ -70,7 +70,7 @@ export default function Overview() {
             </div>
           </Link>
 
-          {/* the thing you came to find out — loud only when it is real */}
+          {/* the thing you came to find out. Loud only when it is real */}
           <Link href="/conflicts" className="block px-5 py-4 transition-colors duration-150 ease-out hover:bg-raised">
             <div className="tech-label">Unresolved conflicts</div>
             <div className={cn("num mt-1.5 text-2xl leading-none tracking-[-0.02em]",

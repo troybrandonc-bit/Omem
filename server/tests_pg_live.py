@@ -3,7 +3,7 @@
     OMEM_DATABASE_URL=postgresql://user@host:port/db python3 tests_pg_live.py
 
 If OMEM_DATABASE_URL is not a postgres URL, or psycopg2 / the server is
-unreachable, this SKIPS honestly (exit 0, prints NOT VERIFIED) — it never fakes
+unreachable, this SKIPS honestly (exit 0, prints NOT VERIFIED), it never fakes
 a pass or substitutes SQLite. Every check below executes real SQL on the real
 server through the app's own PgDB adapter and HTTP surface.
 """
@@ -22,7 +22,7 @@ sys.path.insert(0, HERE)
 URL = os.environ.get("OMEM_DATABASE_URL", "")
 if not URL.startswith("postgres"):
     print("SKIP: OMEM_DATABASE_URL is not a postgres URL.")
-    print("NOT VERIFIED — no live PostgreSQL instance provided.")
+    print("NOT VERIFIED. No live PostgreSQL instance provided.")
     sys.exit(0)
 try:
     import psycopg2  # noqa: F401
@@ -30,7 +30,7 @@ try:
     _c.close()
 except Exception as e:
     print(f"SKIP: cannot reach PostgreSQL at OMEM_DATABASE_URL ({type(e).__name__}: {e}).")
-    print("NOT VERIFIED — PostgreSQL driver or server unavailable.")
+    print("NOT VERIFIED, PostgreSQL driver or server unavailable.")
     sys.exit(0)
 
 PASS = FAIL = 0
@@ -114,7 +114,7 @@ ops_after_write = DB.execute("SELECT COUNT(*) c FROM ops").fetchone()["c"]
 check("op-log persisted rows on PG", ops_after_write > 0, str(ops_after_write))
 
 print("== upserts / ON CONFLICT ==")
-# PG enforces FKs the app declares (connectors) — SQLite does not by default.
+# PG enforces FKs the app declares (connectors) - SQLite does not by default.
 # Create a real connector so FK-bound inserts are valid (this itself validates
 # that PG FK enforcement is active, a parity difference worth exercising).
 DB.execute("INSERT INTO connectors(id,project_id,kind,name,config,agent_id,status,created) "

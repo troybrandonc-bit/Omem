@@ -7,11 +7,11 @@ whether a recalled memory was actually *useful*, and does that feed back into
 what it surfaces next time?
 
 This module computes a per-memory utility score from signals the system already
-collects — explicit "useful"/"incorrect" feedback (feedback table) and recall
-frequency (recall_counts) — and exposes it to the ranker as a soft tie-break.
+collects, explicit "useful"/"incorrect" feedback (feedback table) and recall
+frequency (recall_counts), and exposes it to the ranker as a soft tie-break.
 Memories that repeatedly prove useful drift ahead of equally-ranked memories
 that don't; memories marked incorrect drift back. The engine's belief state and
-the deterministic tier ordering are untouched — utility only orders *within* a
+the deterministic tier ordering are untouched, utility only orders *within* a
 tier, and ties still break on assertion id, so ranking stays reproducible.
 
 This is the concrete, verifiable version of "gets better with time": recall
@@ -35,7 +35,7 @@ def utility_scores(db, project_id: str) -> dict[str, float]:
     increments recall_counts, so using it here would make two identical
     back-to-back recalls return different orderings (a memory recalled once ranks
     differently on the very next call). Learning must come from a genuine
-    external signal — whether the memory was *useful* — not from the act of
+    external signal (whether the memory was *useful*) not from the act of
     surfacing it, which would be a self-reinforcing loop. Recall frequency
     remains available for analytics; it just doesn't drive ranking."""
     scores: dict[str, float] = {}
@@ -60,7 +60,7 @@ def utility_scores(db, project_id: str) -> dict[str, float]:
 def utility_rank_key(score: float) -> int:
     """Convert a utility score into a small integer sort key (lower sorts first,
     matching the ranker's ascending sort). Bucketed so tiny score differences
-    don't cause churn — only meaningful utility differences reorder memories."""
+    don't cause churn, only meaningful utility differences reorder memories."""
     # bucket into: strongly-useful(-2), useful(-1), neutral(0), harmful(+1)
     if score >= 2.0:
         return -2

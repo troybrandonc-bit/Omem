@@ -1,7 +1,7 @@
-"""P10 — BLACK-BOX ENGINE PROOF. Run: python3 tests_p10_engine_proof.py
+"""P10. BLACK-BOX ENGINE PROOF. Run: python3 tests_p10_engine_proof.py
 
 Independent validation of the frozen omem_engine/. Rules of this suite:
-  * It drives the RAW engine (omem_engine.Engine) directly — no server, no SDK.
+  * It drives the RAW engine (omem_engine.Engine) directly, no server, no SDK.
   * Expected outcomes are derived from FIRST PRINCIPLES (the documented four-valued
     semantics, half-open intervals, transitive-closure coreference, monotonic
     revision), NOT copied from the implementation. Where a expectation is the
@@ -37,7 +37,7 @@ def check(n, c, d=""):
 
 def unknown(n, note):
     UNKNOWNS.append((n, note))
-    print(f"  ??  UNKNOWN: {n} — {note}")
+    print(f"  ??  UNKNOWN: {n}, {note}")
 
 
 def new_engine():
@@ -76,7 +76,7 @@ check("only denying side open => BELIEVED_FALSE",
 
 print("== 1b. contradiction is DECLARATION-ONLY (no text parsing) ==")
 # External truth: two textually 'opposite-looking' tokens must NOT conflict unless
-# declared. This is the core defensibility claim — the model cannot smuggle in a
+# declared. This is the core defensibility claim - the model cannot smuggle in a
 # contradiction the CTS didn't declare.
 e2 = new_engine()
 e2.put_agent("ag", "human"); e2.put_entity("co", "org")
@@ -145,7 +145,7 @@ check("unrelated entity stays a singleton", frozenset({"e4"}) in part)
 
 # confidence must not change the partition (I-1): coref assertions carry no
 # confidence in this API, but a low-confidence-looking extra coref must behave
-# identically to a normal one — test that ANY open coref merges.
+# identically to a normal one - test that ANY open coref merges.
 check("partition is a proper set-cover (every entity in exactly one class)",
       sum(len(c) for c in part) == 4 and len(set().union(*part)) == 4)
 
@@ -178,7 +178,7 @@ st = e.proposition_state(["co"], "P", 25)
 check("after retraction, P is no longer BELIEVED_TRUE", st != "BELIEVED_TRUE", st)
 # retraction should not fabricate a FALSE either (it withdraws, not denies)
 check("retraction withdraws (UNKNOWN), does not assert FALSE",
-      st == "UNKNOWN", f"got {st} — if BELIEVED_FALSE, retraction wrongly denies")
+      st == "UNKNOWN", f"got {st}, if BELIEVED_FALSE, retraction wrongly denies")
 
 # ═══════════════════════════════════════════════════════════════════════════
 print("== 5. DETERMINISM / REPLAY: identical op sequences => identical state ==")
@@ -217,7 +217,7 @@ check("repro_marker changes when a confidence changes", m1 != m4)
 
 print("== 5b. conflicts() equals the pairwise CONTRADICTED closure ==")
 # External cross-check: the set of conflict pairs must be EXACTLY the open,
-# same-referent, declared-contradictory pairs — computed here independently.
+# same-referent, declared-contradictory pairs - computed here independently.
 e = new_engine()
 e.put_agent("ag", "human")
 for ent in ("x", "y", "z"):
@@ -235,9 +235,9 @@ check("conflicts() == independently-computed CONTRADICTED pairs",
       engine_conflicts == expected, f"engine={engine_conflicts} expected={expected}")
 
 # ═══════════════════════════════════════════════════════════════════════════
-print("== 6. ISOLATION: engine has no tenant/agent concept — must be enforced ABOVE ==")
+print("== 6. ISOLATION: engine has no tenant/agent concept. Must be enforced ABOVE ==")
 # Critical finding to VERIFY, not assume: the raw engine is a single memory space.
-# Two 'agents' write about the same subject in ONE engine and both are visible —
+# Two 'agents' write about the same subject in ONE engine and both are visible -
 # proving isolation is an API-layer responsibility, not an engine guarantee.
 e = new_engine()
 e.put_agent("agent:alice", "human"); e.put_agent("agent:bob", "human")
@@ -310,7 +310,7 @@ print(f"  conflicts() growth 200->400 ratio = {ratio:.1f}x (linear~2x, quadratic
 # measurement is dominated by per-assertion overhead and timer noise at these
 # small sizes. A regression to the old behaviour would be ~4x and upwards.
 check("conflicts() growth stays near-linear (ratio<=3)", ratio <= 3,
-      f"ratio={ratio:.1f} — above 3 means the per-pair partition recomputation is back")
+      f"ratio={ratio:.1f}. Above 3 means the per-pair partition recomputation is back")
 s100, s400 = bench_state(100), bench_state(400)
 print(f"  proposition_state single-query: n=100 {s100*1000:.1f}ms  n=400 {s400*1000:.1f}ms")
 # Same reasoning for a single belief query, which was 2.2 in the log-log fit
@@ -318,7 +318,7 @@ print(f"  proposition_state single-query: n=100 {s100*1000:.1f}ms  n=400 {s400*1
 _sratio = (s400 / s100) if s100 else 0
 print(f"  proposition_state growth 100->400 ratio = {_sratio:.1f}x (linear~4x, quadratic~16x)")
 check("proposition_state growth stays near-linear (ratio<=8)", _sratio <= 8,
-      f"ratio={_sratio:.1f} — above 8 means the per-subject partition recomputation is back")
+      f"ratio={_sratio:.1f}. Above 8 means the per-subject partition recomputation is back")
 
 print("== 9. ADVERSARIAL: attempts to BREAK the guarantees ==")
 def _fresh():

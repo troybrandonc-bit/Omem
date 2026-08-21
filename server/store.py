@@ -1,4 +1,4 @@
-"""Persistence for OMEM Cloud. SQLite, stdlib only.
+"""Persistence for OMEM. SQLite, stdlib only.
 
 Design: the engine stays authoritative and in-memory. Durability comes from an
 append-only operations log per project: every accepted write is recorded here and
@@ -69,7 +69,7 @@ class WriterLock:
     Running a second replica or a rolling deploy did exactly this, and the only
     thing standing between an operator and it was a sentence in DEPLOYMENT.md.
     Now the second process refuses to start and says why. That is not high
-    availability — it is the honest version of not having it, and it converts a
+    availability. It is the honest version of not having it, and it converts a
     silent correctness failure into a loud startup failure.
 
     Ownership is host:pid, so re-opening the database in the SAME process (which
@@ -173,7 +173,7 @@ def hash_key(secret: str) -> str:
 #
 # 210,000 iterations rather than OWASP's 600,000 for SHA-256: this server is a
 # single Python process, and a password hash is the one endpoint an unauthenticated
-# caller can force it to run. Measured here, 600k costs 857 ms of CPU per attempt —
+# caller can force it to run. Measured here, 600k costs 857 ms of CPU per attempt -
 # a dozen concurrent sign-in attempts would stall every other request in the
 # process. 210k costs ~300 ms, which is still a serious brute-force cost when
 # combined with the per-IP limiter on the auth routes, and leaves the server
@@ -326,15 +326,33 @@ class Store:
         # Password authentication. Nullable on purpose: rows created before
         # passwords existed, and rows created by an invite, have no credential
         # yet. `verify_login` treats NULL as "cannot sign in", never as "any
-        # password works" — the difference between the two is the whole point.
+        # password works" - the difference between the two is the whole point.
         ("users", "pw_hash", "TEXT"),
         # Audit hash chain. Rows written before this existed keep NULL here and
-        # are reported as "predates hashing" rather than as a broken chain —
+        # are reported as "predates hashing" rather than as a broken chain -
         # claiming to verify what was never hashed would be the same overstatement
         # the chain exists to remove.
         ("audit_events", "seq", "INTEGER"),
         ("audit_events", "prev_hash", "TEXT"),
         ("audit_events", "hash", "TEXT"),
+        # Where a repair plan came from: "memory" (a prior repair for this
+        # signature that verified) or "llm" (a fresh proposal). Nullable because
+        # rows written before this existed cannot be attributed after the fact,
+        # and guessing would be exactly the fabrication the audit trail exists to
+        # prevent - the dashboard renders NULL as "not recorded", not as "llm".
+        ("heal_recoveries", "plan_source", "TEXT"),
+        # Who authorised a high-risk repair. `approved_by` gates the only actions
+        # OMEM will not run on its own, and it was read from the request, used
+        # once, and discarded - so the record of a dangerous repair did not say
+        # who permitted it. Note what this is and is not: the caller asserts the
+        # approver, so this records a claim, not a verified approval. Making it a
+        # verified one needs a second party, which is the approval queue.
+        ("heal_recoveries", "approved_by", "TEXT"),
+        # The policy verdict, per proposed action, for plans that never ran. A
+        # denied plan produces a diagnosis row and no recovery row, so without
+        # this the most important thing OMEM does - refusing an action nobody
+        # authorised - leaves no readable trace anywhere above the database.
+        ("heal_diagnoses", "decisions", "TEXT"),
     ]
 
     def _existing_columns(self, table):
@@ -420,11 +438,11 @@ class Store:
                     except Exception:
                         applied_all = False  # table missing at this point in boot, or legacy rows
             if applied_all:
-                # only mark complete when every constraint actually exists —
+                # only mark complete when every constraint actually exists -
                 # partial application must retry on the next boot/apply call
                 self._mark("v3-fks")
         # v4: self-healing subsystem tables. Infrastructure metadata (failures,
-        # diagnoses, recoveries, health, snapshots) — NOT engine memory, so kept
+        # diagnoses, recoveries, health, snapshots) - NOT engine memory, so kept
         # out of the ops log. All rows scoped by org_id+project_id for isolation.
         if not self._has_migration("v4-healing"):
             for ddl in [
@@ -438,13 +456,14 @@ class Store:
                 "CREATE TABLE IF NOT EXISTS heal_diagnoses("
                 "  id TEXT PRIMARY KEY, org_id TEXT NOT NULL, project_id TEXT NOT NULL,"
                 "  failure_id TEXT NOT NULL, fingerprint TEXT NOT NULL, diagnosis TEXT,"
-                "  confidence REAL, plan TEXT, outcome TEXT, ts REAL NOT NULL)",
+                "  confidence REAL, plan TEXT, outcome TEXT, decisions TEXT, ts REAL NOT NULL)",
                 "CREATE INDEX IF NOT EXISTS idx_heal_diag_fp ON heal_diagnoses(org_id, project_id, fingerprint, outcome)",
                 "CREATE TABLE IF NOT EXISTS heal_recoveries("
                 "  id TEXT PRIMARY KEY, org_id TEXT NOT NULL, project_id TEXT NOT NULL,"
                 "  failure_id TEXT NOT NULL, component TEXT NOT NULL, fingerprint TEXT NOT NULL,"
                 "  state TEXT NOT NULL, owner TEXT, plan TEXT, actions_run TEXT, verification TEXT,"
-                "  outcome TEXT, attempts INTEGER NOT NULL DEFAULT 0, ts REAL NOT NULL)",
+                "  outcome TEXT, attempts INTEGER NOT NULL DEFAULT 0, plan_source TEXT,"
+                "  approved_by TEXT, ts REAL NOT NULL)",
                 "CREATE INDEX IF NOT EXISTS idx_heal_rec_comp ON heal_recoveries(org_id, project_id, component, state)",
                 "CREATE INDEX IF NOT EXISTS idx_heal_rec_fail ON heal_recoveries(org_id, project_id, failure_id)",
                 "CREATE TABLE IF NOT EXISTS heal_health("
@@ -458,7 +477,7 @@ class Store:
                 # single-active-claim slot: the PRIMARY KEY (org,project,component)
                 # makes "one active recovery per component" DB-enforced, so two
                 # instances racing to claim cannot both win (INSERT ... ON CONFLICT
-                # DO NOTHING — only one row can exist). Released when recovery ends.
+                # DO NOTHING - only one row can exist). Released when recovery ends.
                 "CREATE TABLE IF NOT EXISTS heal_active_claims("
                 "  org_id TEXT NOT NULL, project_id TEXT NOT NULL, component TEXT NOT NULL,"
                 "  recovery_id TEXT NOT NULL, owner TEXT, ts REAL NOT NULL,"
@@ -507,7 +526,7 @@ class Store:
 
     def ensure_user(self, email: str) -> dict:
         """Create a credential-less user + org if the email is unknown. Mints NO
-        session — that is what separates inviting somebody from becoming them.
+        session. That is what separates inviting somebody from becoming them.
         (`signup` returning a token is exactly why an invite could hand out a
         live session for the invitee's account.)"""
         email = email.strip().lower()
@@ -534,7 +553,7 @@ class Store:
 
     def create_account(self, email: str, password: str, org_name: str = "") -> dict | None:
         """Register an email with a password. None when the address already has
-        one — the caller turns that into 409 rather than a session, so signup can
+        one. The caller turns that into 409 rather than a session, so signup can
         never be used as a way in to somebody else's account.
 
         An address that exists WITHOUT a password (invited, or created before
@@ -646,7 +665,7 @@ class Store:
         return org is not None
 
     # ── ops log (durability = replay through the engine) ─────────────
-    # `args` is the memory itself — propositions, subjects, labels, agents — and
+    # `args` is the memory itself - propositions, subjects, labels, agents - and
     # this log is the source of truth the engine is rebuilt from. It is the row
     # that matters most if someone reads the database file, so it is the row
     # OMEM_ENCRYPT_AT_REST covers first. `kind` and `clock` stay clear: they are
