@@ -115,7 +115,14 @@ check("expired key -> 401",
       call("POST", f"/v1/recall?project={PID}", {"context": "x"}, ek["secret"])[0] == 401)
 
 print("== read-only enforcement does not weaken isolation ==")
-B = call("POST", "/v1/signup", {"email": "b2@k.com"})[1]
+# Suite-unique address. Every suite shares one database on PostgreSQL
+# (OMEM_DATABASE_URL wins over the per-suite OMEM_DB tempfile), so a
+# signup address used by two suites makes the second one receive an
+# existing-account response with no api_key/project, and the test dies on
+# a KeyError far from the cause. Invisible on SQLite.
+# Was "b2@k.com", which tests_p8_b2_conflicts.py also signs up. The domain
+# stays k.com because identity resolution matches on it.
+B = call("POST", "/v1/signup", {"email": "b2-identity@k.com"})[1]
 BK, BPID = B["api_key"]["secret"], B["project"]["id"]
 # a viewer key from tenant A cannot read tenant B
 check("viewer key cross-tenant still blocked (403)",
