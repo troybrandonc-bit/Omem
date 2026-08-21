@@ -145,8 +145,19 @@ jobs:
       - name: Cut the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          V: ${{ needs.verify.outputs.version }}
+          # Derived from the tag being built, NOT from needs.verify.outputs.
+          # "Re-run failed jobs" does not re-execute the verify job, and its
+          # outputs came through empty: `gh release create "v$V"` became
+          # `gh release create "v"`, which tagged the repo `v` and titled the
+          # release `v`. github.ref_name is the tag itself and is always
+          # present, including on a partial re-run.
+          REF: ${{ github.ref_name }}
         run: |
+          V="${REF#v}"
+          if [ -z "$V" ] || [ "$V" = "$REF" ]; then
+            echo "::error::could not derive a version from ref '$REF' (expected vX.Y.Z)"
+            exit 1
+          fi
           # Pull this version's section out of the changelog for the release body.
           awk -v v="## $V" '
             $0 ~ "^" v {p=1; next}
@@ -155,4 +166,10 @@ jobs:
           ' CHANGELOG.md > notes.md
           echo "" >> notes.md
           echo "Install: \`pip install omem-infrastructure==$V\`" >> notes.md
-          gh release create "v$V" dist/* --title "v$V" --notes-file notes.md
+          # Idempotent: a re-run should not fail because the release exists.
+          if gh release view "v$V" >/dev/null 2>&1; then
+            gh release upload "v$V" dist/* --clobber
+            gh release edit "v$V" --title "v$V" --notes-file notes.md
+          else
+            gh release create "v$V" dist/* --title "v$V" --notes-file notes.md
+          fi
