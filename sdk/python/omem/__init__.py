@@ -17,6 +17,13 @@ paired automatically; contradict() covers everything else. OMEM does not infer
 opposition from wording, which is what lets a belief state be reproduced without
 a model in the loop.
 """
+# `project: str | None` in the Memory signature below is PEP 604, which is a
+# TypeError on the Python 3.9 this package claims to support. Deferring
+# annotations makes them lazy strings that are never evaluated, so the union
+# syntax stays readable and 3.9 stays supported. Removing this line puts the
+# package back to crashing on import for every 3.9 user.
+from __future__ import annotations
+
 import json
 import time
 import urllib.request

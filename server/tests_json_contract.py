@@ -5,6 +5,8 @@ emit a non-JSON body: not on missing params, bad ids, malformed request
 bodies, broken Content-Length headers, or internal errors. This suite fuzzes
 every route family with garbage and asserts the response parses.
 """
+from __future__ import annotations
+
 import http.client
 import json
 import os
