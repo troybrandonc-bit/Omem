@@ -40,7 +40,7 @@ omem-server
 ```
 
 That starts the server on http://127.0.0.1:8787 and, on first run, prints a
-project id and an API key — no signup call, no dashboard visit, nothing to
+project id and an API key, no signup call, no dashboard visit, nothing to
 configure. Paste them straight in:
 
 ```python
@@ -156,7 +156,7 @@ OMEM_API_KEY=... OMEM_BASE_URL=http://127.0.0.1:8787 OMEM_AGENT=support omem-mcp
 
 ## Status and price
 
-Free, and free while it stays in beta — no plans, no card, no quota.
+Free, and free while it stays in beta, no plans, no card, no quota.
 
 This is early software under active development. It is meant for testing and
 feedback right now. `web/app/(marketing)/security/page.tsx` lists what it
