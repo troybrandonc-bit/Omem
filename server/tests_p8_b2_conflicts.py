@@ -101,11 +101,22 @@ t0 = time.perf_counter()
 st, c = call("GET", f"/v1/conflicts?project={PID}", None, KEY)
 dt = time.perf_counter() - t0
 check("/v1/conflicts at 1500 assertions returns 200", st == 200, str(st))
-# generous ceiling - the point is "seconds, not tens of seconds"; the old full
-# O(n²) path was ~tens of seconds by 5k and unusable. 10s is a safe bound that
-# still fails loudly if the narrowing regresses.
-check(f"/v1/conflicts at 1500 stays bounded (<10s, was O(n^2)), {dt:.1f}s", dt < 10.0,
-      f"{dt:.1f}s")
+# Reported, not asserted against a tight budget. This used to fail if the call
+# took over 10s, which made it a wall-clock test of the machine rather than of
+# the code: it passed on a fast laptop and failed intermittently inside a full
+# 54-suite run and on a busy CI runner, while the algorithm was identical in
+# both. It was observed failing exactly once in a full run and passing eight
+# times out of eight in isolation.
+#
+# The property it was reaching for - that the narrow path is used and the O(n^2)
+# fallback is not - is asserted directly and deterministically in C2 below, by
+# spying on both functions. That is strictly stronger than a stopwatch.
+#
+# The bound kept here is a hang guard: 1500 assertions must not take a minute on
+# any machine anyone runs this on, and if it does, something is genuinely wrong
+# rather than merely slow.
+print(f"  ..  /v1/conflicts at 1500 assertions took {dt:.1f}s")
+check(f"/v1/conflicts at 1500 did not hang ({dt:.1f}s)", dt < 60.0, f"{dt:.1f}s")
 
 print("== C2: /v1/conflicts uses the narrow path, not the O(n^2) fallback ==")
 import conflict_narrow as _cn_mod
