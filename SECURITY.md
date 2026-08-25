@@ -107,7 +107,7 @@ finding.
 ## What OMEM does not protect against
 
 We keep a public list of what is not yet built, including the things a buyer
-would want. It is on the security page in the dashboard
-(`web/app/(marketing)/security/page.tsx`) and it is deliberately as prominent as
-the list of what *is* built. Nothing on that list is a vulnerability report, it
-is already known and already published.
+would want: **<https://infrastructure.omem-cloud.com/security>**, also served at
+`/security` by any OMEM server you run yourself. It is deliberately as prominent
+as the list of what *is* built. Nothing on that list is a vulnerability report,
+it is already known and already published.

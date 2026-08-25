@@ -89,7 +89,7 @@ export default function Developers() {
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-8">
-        <h1 className="display text-[24px]">Developers</h1>
+        <h1 className="display text-lg">Developers</h1>
         <p className="mt-1 text-sm text-muted">Integrate OMEM in a few minutes. Keys below are scoped to <span className="mono text-fg">{project}</span> / development.</p>
       </div>
 
@@ -109,7 +109,7 @@ export default function Developers() {
         <div className="divide-y">
           {(keys?.data ?? []).map(k => (
             <div key={k.id} className="flex items-center gap-4 py-3">
-              <span className="w-40 truncate text-[13px] font-medium">{k.name}</span>
+              <span className="w-40 truncate text-sm font-medium">{k.name}</span>
               <code className="mono flex-1 truncate text-xs text-muted">{k.prefix}…</code>
               <span className="hidden text-2xs text-muted sm:inline">last used {ago(k.last_used)}</span>
               {k.revoked
@@ -127,11 +127,18 @@ export default function Developers() {
       <section className="mb-10">
         <SectionLabel>Connection</SectionLabel>
         <dl className="divide-y">
+          {/* Four rows, four corrections. api.omem.dev does not resolve — OMEM
+              is the server you are running, and this is its address. The
+              package is omem-infrastructure, not omem. The TypeScript SDK has
+              never been published to npm. And "CTS 29/29" was a conformance
+              figure that ENGINE_VALIDATION.md explicitly says "should not be
+              read as independent validation", because the suite it refers to
+              is not in this repository. */}
           {[
-            { k: "Base URL", v: "https://api.omem.dev" },
-            { k: "Python", v: "pip install omem" },
-            { k: "TypeScript", v: "npm i @omem/sdk" },
-            { k: "Protocol", v: "OMEM 1.0 / CTS 29/29" },
+            { k: "Base URL", v: "http://127.0.0.1:8787" },
+            { k: "Python", v: "pip install omem-infrastructure" },
+            { k: "TypeScript", v: "sdk/typescript/ (not on npm yet)" },
+            { k: "Engine", v: "omem_engine 1.0.0 (frozen, hash-checked)" },
           ].map(row => (
             <div key={row.k} className="flex items-center gap-4 py-2.5">
               <dt className="w-28 shrink-0 text-xs text-muted">{row.k}</dt>
@@ -155,7 +162,7 @@ export default function Developers() {
               <span className="mono text-2xs font-semibold text-believed">GET</span>
               <code className="mono flex-1 truncate text-xs">/v1/assertions/a:alice-email/why</code>
               <button onClick={runTry} disabled={running}
-                className="inline-flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accentFg transition hover:opacity-90 disabled:opacity-40">
+                className="tap inline-flex h-8 items-center gap-1.5 rounded-md bg-accent px-3 text-xs font-medium text-accentFg transition hover:opacity-90 disabled:opacity-40">
                 <Play className="h-3 w-3" /> {running ? "Running" : "Send"}
               </button>
             </div>

@@ -1,41 +1,42 @@
-import Link from "next/link";
 import { MarketingShell } from "@/components/marketing/chrome";
-import { Section, Eyebrow, CodeBlock } from "@/components/marketing/ui";
+import { Section, CodeBlock, ButtonLink, SpecList, HeroHeading } from "@/components/marketing/ui";
 import { BeliefInspector } from "@/components/marketing/belief-inspector";
 
 export const metadata = {
-  title: "OMEM / memory for AI agents that refuses to decide what is true",
+  title: "Memory for AI agents that refuses to decide what is true",
   description:
     "OMEM tracks what each agent believes, when it learned it, and why. Contradictions are surfaced rather than overwritten, and no repair runs that nobody authorised. Self-hosted, MIT, no dependencies.",
 };
 
 /* The landing page.
  *
- * Content thesis: do not lead with memory. Every framework ships a vector store,
- * recall quality cannot be demonstrated in a paragraph, and competing there is a
- * race with no finish line. Lead with what OMEM refuses to do, because that is
- * the part a competitor cannot copy without rebuilding their engine.
+ * CONTENT THESIS (unchanged, and still the right one): do not lead with memory.
+ * Every framework ships a vector store, recall quality cannot be demonstrated in
+ * a paragraph, and competing there is a race with no finish line. Lead with what
+ * OMEM refuses to do, because that is the part a competitor cannot copy without
+ * rebuilding their engine.
  *
- * TYPE. Everything here is on the scale in tailwind.config.ts (11 · 13 · 16 · 20
- * · 25 · 31) rather than on arbitrary `text-[44px]` values. Two reasons, and the
- * second is the one that actually bites:
+ * LAYOUT: the brief was sleek, precise, modern, and the previous version was
+ * none of those because of three habits, all of which are gone:
  *
- *   1. `.interface-design/system.md` defines that scale, and DESIGN-README says
- *      "headlines are strong, never huge". A 44px hero was neither on the scale
- *      nor in keeping with it.
- *   2. An arbitrary `text-[30px]` emits font-size and NOTHING else, so it
- *      silently discards the lineHeight and letterSpacing the config pairs with
- *      every step. The config carries a comment warning about exactly this. The
- *      marketing pages had drifted to eleven distinct arbitrary sizes, four of
- *      them within 3px of each other, which is not a hierarchy.
+ * - NO LABEL ABOVE ANYTHING. Every block opened with uppercase micro-type
+ *   naming what you were about to read. That is chrome introducing content, and
+ *   it was usually a restatement of the heading directly under it.
  *
- * Prose blocks add `leading-relaxed` on purpose: the paired leading is tuned for
- * dense dashboard rows, and 16/22 is too tight for a paragraph someone reads
- * rather than scans. Size stays on the scale so tracking still comes with it.
+ * - NO NUMBERED SECTIONS. `01 —— WHAT IT REFUSES TO DO` reads as a slide deck.
+ *   A hairline does the same structural job without the furniture.
  *
- * Nothing on this page is a claim the product cannot back. The belief inspector
- * is the real demo project the API serves. The refusal transcript is the real
- * shape of a denied plan. The list near the end is what OMEM does NOT do.
+ * - NOTHING BESIDE THE HEADLINE. Text-left/card-right is the most templated
+ *   arrangement there is. The statement owns the first screen; the demo follows
+ *   as a full-width figure, which is also the only way it is big enough to read.
+ *
+ * The measure is wider than a document's throughout — this is a landing page,
+ * not an article, and 34em of lede under a 68px headline looked like a column
+ * that had lost its other column.
+ *
+ * Nothing here is a claim the product cannot back. The belief inspector is the
+ * real demo project the API serves. The refusal transcript is the real shape of
+ * a denied plan. The last list is what OMEM does NOT do.
  */
 
 const REFUSALS = [
@@ -81,118 +82,137 @@ const NOT_YET = [
   "One writer per database, so no high availability",
 ];
 
-/* The page's single primary action. It was an underlined text link competing
-   with two others of identical weight, which left the layout with no answer to
-   "what do I do here". 44px tall so it is a real target on a phone, not only a
-   comfortable one on a desktop. */
-function PrimaryLink({ href, children }: { href: string; children: React.ReactNode }) {
+/**
+ * A section head.
+ *
+ * This used to be `01 —— WHAT IT REFUSES TO DO` above the heading: a monospace
+ * ordinal, a rule, and an uppercase label, all before a single word of content.
+ * Three pieces of chrome introducing one sentence. Numbered sections read as a
+ * deck of generated slides, and the label was almost always a compressed
+ * restatement of the heading directly beneath it — the reader parsed the idea
+ * twice, in a harder setting first.
+ *
+ * What replaces it is a hairline the width of the column and the heading. The
+ * rule still tells you a new argument started, which is the one job the number
+ * was actually doing, and nothing is announced before it is said.
+ *
+ * `n` is kept in the signature and used as the anchor id, so the sections are
+ * still individually linkable without the ordinal being visible furniture.
+ */
+function SectionHead({ n, title, children }: {
+  n: string; title: React.ReactNode; children?: React.ReactNode;
+}) {
   return (
-    <Link href={href}
-      className="inline-flex h-11 items-center rounded-md bg-accent px-5 text-sm font-medium text-accentFg
-                 transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.98]">
-      {children}
-    </Link>
+    <div className="max-w-3xl">
+      <span aria-hidden="true" className="block h-px w-full bg-[color:var(--border)]" />
+      <h2 id={`s-${n}`} className="display mt-9 text-2xl">{title}</h2>
+      {children && <p className="lede mt-6">{children}</p>}
+    </div>
   );
-}
-
-function SecondaryLink({ href, children, external }: { href: string; children: React.ReactNode; external?: boolean }) {
-  const cls = "inline-flex h-11 items-center text-sm font-medium text-muted transition-colors hover:text-fg";
-  return external
-    ? <a href={href} className={cls}>{children}</a>
-    : <Link href={href} className={cls}>{children}</Link>;
 }
 
 export default function Home() {
   return (
     <MarketingShell>
-      {/* ── hero ──────────────────────────────────────────────────────── */}
-      <Section className="pb-16 pt-20">
-        <div className="grid items-start gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,500px)]">
-          <div>
-            <Eyebrow>Memory for AI agents</Eyebrow>
-            {/* xl on a phone, 2xl from sm up: the top of the scale, not past it. */}
-            <h1 className="display max-w-xl text-xl sm:text-2xl">
-              Your agent should be able to say <em>why</em> it believes something.
-            </h1>
-            <p className="mt-5 max-w-lg text-md leading-relaxed text-muted">
+      {/* ── hero ──────────────────────────────────────────────────────────
+          Text left / card right is the single most templated arrangement on the
+          web, and the uppercase micro-label above the headline is the second.
+          Together they are the house style of a generated landing page, which is
+          most of why this screen did not look designed.
+
+          So: no label, and nothing beside the headline. The statement gets the
+          first screen to itself at the full measure, and the demo follows below
+          as a figure with its own caption — which is also the only way it gets
+          enough width to actually be read rather than skimmed as a thumbnail. */}
+      <Section className="hero-y">
+        <div className="max-w-[68rem]">
+          <HeroHeading>
+            Your agent should be able to say <em>why</em> it believes something.
+          </HeroHeading>
+          {/* The lede is offset to a second column on wide screens rather than
+              sitting directly under the headline. A left edge shared by every
+              element down the page is what makes a layout read as a stack of
+              blocks; breaking that alignment once, deliberately, is what makes
+              it read as composed. */}
+          <div className="mt-10 grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+            <p className="lede !max-w-none">
               Most agent memory is a list of facts. When two of them conflict, one
               silently overwrites the other and the history is gone. OMEM keeps
               both, tracks which one is believed right now, and can reconstruct
               what was believed at any point in the past.
             </p>
-            <p className="mt-3.5 max-w-lg text-md leading-relaxed text-muted">
-              It runs on your own machine, with no external services and nothing
-              to install alongside it.
-            </p>
-
-            <div className="mt-7 max-w-md">
-              <CodeBlock filename="one minute" single={`pip install omem-infrastructure\nomem-server`} />
+            <div className="lg:pt-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <ButtonLink href="/docs/quickstart">Start the quickstart</ButtonLink>
+                <ButtonLink href="https://github.com/troybrandonc-bit/Omem" variant="secondary" external>
+                  Read the source
+                </ButtonLink>
+              </div>
+              <p className="mt-5 text-caption text-faint">
+                Runs on your own machine, with no external services.
+                <span className="mono mt-1 block">MIT · Python 3.9+ · no dependencies</span>
+              </p>
             </div>
-
-            <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-1">
-              <PrimaryLink href="/docs/quickstart">Start the quickstart</PrimaryLink>
-              <SecondaryLink href="https://github.com/troybrandonc-bit/Omem" external>
-                Read the source
-              </SecondaryLink>
-            </div>
-            <p className="mono mt-1 text-2xs text-faint">MIT &middot; Python 3.9+ &middot; no dependencies</p>
-          </div>
-
-          {/* The real demo project, not a mockup: move the selector and the
-              belief state actually changes. */}
-          <div>
-            <BeliefInspector />
-            <p className="mt-3 text-2xs text-faint">
-              A real assertion from the demo project. Change &ldquo;as of&rdquo; and
-              watch the belief state move.
-            </p>
           </div>
         </div>
       </Section>
 
-      {/* ── the refusals ──────────────────────────────────────────────── */}
-      <Section className="border-t py-16">
-        <Eyebrow>What it refuses to do</Eyebrow>
-        <h2 className="display max-w-2xl text-lg sm:text-xl">
-          The useful part of a memory layer is the part that says no.
-        </h2>
-        <p className="mt-4 max-w-xl text-md leading-relaxed text-muted">
+      {/* ── the demo, as a figure ─────────────────────────────────────────
+          The real demo project, not a mockup: move the clock and the belief
+          state actually changes. It is the subject of the opening screen, so it
+          takes the one `lift-lg` on the site. */}
+      <Section className="pb-24 sm:pb-32">
+        {/* Capped at 62rem, not full measure.
+            Stretched to the whole 1200px shell the two inner columns went
+            mostly empty — Contradictions is four short lines and it was being
+            given 600px to say them in. A demo that wide stops reading as an
+            object you are being shown and starts reading as a table that failed
+            to fill. Left-aligned rather than centred so it shares the headline's
+            edge; the asymmetry is the composition. */}
+        <figure className="m-0 max-w-[62rem]">
+          <div className="lift-lg rounded-lg">
+            <BeliefInspector />
+          </div>
+          <figcaption className="mt-5 flex flex-wrap items-baseline gap-x-3 text-caption text-faint">
+            <span aria-hidden="true" className="h-px w-8 shrink-0 bg-[color:var(--line-strong)]" />
+            A real assertion from the demo project. Change &ldquo;as of&rdquo; and watch
+            the belief state move.
+          </figcaption>
+        </figure>
+      </Section>
+
+      {/* ── 01 the refusals ───────────────────────────────────────────── */}
+      <Section className="section-y">
+        <SectionHead n="01" title="The useful part of a memory layer is the part that says no.">
           Anything can store a fact. What decides whether your agent is
           trustworthy is what it declines to do with one.
-        </p>
-        <div className="mt-9 border-t">
-          {REFUSALS.map(r => (
-            <div key={r.k} className="spec-row border-b py-6">
-              <div className="text-sm font-medium">{r.k}</div>
-              <p className="max-w-xl text-sm leading-relaxed text-muted">{r.d}</p>
-            </div>
-          ))}
+        </SectionHead>
+        <div className="mt-10">
+          <SpecList items={REFUSALS.map(r => ({ k: r.k, d: r.d }))} />
         </div>
       </Section>
 
-      {/* ── the refusal, shown ────────────────────────────────────────── */}
-      <Section className="border-t py-16">
-        <div className="grid gap-10 lg:grid-cols-2">
+      {/* ── 02 the refusal, shown ─────────────────────────────────────── */}
+      <Section className="section-y">
+        <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
           <div>
-            <Eyebrow>Self-healing, under policy</Eyebrow>
-            <h2 className="display max-w-lg text-lg sm:text-xl">
-              A model proposed <span className="mono">exec_shell</span>. OMEM did not run it.
-            </h2>
-            <p className="mt-4 max-w-lg text-md leading-relaxed text-muted">
+            <SectionHead n="02" title={<>A model proposed <span className="mono">exec_shell</span>. OMEM did not run it.</>}>
               OMEM records what breaks and repairs it under policy. The model is a
-              reasoning component that may <em className="not-italic font-medium text-fg">propose</em> a
-              plan; OMEM decides what is permitted, what executes, and whether it
+              reasoning component that may{" "}
+              <em className="not-italic font-medium text-fg">propose</em> a plan;
+              OMEM decides what is permitted, what executes, and whether it
               actually worked.
-            </p>
-            <p className="mt-3.5 max-w-lg text-md leading-relaxed text-muted">
+            </SectionHead>
+            <p className="mt-5 max-w-read text-body text-muted">
               Error text and model output are data here. Neither can name an
               action into existence, and the refusal is written down with the
               reason for every action rather than disappearing.
             </p>
-            <SecondaryLink href="/docs">How the healing loop works</SecondaryLink>
+            <ButtonLink href="/docs" variant="quiet" className="mt-5">
+              How the healing loop works
+            </ButtonLink>
           </div>
-          <CodeBlock
-            filename="a denied plan"
+          <CodeBlock filename="a denied plan" label="A repair plan that OMEM refused"
             single={`result = mem.healing.handle(
     error={"component": "billing-sync", "error_type": "AuthError"},
     plan={"diagnosis": "credentials rotated upstream",
@@ -210,14 +230,11 @@ result["decisions"]
         </div>
       </Section>
 
-      {/* ── what a vector store cannot do ─────────────────────────────── */}
-      <Section className="border-t py-16">
-        <Eyebrow>The part a vector store cannot do</Eyebrow>
-        <h2 className="display max-w-2xl text-lg sm:text-xl">
-          Two agents disagree. Both are kept, one is believed, and you can ask why.
-        </h2>
-        <div className="mt-9 grid gap-10 lg:grid-cols-[minmax(0,540px)_minmax(0,1fr)]">
-          <CodeBlock
+      {/* ── 03 what a vector store cannot do ──────────────────────────── */}
+      <Section className="section-y">
+        <SectionHead n="03" title="Two agents disagree. Both are kept, one is believed, and you can ask why." />
+        <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)] lg:gap-14">
+          <CodeBlock label="Recording a contradiction"
             tabs={[
               {
                 label: "Python",
@@ -241,7 +258,8 @@ mem.why(assertion_id)   # the chain that led there`,
               },
               {
                 label: "TypeScript",
-                code: `import { Memory } from "@omem/sdk";
+                code: `// Not on npm yet: used from sdk/typescript/ in the repo.
+import { Memory } from "./sdk/typescript/src/index";
 
 const mem = new Memory({ apiKey: "omem_sk_...", project: "proj_..." });
 
@@ -273,37 +291,35 @@ await mem.believes({ about: "customer:alice",
               },
             ]}
           />
-          <div className="flex flex-col gap-5">
+          <ul className="flex flex-col gap-6">
             {FEATURES.map(([k, d]) => (
-              <div key={k}>
-                <div className="text-sm font-medium">{k}</div>
-                <p className="mt-1 max-w-md text-sm leading-relaxed text-muted">{d}</p>
-              </div>
+              <li key={k}>
+                <h3 className="text-note font-semibold">{k}</h3>
+                <p className="mt-1.5 text-note text-muted">{d}</p>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       </Section>
 
-      {/* ── the honesty section ───────────────────────────────────────── */}
-      <Section className="border-t py-16">
-        <div className="grid gap-10 lg:grid-cols-2">
+      {/* ── 04 the honesty section ────────────────────────────────────── */}
+      <Section className="section-y">
+        <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
           <div>
-            <Eyebrow>What it does not do</Eyebrow>
-            <h2 className="display max-w-lg text-lg sm:text-xl">
-              This is early software, and the second list matters as much as the first.
-            </h2>
-            <p className="mt-4 max-w-lg text-md leading-relaxed text-muted">
+            <SectionHead n="04" title="This is early software, and the second list matters as much as the first.">
               OMEM is free while it is in beta, and it is missing things you would
               need before putting it somewhere serious. They are written down
               rather than discovered during a security review.
-            </p>
-            <SecondaryLink href="/security">Read the full security page</SecondaryLink>
+            </SectionHead>
+            <ButtonLink href="/security" variant="quiet" className="mt-5">
+              Read the full security page
+            </ButtonLink>
           </div>
           <ul className="border-t">
             {NOT_YET.map(n => (
-              <li key={n} className="flex items-start gap-3 border-b py-3">
-                <span className="led closed mt-1 shrink-0" aria-hidden="true" />
-                <span className="text-sm leading-relaxed text-muted">{n}</span>
+              <li key={n} className="flex items-start gap-3 border-b py-4">
+                <span className="led closed mt-[7px] shrink-0" aria-hidden="true" />
+                <span className="text-note text-muted">{n}</span>
               </li>
             ))}
           </ul>
@@ -311,23 +327,24 @@ await mem.believes({ about: "customer:alice",
       </Section>
 
       {/* ── close ─────────────────────────────────────────────────────── */}
-      <Section className="border-t py-20">
-        <h2 className="display max-w-xl text-lg sm:text-xl">
+      <Section className="rule section-y">
+        <h2 className="display max-w-[22ch] text-2xl">
           The whole thing runs on your laptop in about a minute.
         </h2>
-        <p className="mt-4 max-w-lg text-md leading-relaxed text-muted">
+        <p className="lede mt-5">
           No signup, no card, no quota, and no service to depend on. If it breaks
           or feels wrong, that is exactly the feedback worth having right now.
         </p>
-        <div className="mt-7 max-w-md">
-          <CodeBlock filename="start here" single={`pip install omem-infrastructure\nomem-server`} />
+        <div className="mt-8 max-w-md">
+          <CodeBlock filename="start here" label="Install and run OMEM"
+            single={`pip install omem-infrastructure\nomem-server`} />
         </div>
-        <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-1">
-          <PrimaryLink href="/docs/quickstart">Start the quickstart</PrimaryLink>
-          <SecondaryLink href="/docs">Documentation</SecondaryLink>
-          <SecondaryLink href="https://github.com/troybrandonc-bit/Omem/issues" external>
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <ButtonLink href="/docs/quickstart">Start the quickstart</ButtonLink>
+          <ButtonLink href="/docs" variant="secondary">Documentation</ButtonLink>
+          <ButtonLink href="https://github.com/troybrandonc-bit/Omem/issues" variant="quiet" external>
             Report something broken
-          </SecondaryLink>
+          </ButtonLink>
         </div>
       </Section>
     </MarketingShell>

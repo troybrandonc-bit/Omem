@@ -1,6 +1,9 @@
 import { CodeBlock } from "@/components/marketing/ui";
 
-export const metadata = { title: "SDK / OMEM" };
+export const metadata = {
+  title: "SDK",
+  description: "Seven verbs, each mapping 1:1 to an operation in the OMEM standard.",
+};
 
 const VERBS = [
   { verb: "remember", sig: "remember(agent, *, about, claim, because=None)", d: "Record a belief, optionally grounded in events." },
@@ -12,51 +15,75 @@ const VERBS = [
   { verb: "as_of", sig: "as_of(T).believes(...)", d: "Run any query as memory stood at time T." },
 ];
 
+/* The verb table was a CSS grid of <div>s with a fake header row, so a screen
+ * reader met fourteen unrelated cells and no column headers, and there was no
+ * way to know which signature belonged to which verb. It is a <table> now, which
+ * is what it always was. The heading also claimed "six languages" above a list
+ * of seven verbs and four code tabs — the number was wrong twice over.
+ */
+
 export default function Sdk() {
   return (
-    <article className="max-w-2xl">
-      <div className="tech-label mb-4">SDK</div>
-      <h1 className="display text-[36px]">One ergonomic surface, six languages</h1>
-      <p className="mt-3 text-pretty leading-relaxed text-muted">
-        The SDK speaks the language of an agent remembering things. Each verb maps 1:1 to an
-        operation in the OMEM standard. There are no hidden semantics, and you can always drop
-        to the raw operations when you need to.
+    <article className="max-w-read">
+      <div className="tech-label mb-3">SDK</div>
+      <h1 className="display text-2xl">Seven verbs, one memory model</h1>
+      <p className="lede mt-4">
+        The SDK speaks the language of an agent remembering things. Each verb maps
+        1:1 to an operation in the OMEM standard. There are no hidden semantics,
+        and you can always drop to the raw operations when you need to.
       </p>
 
-      <h2 className="mt-10 text-lg font-semibold">The verbs</h2>
-      <div className="mt-4 overflow-hidden rounded-lg border">
-        <div className="grid grid-cols-[8rem_1fr] border-b bg-panel tech-label">
-          <div className="px-4 py-2.5">Verb</div>
-          <div className="px-4 py-2.5">What it does</div>
-        </div>
-        {VERBS.map((v, i) => (
-          <div key={v.verb} className={`grid grid-cols-[8rem_1fr] items-start ${i < VERBS.length - 1 ? "border-b" : ""}`}>
-            <div className="px-4 py-3">
-              <span className="mono rounded bg-[color:var(--accent)]/10 px-1.5 py-0.5 text-xs text-accent">{v.verb}</span>
-            </div>
-            <div className="px-4 py-3">
-              <div className="mono text-2xs text-muted">{v.sig}</div>
-              <div className="mt-0.5 text-sm">{v.d}</div>
-            </div>
-          </div>
-        ))}
+      <h2 className="mt-12 text-lg font-semibold">The verbs</h2>
+      <div className="mt-4 overflow-x-auto rounded-md border">
+        <table className="w-full text-left text-note">
+          <caption className="sr-only">OMEM SDK verbs, their signatures, and what each does</caption>
+          <thead>
+            <tr>
+              <th scope="col" className="tech-label border-b bg-raised px-4 py-2.5">Verb</th>
+              <th scope="col" className="tech-label border-b bg-raised px-4 py-2.5">Signature and effect</th>
+            </tr>
+          </thead>
+          <tbody>
+            {VERBS.map(v => (
+              <tr key={v.verb} className="border-b last:border-b-0">
+                <th scope="row" className="whitespace-nowrap px-4 py-3 align-top">
+                  <span className="mono rounded bg-accentBg px-1.5 py-0.5 text-xs font-medium text-accent">{v.verb}</span>
+                </th>
+                <td className="px-4 py-3">
+                  <div className="mono text-caption text-muted">{v.sig}</div>
+                  <div className="mt-1.5 text-note">{v.d}</div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      <h2 className="mt-10 text-lg font-semibold">The same call, everywhere</h2>
+      <h2 className="mt-12 text-lg font-semibold">The same call, everywhere</h2>
+      {/* These three are copied from working calls. What was here before was an
+          aspirational API: `omem.Client()` and `mem.entity()/mem.event()` were
+          never written, the TypeScript tab imported `Omem` where the SDK
+          exports `Memory`, the curl tab pointed at api.omem.dev (which does not
+          resolve) with an `sk_live_` key format OMEM does not issue, and there
+          was a Go tab for an SDK that does not exist. */}
       <div className="mt-4">
-        <CodeBlock tabs={[
-          { label: "Python", code: `import omem\nmem = omem.Client()\n\nmem.remember(\n    mem.agent("support-bot@v2.1"),\n    about=mem.entity("customer:alice"),\n    claim="prefers_email_over_phone",\n    because=[mem.event("ticket:8842")],\n)\n\nmem.believes(mem.entity("customer:alice"),\n             "prefers_email_over_phone")   # BELIEVED_TRUE` },
-          { label: "TypeScript", code: `import { Omem } from "@omem/sdk";\nconst mem = new Omem();\n\nawait mem.remember(mem.agent("support-bot@v2.1"), {\n  about: mem.entity("customer:alice"),\n  claim: "prefers_email_over_phone",\n  because: [mem.event("ticket:8842")],\n});\n\nawait mem.believes(mem.entity("customer:alice"),\n                   "prefers_email_over_phone");` },
-          { label: "Go", code: `mem := omem.New()\n\nmem.Remember(ctx, omem.Claim{\n    Agent:       "support-bot@v2.1",\n    Subjects:    []string{"customer:alice"},\n    Proposition: "prefers_email_over_phone",\n    Because:     []string{"ticket:8842"},\n})\n\nstate, _ := mem.Believes(ctx,\n    "customer:alice", "prefers_email_over_phone")` },
-          { label: "curl", code: `curl https://api.omem.dev/v1/assertions \\\n  -H "Authorization: Bearer sk_live_..." \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "agent": "support-bot@v2.1",\n    "subjects": ["customer:alice"],\n    "proposition": "prefers_email_over_phone",\n    "because": ["ticket:8842"]\n  }'` },
-        ]} />
+        <CodeBlock label="Recording and querying a belief"
+          tabs={[
+            { label: "Python", code: `from omem import Memory\n\nmem = Memory(api_key="omem_sk_...",\n             base_url="http://127.0.0.1:8787",\n             project="proj_...")\n\nmem.remember(agent="support-bot",\n             about="customer:alice",\n             claim="prefers_annual_billing")\n\nmem.believes(about="customer:alice",\n             claim="prefers_annual_billing")   # 'BELIEVED_TRUE'` },
+            { label: "TypeScript", code: `import { Memory } from "./sdk/typescript/src/index";\n\nconst mem = new Memory({\n  apiKey: "omem_sk_...",\n  baseUrl: "http://127.0.0.1:8787",\n  project: "proj_...",\n});\n\nawait mem.remember({\n  agent: "support-bot",\n  about: "customer:alice",\n  claim: "prefers_annual_billing",\n});\n\nawait mem.believes({\n  about: "customer:alice",\n  claim: "prefers_annual_billing",\n});   // 'BELIEVED_TRUE'` },
+            { label: "curl", code: `curl http://127.0.0.1:8787/v1/assertions \\\n  -H "Authorization: Bearer omem_sk_..." \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "agent": "support-bot",\n    "subjects": ["customer:alice"],\n    "proposition": "prefers_annual_billing",\n    "assertion_time": "now"\n  }'` },
+          ]} />
       </div>
 
-      <div className="mt-8 rounded-md border-l-2 border-l-accent bg-panel px-4 py-3 text-sm text-muted">
-        Prototyping offline? <span className="mono text-fg">Client(embedded=True)</span> runs the
-        reference engine in-process: identical semantics, zero network, no key. Flip to cloud by
-        removing one argument.
-      </div>
+      {/* An aside, marked as one. It was a bare div with a left border, which is
+          a visual convention a screen reader does not have. */}
+      <aside className="mt-10 rounded-md border border-l-2 border-l-[color:var(--accent)] bg-panel px-4 py-4 text-note text-muted">
+        <strong className="font-medium text-fg">The TypeScript SDK is not on npm yet.</strong>{" "}
+        It lives in <span className="mono text-fg">sdk/typescript/</span> and is
+        used from source. It lags the Python SDK;{" "}
+        <span className="mono text-fg">test_parity.mjs</span> runs against a live
+        server and reports what is missing.
+      </aside>
     </article>
   );
 }
