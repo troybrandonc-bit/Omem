@@ -1,0 +1,93 @@
+name: DCO
+
+# Every commit must carry a Signed-off-by line matching its author. See DCO.md
+# for the certificate itself and for why this replaced the CLA.
+#
+# No third-party action and no signature store. The CLA it replaced used a bot
+# that recorded signatures on a branch; the DCO needs neither, because the
+# assertion lives in the commit it applies to. That also means this check has
+# nothing to write: `contents: read` is the whole permission set, where the CLA
+# workflow needed `contents: write` and `pull-requests: write` on
+# `pull_request_target` — which runs with repository secrets against a fork's
+# code, and is the shape of workflow most often used to compromise a repo.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    name: every commit is signed off
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The full range between base and head has to be walkable, so a
+          # shallow clone will not do.
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Check sign-offs
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        # No heredoc for the failure message. An indented heredoc body reaches
+        # the shell with its leading spaces intact and, worse, an indented
+        # terminator does not terminate it at all — the same trap this
+        # repository's other workflows carry warnings about.
+        run: |
+          set -euo pipefail
+          # --no-merges: GitHub creates merge commits itself when a branch is
+          # updated through the UI, and they carry no sign-off because no person
+          # authored them. Failing a contributor for those would be a check that
+          # goes red on its own.
+          #
+          # The trailing `--` and the explicit failure branch are both load
+          # bearing, and this was caught by running the check rather than
+          # reading it. Without `--`, git can read `A..B` as a PATH rather than
+          # a revision range and die with "failed to stat ... Filename too
+          # long"; `commits` was then empty, the script reported "no non-merge
+          # commits to check", and EXITED 0. A DCO check that passes because it
+          # could not look is worse than no check, and it looks identical to a
+          # clean run in the UI.
+          if ! commits=$(git rev-list --no-merges "$BASE..$HEAD" --); then
+            echo "::error::could not walk $BASE..$HEAD, so nothing was verified"
+            exit 1
+          fi
+          if [ -z "$commits" ]; then
+            echo "no non-merge commits to check"
+            exit 0
+          fi
+
+          fail=0
+          for sha in $commits; do
+            author=$(git show -s --format='%an <%ae>' "$sha")
+            # -F: the author name is arbitrary text and may contain regex
+            # metacharacters. A contributor named "A. B. (C)" would otherwise be
+            # matched as a pattern and pass or fail at random.
+            if git show -s --format='%B' "$sha" | grep -qiF "Signed-off-by: $author"; then
+              echo "  ok    $(git rev-parse --short "$sha")  $author"
+            else
+              echo "  FAIL  $(git rev-parse --short "$sha")  $author"
+              fail=1
+            fi
+          done
+
+          if [ "$fail" -ne 0 ]; then
+            echo ""
+            echo "Add the missing sign-off with:"
+            echo ""
+            echo "    git commit --amend -s          # the most recent commit"
+            echo "    git rebase --signoff main      # a whole branch"
+            echo ""
+            echo "then force-push. The line must match the commit author exactly,"
+            echo "name and address. See DCO.md: it is a one-line certificate that"
+            echo "you wrote the patch or have the right to send it. There is"
+            echo "nothing to sign and no account to create."
+            echo "::error::At least one commit has no Signed-off-by line matching its author."
+            exit 1
+          fi
+          echo "all commits signed off"

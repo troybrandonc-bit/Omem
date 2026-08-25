@@ -14,19 +14,26 @@ that.
 Small things (a typo, a broken link, a clearly-wrong error message) just send
 the PR.
 
-## The contributor licence agreement
+## Sign your commits off
 
-You will be asked to sign a CLA the first time you open a pull request. It is a
-checkbox on the PR, handled by a bot.
+One line per commit, which `git commit -s` adds for you:
 
-We are telling you why rather than hoping you do not ask: OMEM is MIT and the
-core will stay MIT, but the project intends to build a commercial product around
-it, and a CLA keeps that possible without having to track down every past
-contributor. Some people decline to sign CLAs on principle, and that is a
-legitimate position. If that is you, open an issue describing the fix instead
-and it will get implemented with credit to you.
+```
+Signed-off-by: Your Name <your.email@example.com>
+```
 
-See [CLA.md](CLA.md).
+That is the [Developer Certificate of Origin](DCO.md): you are certifying that
+you wrote the patch, or otherwise have the right to send it. Nothing to sign, no
+bot, no account, and CI checks it.
+
+Forgot? `git commit --amend -s` for the last commit, `git rebase --signoff main`
+for a branch, then force-push.
+
+This project asked for a CLA until recently. It was dropped because its stated
+justification did not hold: MIT already grants the right to sublicense and sell,
+so a commercial product built on contributed code never needed one. What a CLA
+actually buys is the option to relicense *away* from MIT later — which this
+project has committed not to do. [DCO.md](DCO.md) has the full reasoning.
 
 ## Design rules that are not negotiable
 
@@ -78,16 +85,26 @@ pytest:
 
 ```bash
 cd server
-for t in tests*.py; do python "$t" || echo "FAILED: $t"; done
+python run_tests.py
 ```
+
+Use the runner rather than a shell loop over `tests*.py`. It is what CI runs,
+and it reports the thing a loop cannot: which suites **skipped**. A suite with
+no PostgreSQL to talk to exits 0, so a loop prints nothing and looks exactly
+like a pass. `run_tests.py` ends with a list headed "SKIPPED. These verified
+NOTHING in this run", and returns non-zero if anything actually failed.
 
 CI additionally runs everything against PostgreSQL and against encrypted
 storage. If your change touches storage, run those locally:
 
 ```bash
-OMEM_DATABASE_URL=postgresql://... python tests.py
-OMEM_ENCRYPT_AT_REST=1 OMEM_MASTER_KEY=$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))') python tests.py
+OMEM_DATABASE_URL=postgresql://... python run_tests.py
+OMEM_ENCRYPT_AT_REST=1 OMEM_MASTER_KEY=$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))') python run_tests.py
 ```
+
+Both are the full run, not a single suite: encrypting a column means every read
+of it has to decrypt, and a missed read site fails somewhere other than the
+suite that owns the column.
 
 Type-check the dashboard with `cd web && npx tsc --noEmit`.
 
@@ -113,6 +130,8 @@ generate them.
 
 ## Commits and pull requests
 
+- **Sign off every commit** (`git commit -s`). CI fails the PR otherwise, and
+  fixing it after the fact means a rebase and a force-push.
 - One logical change per PR. A drive-by reformat inside a bugfix makes the fix
   unreviewable.
 - Write the commit message for someone reading `git log` in a year.
@@ -140,5 +159,13 @@ than a description.
 
 ## Licence
 
-Contributions are licensed under the MIT License, the same as the project. See
-[LICENSE](LICENSE).
+Your contribution ships under the MIT License, the same as everything else here.
+See [LICENSE](LICENSE). You keep the copyright in what you wrote — signing off
+is a statement about provenance, not a transfer of ownership.
+
+Worth knowing, because MIT is more permissive than people expect: it grants
+anyone the right to *sublicense and sell*, so your contribution can end up in a
+commercial product, including one built by this project. That is true of every
+MIT project and is not something the DCO adds. What the project has committed to
+is that **the core stays MIT** — it is not reserving a right to relicense it
+later, which is precisely why there is no CLA. See [DCO.md](DCO.md).
