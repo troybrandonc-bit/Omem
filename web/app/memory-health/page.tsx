@@ -108,7 +108,7 @@ export default function MemoryHealth() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="display text-[24px]">Memory health</h1>
+        <h1 className="display text-lg">Memory health</h1>
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" variant="secondary" onClick={() => scanNow("recent")}
             disabled={busy !== null}>
@@ -121,7 +121,7 @@ export default function MemoryHealth() {
       </div>
 
       {err && (
-        <div className="rounded-md border border-[color:var(--conflict)]/50 bg-[color:var(--conflict)]/10 px-4 py-2.5 text-[13px] text-conflict">
+        <div className="rounded-md border border-[color:var(--conflict)]/50 bg-[color:var(--conflict)]/10 px-4 py-2.5 text-sm text-conflict">
           {err}
         </div>
       )}
@@ -129,7 +129,7 @@ export default function MemoryHealth() {
       {/* Health summary. Real counts only */}
       <section className="panel overflow-hidden">
         <header className="flex items-center justify-between border-b px-4 py-2.5">
-          <h2 className="text-[14px] font-semibold">Current state</h2>
+          <h2 className="text-sm font-semibold">Current state</h2>
           {health.last_scan_ts
             ? <span className="text-2xs text-faint">Last scan {new Date(health.last_scan_ts * 1000).toLocaleString()}</span>
             : <span className="text-2xs text-faint">Never scanned</span>}
@@ -141,12 +141,12 @@ export default function MemoryHealth() {
             ["Recent corrections", health.recent_corrections.length]].map(([l, v]) => (
             <div key={l as string} className="px-4 py-3">
               <div className="text-2xs text-faint">{l}</div>
-              <div className="num mt-1 text-[20px] leading-none">{v}</div>
+              <div className="num mt-1 text-lg leading-none">{v}</div>
             </div>
           ))}
         </div>
         {health.needs_scan && (
-          <div className="border-t px-4 py-2.5 text-[13px] text-muted">
+          <div className="border-t px-4 py-2.5 text-sm text-muted">
             No recent scan. Run one to check memory quality against current classification rules.
           </div>
         )}
@@ -163,7 +163,7 @@ export default function MemoryHealth() {
       {quality && quality.emails_scanned > 0 && (
         <section className="panel overflow-hidden">
           <header className="border-b px-4 py-2.5">
-            <h2 className="text-[14px] font-semibold">Memory quality funnel</h2>
+            <h2 className="text-sm font-semibold">Memory quality funnel</h2>
           </header>
           <div className="grid grid-cols-2 divide-x lg:grid-cols-5">
             {[["Emails scanned", quality.emails_scanned],
@@ -173,7 +173,7 @@ export default function MemoryHealth() {
               ["Active memories", quality.active_memories]].map(([l, v]) => (
               <div key={l as string} className="px-4 py-3">
                 <div className="text-2xs text-faint">{l}</div>
-                <div className="num mt-1 text-[20px] leading-none">{v}</div>
+                <div className="num mt-1 text-lg leading-none">{v}</div>
               </div>
             ))}
           </div>
@@ -201,7 +201,7 @@ export default function MemoryHealth() {
       {/* Review queue */}
       <section className="panel overflow-hidden">
         <header className="border-b px-4 py-2.5">
-          <h2 className="text-[14px] font-semibold">Review queue</h2>
+          <h2 className="text-sm font-semibold">Review queue</h2>
         </header>
         <div className="divide-y">
           {(queue?.data ?? []).length === 0 &&
@@ -213,9 +213,9 @@ export default function MemoryHealth() {
                   <div className="flex items-center gap-2">
                     <Badge tone={CLS_TONE[q.classification] ?? "muted"}>{q.classification.replace(/_/g, " ")}</Badge>
                     <Link href={`/assertion?id=${encodeURIComponent(q.assertion_id)}`}
-                      className="num text-[13px] text-accent hover:underline">{q.assertion_id}</Link>
+                      className="num text-sm text-accent hover:underline">{q.assertion_id}</Link>
                   </div>
-                  <div className="num mt-1 text-[13px]">{q.proposition}</div>
+                  <div className="num mt-1 text-sm">{q.proposition}</div>
                   <div className="mt-0.5 text-2xs text-muted">{q.reason}</div>
                   {q.source_evidence && (
                     <div className="mt-1 rounded bg-chip px-2 py-1 text-2xs text-muted">
@@ -240,7 +240,7 @@ export default function MemoryHealth() {
       {/* Scan history + dry-run reports */}
       <section className="panel overflow-hidden">
         <header className="border-b px-4 py-2.5">
-          <h2 className="text-[14px] font-semibold">Scans</h2>
+          <h2 className="text-sm font-semibold">Scans</h2>
         </header>
         <div className="divide-y">
           {(scans?.data ?? []).length === 0 &&
@@ -259,7 +259,7 @@ export default function MemoryHealth() {
       {openScan && scanDetail && (
         <section className="panel overflow-hidden">
           <header className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2.5">
-            <h2 className="text-[14px] font-semibold">Scan results <span className="num text-muted">{openScan}</span></h2>
+            <h2 className="text-sm font-semibold">Scan results <span className="num text-muted">{openScan}</span></h2>
             <div className="flex flex-wrap gap-1.5">
               <FilterChip active={resultFilter === null} onClick={() => setResultFilter(null)}>All</FilterChip>
               {CLS_ORDER.filter(c => (scanDetail.scan.summary?.by_classification?.[c] ?? 0) > 0).map(c => (
@@ -280,7 +280,7 @@ export default function MemoryHealth() {
       {/* Gmail source rescan */}
       <section className="panel overflow-hidden">
         <header className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2.5">
-          <h2 className="text-[14px] font-semibold">Gmail source rescan</h2>
+          <h2 className="text-sm font-semibold">Gmail source rescan</h2>
           <div className="flex items-center gap-2">
             <select value={rescanWindow}
               onChange={e => setRescanWindow(Number(e.target.value) as 7 | 30 | 90 | 365 | 0)}
@@ -296,7 +296,7 @@ export default function MemoryHealth() {
             </Button>
           </div>
         </header>
-        <div className="px-4 py-2.5 text-[13px] text-muted">
+        <div className="px-4 py-2.5 text-sm text-muted">
           Re-runs the current relevance classifier over already-stored Gmail messages
           (no re-fetch). Finds mail the old rules missed, and mail that should not
           have entered the pipeline.
@@ -310,7 +310,7 @@ export default function MemoryHealth() {
                 ["Unchanged", gmailRescan.unchanged]].map(([l, v]) => (
                 <div key={l as string} className="px-4 py-3">
                   <div className="text-2xs text-faint">{l}</div>
-                  <div className="num mt-1 text-[20px] leading-none">{v}</div>
+                  <div className="num mt-1 text-lg leading-none">{v}</div>
                 </div>
               ))}
             </div>
@@ -319,7 +319,7 @@ export default function MemoryHealth() {
               .map((i, idx) => (
               <div key={idx} className="flex items-start justify-between gap-3 border-t px-4 py-2.5">
                 <div className="min-w-0">
-                  <div className="truncate text-[13px] font-medium">{i.subject || "(no subject)"}</div>
+                  <div className="truncate text-sm font-medium">{i.subject || "(no subject)"}</div>
                   <div className="truncate text-2xs text-faint">{i.from}</div>
                   {i.reasons.length > 0 &&
                     <div className="mt-0.5 text-2xs text-muted">{i.reasons[0]}</div>}
@@ -340,7 +340,7 @@ export default function MemoryHealth() {
       {/* Recent corrections, from the ops log, not synthesized */}
       <section className="panel overflow-hidden">
         <header className="border-b px-4 py-2.5">
-          <h2 className="text-[14px] font-semibold">Recent corrections</h2>
+          <h2 className="text-sm font-semibold">Recent corrections</h2>
         </header>
         <div className="divide-y">
           {health.recent_corrections.length === 0 &&
@@ -348,7 +348,7 @@ export default function MemoryHealth() {
           {health.recent_corrections.map((c, i) => (
             <div key={i} className="flex items-center justify-between px-4 py-2.5">
               <div>
-                <div className="num text-[13px]">{c.proposition}</div>
+                <div className="num text-sm">{c.proposition}</div>
                 <div className="text-2xs text-faint">{c.subjects.join(", ")}</div>
               </div>
               <div className="flex items-center gap-3">
@@ -375,7 +375,7 @@ function ScanRow({ scan, open, onToggle, onApply, busy }:
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button onClick={onToggle} className="min-w-0 text-left">
           <div className="flex items-center gap-2">
-            <span className={cn("num text-[13px]", open ? "text-accent" : "")}>{scan.id}</span>
+            <span className={cn("num text-sm", open ? "text-accent" : "")}>{scan.id}</span>
             <Badge tone={scan.state === "complete" ? "believed" : scan.state === "error" ? "conflict" : "unknown"}>
               {scan.state}
             </Badge>
@@ -406,7 +406,7 @@ function ResultRow({ r }: { r: MemoryScanResult }) {
           <div className="flex items-center gap-2">
             <Badge tone={CLS_TONE[r.classification] ?? "muted"}>{r.classification.replace(/_/g, " ")}</Badge>
             <Link href={`/assertion?id=${encodeURIComponent(r.assertion_id)}`}
-              className="num text-[13px] text-accent hover:underline">{r.assertion_id}</Link>
+              className="num text-sm text-accent hover:underline">{r.assertion_id}</Link>
             {r.proposed_action &&
               <span className="text-2xs text-faint">→ {r.proposed_action}</span>}
             {r.applied === 1 && <Badge tone="closed">done</Badge>}
@@ -425,9 +425,9 @@ function ResultRow({ r }: { r: MemoryScanResult }) {
 function FilterChip({ children, active, onClick }:
   { children: React.ReactNode; active: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick}
-      className={cn("rounded-sm border px-2 py-px text-2xs font-semibold uppercase tracking-[0.05em] transition-colors",
-        active ? "border-accent text-accent" : "border-line-strong text-muted hover:text-ink")}>
+    <button onClick={onClick} aria-pressed={active}
+      className={cn("tap inline-flex h-7 items-center rounded-sm border px-2.5 text-2xs font-semibold uppercase tracking-[0.05em] transition-colors duration-1 ease-out",
+        active ? "border-accent bg-accentBg text-accent" : "border-line-strong text-muted hover:text-ink")}>
       {children}
     </button>
   );

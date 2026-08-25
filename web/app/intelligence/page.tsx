@@ -16,10 +16,10 @@ export default function Intelligence() {
 
   return (
     <div className="space-y-5">
-      <h1 className="display text-[24px]">Memory intelligence</h1>
+      <h1 className="display text-lg">Memory intelligence</h1>
 
       <section className="panel overflow-hidden">
-        <header className="border-b px-4 py-2.5"><h2 className="text-[14px] font-semibold">Memory health</h2></header>
+        <header className="border-b px-4 py-2.5"><h2 className="text-sm font-semibold">Memory health</h2></header>
         <div className="grid grid-cols-2 divide-x lg:grid-cols-4">
           {[["Total beliefs", String(h.total_assertions)],
             ["Grounding coverage", pct(h.grounding_coverage)],
@@ -27,20 +27,20 @@ export default function Intelligence() {
             ["Unresolved conflicts", String(h.unresolved_conflicts)]].map(([l, v]) => (
             <div key={l} className="px-4 py-3">
               <div className="text-2xs text-faint">{l}</div>
-              <div className="num mt-1 text-[20px] leading-none">{v}</div>
+              <div className="num mt-1 text-lg leading-none">{v}</div>
             </div>
           ))}
         </div>
       </section>
 
       <section className="panel overflow-hidden">
-        <header className="border-b px-4 py-2.5"><h2 className="text-[14px] font-semibold">Unresolved conflicts</h2></header>
+        <header className="border-b px-4 py-2.5"><h2 className="text-sm font-semibold">Unresolved conflicts</h2></header>
         <div className="divide-y">
           {data.conflicts.length === 0 && <div className="empty m-5">No contradictions detected across current memory.</div>}
           {data.conflicts.map((c, i) => (
             <div key={i} className="flex items-center justify-between px-4 py-2.5.5">
               <div>
-                <div className="text-[14px] font-medium">{c.proposition}</div>
+                <div className="text-sm font-medium">{c.proposition}</div>
                 <div className="text-2xs text-faint">{c.subjects.join(", ")}</div>
               </div>
               <Link href="/conflicts" className="text-2xs font-semibold text-accent hover:underline">Inspect →</Link>
@@ -50,13 +50,13 @@ export default function Intelligence() {
       </section>
 
       <section className="panel overflow-hidden">
-        <header className="border-b px-4 py-2.5"><h2 className="text-[14px] font-semibold">Source authority</h2></header>
+        <header className="border-b px-4 py-2.5"><h2 className="text-sm font-semibold">Source authority</h2></header>
         <div className="divide-y">
           {data.sources.length === 0 && <div className="empty m-5">No ingestion sources connected.</div>}
           {data.sources.map((s, i) => (
             <div key={i} className="flex items-center justify-between px-4 py-2.5.5">
               <div>
-                <div className="text-[14px] font-medium">{s.name}</div>
+                <div className="text-sm font-medium">{s.name}</div>
                 <div className="text-2xs text-faint">{s.kind}</div>
               </div>
               <div className="flex items-center gap-3">

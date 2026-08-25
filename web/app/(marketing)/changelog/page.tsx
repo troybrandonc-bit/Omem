@@ -1,10 +1,19 @@
 import { MarketingShell } from "@/components/marketing/chrome";
-import { Section } from "@/components/marketing/ui";
+import { Section, PageHeader } from "@/components/marketing/ui";
 
-export const metadata = { title: "Changelog / OMEM" };
+export const metadata = {
+  title: "Changelog",
+  description: "Product updates, shipped. The OMEM standard is versioned separately.",
+};
+
+/* A changelog is a record, so it is set like one: a dated left rail, a rule per
+ * entry, and the version as a machine value in mono. The previous version put
+ * the date and the version in the label column and the entries in the body,
+ * which was right — what it did not do was mark WHICH entry is current, and it
+ * set its own heading two steps larger than every other page on the site. */
 
 const ENTRIES = [
-  { date: "2026-08", version: "v1.0", tag: "GA",
+  { date: "2026-08", version: "v1.0", tag: "GA", current: true,
     title: "OMEM is generally available",
     items: [
       "The full memory model, hosted and multi-tenant, with as-of time travel on every query.",
@@ -13,7 +22,7 @@ const ENTRIES = [
       "Playground with real API calls and multi-language code generation.",
     ]},
   { date: "2026-07", version: "v0.9", tag: "Beta",
-    title: "Contradiction detection and the \"why\" view",
+    title: "Contradiction detection and the “why” view",
     items: [
       "Conflicting claims now resolve to a first-class CONTRADICTED state instead of overwriting.",
       "The belief-inspection view ties state, provenance, contradictions, and revisions together.",
@@ -31,35 +40,43 @@ const ENTRIES = [
 export default function Changelog() {
   return (
     <MarketingShell>
-      <Section className="pt-20 pb-14">
-        <div className="tech-label mb-4">Changelog</div>
-        <h1 className="display max-w-xl text-[40px]">What&apos;s new in OMEM</h1>
-        <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-muted">
-          Product updates, shipped. The underlying OMEM standard stays frozen and is versioned separately.
-        </p>
+      <Section className="page-y">
+        <PageHeader eyebrow="Changelog" title="What&rsquo;s new in OMEM">
+          Product updates, shipped. The underlying OMEM standard stays frozen and
+          is versioned separately.
+        </PageHeader>
       </Section>
 
-      <Section className="pb-8">
-        <div className="border-t">
+      <Section className="pb-24 sm:pb-32">
+        <ol className="border-t">
           {ENTRIES.map(e => (
-            <div key={e.version} className="spec-row border-b py-8">
-              <div>
-                <div className="num text-xs">{e.date}</div>
-                <div className="num mt-1 text-2xs text-muted">{e.version} / {e.tag}</div>
+            <li key={e.version} className="spec-row border-b py-8">
+              <div className="flex flex-row items-center gap-3 sm:flex-col sm:items-start sm:gap-1">
+                <time className="mono text-note font-medium text-fg" dateTime={e.date}>{e.date}</time>
+                <div className="flex items-center gap-2">
+                  <span className="mono text-caption text-muted">{e.version}</span>
+                  {/* The tag is state, so it gets a mark and not only a word.
+                      "Current" is the one thing a reader scans this page for. */}
+                  <span className={`chip ${e.current ? "text-fg" : ""}`}>
+                    <span className={`led ${e.current ? "believed" : "closed"}`} aria-hidden="true" />
+                    {e.tag}
+                  </span>
+                </div>
               </div>
               <div>
-                <h2 className="text-[17px] font-medium tracking-tight">{e.title}</h2>
-                <ul className="mt-3 space-y-2">
+                <h2 className="display text-lg">{e.title}</h2>
+                <ul className="mt-4 space-y-2.5">
                   {e.items.map((it, j) => (
-                    <li key={j} className="flex gap-2.5 text-[14px] leading-relaxed text-muted">
-                      <span className="mt-0.5 text-border">·</span> {it}
+                    <li key={j} className="flex gap-3 text-note text-muted">
+                      <span aria-hidden="true" className="mt-[11px] h-px w-3 shrink-0" style={{ background: "var(--line-strong)" }} />
+                      <span className="min-w-0">{it}</span>
                     </li>
                   ))}
                 </ul>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ol>
       </Section>
     </MarketingShell>
   );

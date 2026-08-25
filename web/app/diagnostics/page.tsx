@@ -28,7 +28,7 @@ function Stage({ title, children, defaultOpen = true }:
       <button onClick={() => setOpen(!open)}
         className="flex w-full items-center gap-2 border-b px-4 py-2.5 text-left">
         {open ? <ChevronDown className="h-3.5 w-3.5 text-muted" /> : <ChevronRight className="h-3.5 w-3.5 text-muted" />}
-        <span className="text-[14px] font-semibold">{title}</span>
+        <span className="text-sm font-semibold">{title}</span>
       </button>
       {open && <div className="px-4 py-3">{children}</div>}
     </Card>
@@ -37,7 +37,7 @@ function Stage({ title, children, defaultOpen = true }:
 
 function KV({ k, v }: { k: string; v: React.ReactNode }) {
   return (
-    <div className="flex gap-2 text-[13px]">
+    <div className="flex gap-2 text-sm">
       <span className="w-36 shrink-0 text-2xs uppercase tracking-wide text-faint">{k}</span>
       <span className="min-w-0 break-words">{v ?? <span className="text-faint">not recorded</span>}</span>
     </div>
@@ -60,13 +60,13 @@ function DiagnosticsInner() {
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="display text-[24px]">Email diagnostics</h1>
+        <h1 className="display text-lg">Email diagnostics</h1>
         <form className="flex items-center gap-2"
           onSubmit={e => { e.preventDefault(); window.location.href = `/diagnostics?source=${encodeURIComponent(input)}`; }}>
           <input value={input} onChange={e => setInput(e.target.value)}
             placeholder="source record id (src_…)"
-            className="w-64 rounded-md border bg-panel px-3 py-1.5 font-mono text-[12px] outline-none focus:border-accent" />
-          <button type="submit" className="rounded-md bg-accent px-3 py-1.5 text-[13px] font-semibold text-accentFg">Trace</button>
+            className="w-64 rounded-md border bg-panel px-3 py-1.5 font-mono text-xs outline-none focus:border-accent" />
+          <button type="submit" className="rounded-md bg-accent px-3 py-1.5 text-sm font-semibold text-accentFg">Trace</button>
         </form>
       </div>
 
@@ -78,7 +78,7 @@ function DiagnosticsInner() {
       )}
       {source && isLoading && <Skeleton className="h-64" />}
       {source && !!error && (
-        <div className="rounded-md border border-[color:var(--conflict)]/50 bg-[color:var(--conflict)]/10 px-4 py-2.5 text-[13px] text-conflict">
+        <div className="rounded-md border border-[color:var(--conflict)]/50 bg-[color:var(--conflict)]/10 px-4 py-2.5 text-sm text-conflict">
           {(error as Error).message}
         </div>
       )}
@@ -96,7 +96,7 @@ function DiagnosticsInner() {
               <KV k="Source id" v={<span className="mono text-2xs">{d.source.id}</span>} />
             </div>
             {d.source.body && (
-              <pre className="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-md bg-raised px-3 py-2.5 text-[12px] leading-relaxed">{d.source.body}</pre>
+              <pre className="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-md bg-raised px-3 py-2.5 text-xs leading-relaxed">{d.source.body}</pre>
             )}
           </Stage>
 
@@ -132,7 +132,7 @@ function DiagnosticsInner() {
               {d.sentences.map((s, i) => (
                 <div key={i} className="flex items-start gap-2">
                   <Badge tone={ACT_TONE[s.speech_act] ?? "muted"}>{s.speech_act.replace(/_/g, " ")}</Badge>
-                  <span className="min-w-0 break-words text-[13px]">{s.text}</span>
+                  <span className="min-w-0 break-words text-sm">{s.text}</span>
                 </div>
               ))}
             </div>
@@ -145,7 +145,7 @@ function DiagnosticsInner() {
               {d.fact_decisions.map(fd => (
                 <div key={fd.id} className="rounded-md border px-3 py-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="num text-[13px] font-medium">{fd.subject} · {fd.proposition}</span>
+                    <span className="num text-sm font-medium">{fd.subject} · {fd.proposition}</span>
                     <Badge tone={fd.stored ? "believed" : "conflict"}>{fd.stored ? "STORED" : "REJECTED"}</Badge>
                     <Badge tone="muted">{fd.quality.replace(/_/g, " ").toLowerCase()}</Badge>
                     {fd.score != null && <span className="num text-2xs text-muted">{fd.score}</span>}
@@ -163,7 +163,7 @@ function DiagnosticsInner() {
               <div className="empty">This email produced no assertions.</div>}
             <div className="space-y-1.5">
               {d.assertions.map(a => (
-                <div key={a.assertion_id} className="flex flex-wrap items-center gap-2 text-[13px]">
+                <div key={a.assertion_id} className="flex flex-wrap items-center gap-2 text-sm">
                   <Link href={`/assertion?id=${encodeURIComponent(a.assertion_id)}`}
                     className="num text-accent hover:underline">{a.proposition ?? a.assertion_id}</Link>
                   <span className="text-2xs text-muted">{a.subjects.join(", ")}</span>

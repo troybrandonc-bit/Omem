@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;500;600&family=IBM+Plex+Serif:ital,wght@0,400;1,400&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,203 +10,759 @@
    asking why an agent said a thing, so the interface is built like a registry:
    dated, ruled, quotable, rather than like a product tour.
 
-   Three decisions carry the whole thing:
+   Four decisions carry the whole thing.
 
    1. Warm ground, cool ink. Surfaces are paper-neutral (never blue-white);
-      text and the single accent are an iron-gall blue-black. The previous
-      palette was Stripe's, verbatim. #635Bff is Stripe indigo and #1a1f36 is
-      Stripe ink, and the comment said "matched to the reference shot". A memory
-      ledger has no reason to look like a payments dashboard.
+      text and the single accent are an iron-gall blue-black. Colour here is
+      data, not decoration.
 
-   2. Belief state is the ONLY chroma. Every other pixel is neutral. Buttons and
-      links are ink, not brand-blue, so the four colours that mean something:
-      believed, unknown, contradicted, closed. Are the only colours competing
-      for the eye. Colour here is data, not decoration.
+   2. Belief state is the ONLY chroma. Buttons and links are ink, not brand
+      blue, so the four colours that mean something (believed, unknown,
+      contradicted, closed) are the only colours competing for the eye.
 
-   3. Borders, never shadows. One depth strategy, committed. A record has rules
-      printed on it. (.panel previously carried a border AND two box-shadows,
-      which is two strategies at once.)
+   3. Borders carry depth. One strategy, committed: a record has rules printed
+      on it, and the dashboard has no shadows anywhere.
+      The public pages add ONE thing on top of that — a faint ambient lift under
+      the border on cards that are the subject of a screen (see --lift-*). It is
+      scoped to `.reading` and the border still does the structural work. A
+      landing page is a document somebody is being introduced to, not a register
+      they are working in.
+
+   4. TWO DENSITIES, ONE SYSTEM. The dashboard is a desktop instrument and sits
+      at a 13px base, which is the platform default for a desktop tool. The
+      marketing site and the docs are documents people read, often on a phone,
+      where the platform default is ~17px. Those two surfaces used to share the
+      13px instrument base, so the public pages were set two full steps below a
+      comfortable reading size. `.reading` switches the base; nothing else about
+      the system changes between them.
+
+   Accessibility rules that are not negotiable and are enforced here rather than
+   left to each page:
+
+   - Every text colour is pinned at or above 4.5:1 on the surface it appears on,
+     in BOTH themes. --disabled is the one exception and is never used for text
+     that carries meaning.
+   - State is shape first, colour second, so it survives a greyscale screenshot
+     and colour-blind vision.
+   - prefers-contrast and prefers-reduced-motion are honoured globally, so no
+     component has to remember to. prefers-reduced-transparency no longer
+     appears because nothing is translucent any more: the one backdrop blur in
+     the product was removed for costing frames on low-end hardware, and a
+     media query guarding nothing reads as coverage it does not provide.
+   - `.tap` expands a dense control's HIT area to 44px on touch without
+     changing its visual size, which is how a 32px instrument row and a phone
+     can both be right.
    ───────────────────────────────────────────────────────────────────────────── */
 
 :root {
   color-scheme: light;
 
-  /* Surfaces: warm paper. Elevation moves in ~2% steps. You feel it, you do
+  /* Surfaces: cool neutral. Elevation moves in ~2% steps. You feel it, you do
      not see it. Sidebar shares --bg with the canvas on purpose; a different
-     colour there splits the screen into two worlds. */
-  --bg: #faf9f6;
+     colour there splits the screen into two worlds.
+
+     These were warm cream (#faf9f6 on #f6f4ef). Cream is a lovely ground for an
+     archival document and it is the wrong one for something meant to read as
+     precise: warmth is what makes a surface feel soft and handled, and every
+     screen it renders on is a cool white panel it was fighting. The hue is now
+     a hair blue rather than a hair yellow, which is what makes white read as
+     clean instead of aged. */
+  --bg: #fbfbfc;
   --panel: #ffffff;
-  --panel-raised: #f6f4ef;
-  --chip: #f1efe9;
+  --panel-raised: #f6f7f9;
+  --chip: #eff1f4;
 
   /* Ink, four levels. Anything less and the hierarchy is too flat to read.
-     --faint is the lightest level that still carries TEXT, so it is pinned at the
-     4.5:1 floor rather than chosen by eye: it was #8b867c (3.62:1 on --panel),
-     which fails WCAG for anything under 24px, and every timestamp in the product
-     is 11px. --disabled is deliberately below the floor, it marks controls that
-     cannot be used, where low contrast is the message. */
-  --fg: #1b1a17;          /* warm near-black, iron gall, not cool navy */
-  --muted: #625e56;       /* 6.45:1 on --panel */
-  --faint: #6f695f;       /* 5.44:1 on --panel, 4.73:1 on --chip, its worst case */
-  --disabled: #b0aba1;    /* 2.29:1, not text, and not meant to be read */
+     --faint is the lightest level that still carries TEXT, so it is pinned at
+     the 4.5:1 floor rather than chosen by eye: every timestamp in the product
+     is 11px, and 11px is well under the 18px large-text exemption. --disabled
+     is deliberately below the floor: it marks controls that cannot be used,
+     where low contrast IS the message, and it never carries meaning. */
+  /* Every ratio below is measured against all four surfaces above and quoted at
+     its WORST case, not its best. --faint is the lightest level that still
+     carries text and is pinned to the 4.5:1 floor. */
+  --fg: #0d0f12;          /* 16.96:1 worst. near-black with a trace of blue */
+  --muted: #585f6b;       /* 5.69:1 worst */
+  --faint: #666d79;       /* 4.61:1 worst (on --chip) */
+  --disabled: #a9b0bb;    /* 1.93:1, not text, and not meant to be read */
 
   /* Rules. Low-opacity warm greys: findable when you look for structure,
      invisible when you are not. */
-  --border: rgba(27, 26, 23, 0.10);
-  --line-strong: rgba(27, 26, 23, 0.20);
+  --border: rgba(13, 15, 18, 0.09);
+  --line-strong: rgba(13, 15, 18, 0.18);
 
-  /* The one non-state colour: iron-gall ink. Cool enough to read as blue
-     beside warm paper, dark enough that a filled button is still "ink". */
-  --accent: #263449;
-  --accent-fg: #faf9f6;
-  --accent-bg: rgba(38, 52, 73, 0.07);
+  /* The one non-state colour.
+     It was #263449 — an ink so dark it was effectively a fifth grey, which is
+     why every button on the site read as "black rectangle" and nothing on a
+     page ever looked like the thing to press. This is a real blue: 5.60:1 with
+     white on top, so a filled button is legible, and clearly a COLOUR against a
+     neutral ground so a link reads as a link. */
+  --accent: #2f5fd8;      /* 4.95:1 worst as text */
+  --accent-fg: #ffffff;   /* 5.60:1 on the fill */
+  --accent-bg: rgba(47, 95, 216, 0.08);
+  --accent-hover: #2551bd;
 
   /* Belief state. Muted, archival: verdigris, raw sienna, correction-stamp
-     oxblood, pencil. Saturated web colours would shout over the record. */
-  --believed: #2f6b4f;
-  --believed-bg: rgba(47, 107, 79, 0.10);
-  --unknown: #8a6218;
-  --unknown-bg: rgba(138, 98, 24, 0.10);
-  --conflict: #a83226;
-  --conflict-bg: rgba(168, 50, 38, 0.09);
-  --closed: #8b877e;
-  --closed-bg: rgba(139, 135, 126, 0.12);
+     oxblood, pencil. Saturated web colours would shout over the record.
+     Each is checked as TEXT on --panel and on its own --*-bg tint. */
+  --believed: #0f7a52;     /* 4.73:1 worst */
+  --believed-bg: rgba(15, 122, 82, 0.09);
+  --unknown: #8a5a00;      /* 5.24:1 worst */
+  --unknown-bg: rgba(138, 90, 0, 0.09);
+  --conflict: #c2321f;     /* 4.92:1 worst */
+  --conflict-bg: rgba(194, 50, 31, 0.08);
+  --closed: #646b76;       /* 4.75:1 worst */
+  --closed-bg: rgba(100, 107, 118, 0.11);
+
+  /* One focus treatment for the whole product. A ring that is legible on paper,
+     on ink fills, and on every state tint. */
+  --focus: #2f5fd8;
+  --focus-halo: rgba(47, 95, 216, 0.20);
+
+  /* Control geometry. The instrument row height is 32px; the comfortable
+     (touch / marketing) height is 44px, which is the platform default control
+     size for a finger. */
+  --control-h: 32px;
+  --control-h-lg: 44px;
+  /* 10/6, up from 6/4. Radius is most of what reads as "smooth": at 6px a panel
+     is a rectangle with the corners knocked off, and at 10px it is a shape.
+     Still concentric — inner sits 4px inside outer so a nested element's curve
+     is parallel to its container's rather than fighting it. */
+  --radius-outer: 10px;
+  --radius-inner: 6px;
+
+  /* Motion. One entering curve, three durations. Nothing eases in. */
+  /* One entering curve, three durations. Nothing eases in.
+     The curve is a touch gentler than the old expo-out: at 0.23/1 the motion
+     arrived so fast it read as a jump-cut with a tail, which is snappy but not
+     smooth. This decelerates over a longer part of the travel. */
+  --ease: cubic-bezier(0.22, 0.61, 0.24, 1);
+  --dur-1: 140ms;   /* colour, opacity: felt, not watched */
+  --dur-2: 220ms;   /* small transforms */
+  --dur-3: 320ms;   /* a panel or sheet arriving */
+
+  /* ── lift ────────────────────────────────────────────────────────────────
+     "Borders, never shadows" is a rule about the INSTRUMENT. The dashboard is
+     a ruled register and depth there would be decoration on a document.
+
+     A public page is not that. It is the first thing a stranger sees, and on a
+     document surface a panel that sits fractionally off the paper reads as a
+     thing you could pick up — which is exactly what the demo inspector and the
+     code blocks are meant to read as. Materials guidance is explicit that depth
+     is how you separate a foreground layer from its ground.
+
+     So the rule is kept and scoped rather than broken: these tokens exist for
+     `.reading` surfaces, the border stays underneath every one of them, and
+     nothing in the dashboard references them. Values are deliberately below the
+     threshold where you would call it a drop shadow — two stacked ambient
+     layers, warm-tinted from the ink rather than neutral black, so they sit in
+     the same warm world as the paper. */
+  --lift-1: 0 1px 2px rgba(13, 15, 18, 0.04), 0 2px 6px rgba(13, 15, 18, 0.03);
+  --lift-2: 0 2px 4px rgba(13, 15, 18, 0.04), 0 10px 28px rgba(13, 15, 18, 0.06);
+  --lift-3: 0 6px 14px rgba(13, 15, 18, 0.05), 0 26px 64px rgba(13, 15, 18, 0.09);
+
+  /* The wash behind an opening screen. A single very wide, very weak radial in
+     the accent hue: enough that the hero is not the same flat paper as the
+     footer, far too weak to read as a colour. */
+  --wash: radial-gradient(120% 70% at 50% 0%, rgba(47, 95, 216, 0.06) 0%, rgba(47, 95, 216, 0) 62%);
 }
 
 .dark {
   color-scheme: dark;
-  /* Warm charcoal, not blue-black: one hue, lightness only. */
-  --bg: #171614;
-  --panel: #1e1d1a;
-  --panel-raised: #252320;
-  --chip: #2b2926;
+  /* Cool near-black. Deeper than the old #171614 charcoal: a sleek dark theme
+     wants the ground to recede far enough that panels read as lit, and warm
+     charcoal at 9% lightness just looks like a dimmed light theme. */
+  --bg: #0b0c0e;
+  --panel: #131519;
+  --panel-raised: #1a1d22;
+  --chip: #22262c;
 
-  --fg: #ece8e0;
-  --muted: #a29c92;
-  --faint: #999286;       /* 5.47:1 on --panel, 4.70:1 on --chip, see light note */
-  --disabled: #5c574f;
+  --fg: #eef1f5;          /* 13.42:1 worst */
+  --muted: #9aa3b0;       /* 5.96:1 worst */
+  --faint: #8f98a6;       /* 5.22:1 worst */
+  --disabled: #4e555f;    /* 2.02:1, not text */
 
   /* Shadows do not read on dark; borders carry all the structure, so they
      step up slightly. */
-  --border: rgba(236, 232, 224, 0.11);
-  --line-strong: rgba(236, 232, 224, 0.22);
+  --border: rgba(238, 241, 245, 0.10);
+  --line-strong: rgba(238, 241, 245, 0.20);
 
-  --accent: #8fa8cc;
-  --accent-fg: #171614;
-  --accent-bg: rgba(143, 168, 204, 0.14);
+  --accent: #7aa2ff;      /* 6.11:1 worst as text */
+  --accent-fg: #0b0c0e;   /* 7.86:1 on the fill */
+  --accent-bg: rgba(122, 162, 255, 0.14);
+  --accent-hover: #93b4ff;
 
-  /* Desaturated one notch further, saturated semantics glare on dark. */
-  --believed: #6fae8c;
-  --believed-bg: rgba(111, 174, 140, 0.14);
-  --unknown: #c39a4e;
-  --unknown-bg: rgba(195, 154, 78, 0.14);
-  --conflict: #d9705f;
-  --conflict-bg: rgba(217, 112, 95, 0.14);
-  --closed: #8b877e;
-  --closed-bg: rgba(139, 135, 126, 0.16);
+  /* Desaturated one notch further: saturated semantics glare on dark. */
+  --believed: #4fbf8b;     /* 6.63:1 worst */
+  --believed-bg: rgba(79, 191, 139, 0.14);
+  --unknown: #d9a441;      /* 6.76:1 worst */
+  --unknown-bg: rgba(217, 164, 65, 0.14);
+  --conflict: #ff8a75;     /* 6.62:1 worst */
+  --conflict-bg: rgba(255, 138, 117, 0.14);
+  --closed: #98a1ad;       /* 5.82:1 worst */
+  --closed-bg: rgba(152, 161, 173, 0.15);
+
+  --focus: #7aa2ff;
+  --focus-halo: rgba(122, 162, 255, 0.28);
+
+
+  /* On dark the ink-tinted shadow above is invisible — it is nearly the colour
+     of the ground. Depth here has to come from real black, and it has to go
+     deeper to register at all against a surface only 2% lighter than the page.
+     The border is still doing most of the work; this is what makes it read as
+     lifted rather than merely outlined. */
+  --lift-1: 0 1px 2px rgba(0, 0, 0, 0.34);
+  --lift-2: 0 3px 8px rgba(0, 0, 0, 0.38), 0 10px 28px rgba(0, 0, 0, 0.26);
+  --lift-3: 0 6px 16px rgba(0, 0, 0, 0.44), 0 24px 60px rgba(0, 0, 0, 0.34);
+
+  --wash: radial-gradient(120% 70% at 50% 0%, rgba(122, 162, 255, 0.09) 0%, rgba(122, 162, 255, 0) 62%);
+}
+
+/* Increase Contrast.
+   A design that meets the minimum by default still has to offer more to
+   somebody who has asked the system for more. Ink goes to full black/white,
+   rules stop being a hint and become a line, and the state tints firm up.
+   This is a token-only override: no component knows it happened. */
+@media (prefers-contrast: more) {
+  :root {
+    --fg: #000000;
+    --muted: #31363f;
+    --faint: #3a404a;
+    --border: rgba(13, 15, 18, 0.26);
+    --line-strong: rgba(13, 15, 18, 0.52);
+    --accent: #1c3f9e;
+    --believed: #08543a;
+    --unknown: #5e3d00;
+    --conflict: #8f2114;
+    --closed: #454b55;
+    --focus-halo: rgba(0, 0, 0, 0.35);
+  }
+  .dark {
+    --fg: #ffffff;
+    --muted: #d6dbe2;
+    --faint: #c8cfd8;
+    --border: rgba(238, 241, 245, 0.28);
+    --line-strong: rgba(238, 241, 245, 0.55);
+    --accent: #b3caff;
+    --believed: #8ed9b3;
+    --unknown: #f0cf8a;
+    --conflict: #ffb3a3;
+    --closed: #c2c9d3;
+    --focus-halo: rgba(255, 255, 255, 0.35);
+  }
+  /* Somebody who asked the system for more contrast asked for hard edges. A
+     soft ambient shadow is the opposite of that, and the wash is a tint over
+     text. Both go; the rules above have already firmed up to carry the
+     separation on their own. Token-only, as everywhere else here — no component
+     knows it happened. */
+  :root, .dark {
+    --lift-1: none;
+    --lift-2: none;
+    --lift-3: none;
+    --wash: none;
+  }
 }
 
 * { border-color: var(--border); box-sizing: border-box; }
+
+html {
+  /* Anchored sections and the in-page docs nav must not land under the sticky
+     header. Declared once here rather than as a magic padding on each target. */
+  scroll-padding-top: 5rem;
+  -webkit-text-size-adjust: 100%;
+}
 html, body { color: var(--fg); }
+
 body {
   margin: 0;
   /* IBM Plex was drawn for technical and institutional documentation, which is
-     what this is. Inter is the font every generated dashboard already uses. */
-  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 13px;          /* dense: a forensic tool, not a brochure */
+     what this is. The family arrives via next/font (app/fonts.ts), so the stack
+     below is the metrics-matched fallback, not a network race. */
+  font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  /* The instrument base, in rem rather than px. 0.8125rem is the same 13px it
+     has always been at the default root -- and it is 16px for somebody who has
+     set their browser text size to 125%, which used to change nothing here at
+     all, because every step in the scale was a hard pixel. */
+  font-size: 0.8125rem;
   line-height: 1.5;
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  font-feature-settings: "cv11" 1;
+  /* Long propositions and ids are unbreakable tokens; let them wrap rather
+     than push a phone layout sideways. */
+  overflow-wrap: break-word;
 }
+
+/* The reading base.
+   Marketing and docs opt into this on their outermost element. Everything
+   inside inherits a document-sized base instead of the instrument base, which
+   is the whole difference between the two surfaces. */
+.reading {
+  font-size: 1rem;
+  line-height: 1.65;
+}
+@media (min-width: 768px) {
+  .reading { font-size: 1.0625rem; }
+}
+
 a { color: inherit; }
+
+/* -- gutters ---------------------------------------------------------------
+   The horizontal margin, with the display cutout accounted for.
+
+   viewport-fit=cover is set in the viewport, and it has to be, or the safe-area
+   variables are all zero and the bottom insets elsewhere do nothing. The cost
+   of asking for the full display is that you then owe it the insets: turn a
+   notched phone to landscape and the leading edge of every line of text on this
+   site ran underneath the sensor housing, because the gutter was a flat 20px
+   that knew nothing about the hardware.
+
+   max() rather than addition: on a device with no cutout the inset is 0 and the
+   design margin wins, which is the ordinary case and stays exactly as drawn.
+   These match the steps they replace -- 20/32/40 for documents, 16/24 for the
+   app -- so nothing moves on a rectangular screen. */
+.gutter {
+  padding-left: max(1.25rem, env(safe-area-inset-left));
+  padding-right: max(1.25rem, env(safe-area-inset-right));
+}
+.gutter-app {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+@media (min-width: 640px) {
+  .gutter { padding-left: max(2rem, env(safe-area-inset-left)); padding-right: max(2rem, env(safe-area-inset-right)); }
+  .gutter-app { padding-left: max(1.5rem, env(safe-area-inset-left)); padding-right: max(1.5rem, env(safe-area-inset-right)); }
+}
+@media (min-width: 1024px) {
+  .gutter { padding-left: max(2.5rem, env(safe-area-inset-left)); padding-right: max(2.5rem, env(safe-area-inset-right)); }
+}
+
+/* -- the scroll edge -------------------------------------------------------
+   A sticky bar separates itself from content only once there IS content
+   underneath it. At the top of a document the header is part of the page, and a
+   hairline there is a rule drawn across nothing; the moment the page scrolls,
+   that same hairline is doing the one job a separator has.
+
+   What arrives with the hairline is a hair of elevation, not a blur. See the
+   note on `.is-lifted` below for why the backdrop filter that used to live
+   here was removed rather than tuned. */
+.chrome-bar {
+  background: var(--bg);
+  border-bottom: 1px solid transparent;
+  transition: background-color var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease),
+              box-shadow var(--dur-2) var(--ease);
+}
+/* THE BLUR IS GONE. THE SCROLL EDGE STAYS.
+   This bar was `saturate(180%) blur(14px)` over an 82% ground, and that was
+   measurably the most expensive thing on the public site — expensive enough to
+   stall the compositor on a low-end machine, so scrolling repainted stale
+   frames. It was verified rather than assumed: with the page scrolled and the
+   bar lifted, scripting stayed instantly responsive while compositing did not,
+   which is the signature of a backdrop cost and not a script one. Dropping the
+   radius to 10px did not fix it. Backdrop sampling is per-frame work over the
+   whole width of the bar, and on a device compositing in software there is no
+   radius small enough to make that free.
+
+   What the blur was actually for: stopping text that scrolls underneath from
+   resolving as readable text through the bar. An opaque ground does that
+   perfectly, for nothing, forever.
+
+   What is kept is the thing the design was really after — the scroll EDGE. At
+   the top of a document the header is part of the page and draws no line; the
+   moment content passes beneath it, a hairline and a hair of elevation arrive
+   together. That is a state change that reads as a response to overlap, which
+   was the whole intent, and it is exactly what the layout guidance means by
+   using a scroll edge effect rather than a background to separate the control
+   layer from content.
+
+   `--lift-1` costs nothing per frame: a shadow rasterises once and is then just
+   a texture the compositor moves, where a backdrop filter re-samples whatever
+   is behind it on every single frame.
+
+   The `prefers-reduced-transparency` override that used to sit here is gone
+   with it. There is no transparency left for it to reduce, and a media query
+   that matches nothing is worse than no media query — it reads as coverage. */
+.chrome-bar.is-lifted {
+  background: var(--bg);
+  border-bottom-color: var(--border);
+  box-shadow: var(--lift-1);
+}
+
+/* Skip link: the first thing in the tab order on every page, invisible until
+   focused. Without it, reaching the content past a sidebar of twenty links is
+   twenty tab stops, every time. */
+.skip-link {
+  position: fixed; top: 0; left: 0; z-index: 100;
+  transform: translateY(-120%);
+  background: var(--accent); color: var(--accent-fg);
+  padding: 10px 16px; border-radius: 0 0 var(--radius-outer) 0;
+  font-size: 0.8125rem; font-weight: 500;
+  transition: transform var(--dur-2) var(--ease);
+}
+.skip-link:focus { transform: translateY(0); }
 
 /* Identifiers, propositions, timestamps and every figure are mono. A
    proposition is a token (`prefers_annual_billing`), not prose, and setting it
-   in prose type invites people to read it as a sentence they could reword. */
-.mono {
-  font-family: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  font-variant-numeric: tabular-nums;
-  font-size: 0.94em;
-  letter-spacing: -0.005em;
+   in prose type invites people to read it as a sentence they could reword.
+
+   THE 0.94em IS AN OPTICAL CORRECTION, NOT A SIZE. Plex Mono runs wider and
+   taller on the body than Plex Sans does, so mono set at the same nominal size
+   reads a step larger. The 6% trim puts them back on the same visual line.
+
+   These two live in @layer components for a reason that was quietly breaking
+   the whole scale. `.mono` and `.num` were plain rules written AFTER
+   `@tailwind utilities`, so at equal specificity they won the cascade against
+   every `text-*` utility on the same element — and every mono element in this
+   product also carries a size utility. `text-md mono` did not render at 15px,
+   it rendered at 0.94x of whatever the PARENT happened to be. In the landing
+   page inspector that made the belief state — the single most important word on
+   the page, the thing the whole demo exists to show — 12px instead of 15px, and
+   `.field mono` on the two-factor input silently dropped the field size too.
+   In the components layer the correction still applies on its own and now
+   yields to an explicit step, which is what every call site already assumed. */
+@layer components {
+  .mono {
+    font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.94em;
+    letter-spacing: -0.005em;
+  }
+  .num { font-variant-numeric: tabular-nums; font-weight: 500; }
 }
-.num { font-variant-numeric: tabular-nums; font-weight: 500; }
 
 ::selection { background: var(--accent-bg); }
 ::-webkit-scrollbar { width: 11px; height: 11px; }
 ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 6px; border: 3px solid var(--bg); }
 ::-webkit-scrollbar-track { background: transparent; }
 
-a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible {
-  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px;
+/* One focus treatment, defined once, on everything focusable. The halo means
+   the ring stays visible where the outline itself sits on a similar colour,
+   which is the case on any ink-filled button. */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible,
+textarea:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 4px var(--focus-halo);
+}
+/* Inside an ink fill the ring needs the opposite ink to be seen at all. */
+.on-accent:focus-visible { outline-color: var(--accent-fg); }
+
+/* Hit-target expansion.
+   A 32px instrument control is correct for a mouse and two thirds of the
+   platform minimum for a finger. Rather than inflating every row on every
+   screen, this grows the HIT area to 44px on coarse pointers only, leaving the
+   visual density untouched. Apply to small icon buttons and inline actions. */
+.tap { position: relative; }
+@media (pointer: coarse) {
+  .tap::after {
+    content: ""; position: absolute; top: 50%; left: 50%;
+    width: 44px; height: 44px; min-width: 100%; min-height: 100%;
+    transform: translate(-50%, -50%);
+  }
 }
 
-/* ── type scale: 1.25 from a 13px base, whole pixels ─────────────────────────
-   11 · 13 · 16 · 20 · 25 · 31. Weight and colour do most of the hierarchy work;
-   size is the third lever, not the only one. */
+/* ── type scale ─────────────────────────────────────────────────────────────
+   11 · 12 · 13 · 15 · 16 · 20 · 25 · 31, with the two largest steps fluid so a
+   headline set for a 1440px canvas is not still 31px on a 360px phone. Weight
+   and colour do most of the hierarchy work; size is the third lever, not the
+   only one. See tailwind.config.ts, where every step carries its own leading
+   and tracking. */
+/* Anything set at size. Applies the display face — see app/fonts.ts for why a
+   separate one exists at all.
+
+   Weight 560, not 600. This is the payoff for going variable: 600 on Inter
+   Tight at 68px is heavy enough to look like it is shouting, and 500 goes limp
+   the moment the counters close up at that size. 560 is the weight this wants
+   and it simply was not available before. */
 .display {
-  font-weight: 600;
-  letter-spacing: -0.021em;   /* tighter as it gets bigger, optical sizing */
-  line-height: 1.15;
+  font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
+  font-weight: 560;
+  letter-spacing: -0.028em;
+  line-height: 1.08;
   text-wrap: balance;
+  font-feature-settings: "cv11" 1;  /* single-storey a-alt off; keeps 'g' simple */
 }
-.display em { font-style: normal; color: var(--accent); }
+/* The emphasised word in a headline.
+   Colour alone was carrying it, and under the old palette the accent (#263449)
+   and the ink (#1b1a17) were a few points of lightness apart: the one word the
+   sentence turns on — "say WHY it believes something" — was a hue shift most
+   readers would not register and a colour-blind reader could not. Everything
+   else in this system that means something is shape first, so this is too. The
+   rule scales with the type because it is set in em, which matters when the
+   step it sits on is fluid from 31 to 44px. */
+/* THE UNDERLINE IS GONE, AND COLOUR IS NOW ALLOWED TO CARRY IT.
+   The rule it was written to satisfy — state is shape first, never colour alone
+   — was correct under the old palette, where the accent (#263449) and the ink
+   (#1b1a17) were a few points of lightness apart and the emphasis was a hue
+   shift most readers would not register.
+
+   That is no longer the situation. The accent is a saturated blue at a clearly
+   different lightness from near-black, so it separates in greyscale on its own,
+   and the weight step below is a second, non-colour signal on top of that.
+
+   And the underline had become actively wrong: a coloured, underlined word in
+   the middle of a sentence is the universal rendering of a LINK. On a headline
+   nobody can click, that is a false affordance — the one word the sentence
+   turns on was inviting a click that does nothing. */
+.display em {
+  font-style: normal;
+  font-weight: 640;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* The sentence under a headline. One step above body, muted, and measured to
+   about 60 characters, which is where a line stops being a paragraph and
+   starts being a wall. */
+.lede {
+  font-size: 1.0625em;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 34em;
+  text-wrap: pretty;
+}
 
 /* A claim quoted at size is evidence, so it is set like a quotation in a
-   record, the one place a serif appears, and the reason a serif is loaded. */
+   record: the one place a serif appears, and the reason a serif is loaded. */
+/* A claim quoted at size. This was the one place a serif appeared and the only
+   reason a third family was downloaded. It is the display face now: at 1.35rem
+   with the tracking closed up it still reads as a quotation rather than as UI
+   text, and the site ships one less font file. */
 .claim {
-  font-family: 'IBM Plex Serif', Georgia, serif;
-  font-size: 20px;
-  line-height: 1.35;
-  letter-spacing: -0.01em;
+  font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
+  font-size: 1.35rem;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.022em;
 }
 
+/* The section label. Uppercase micro-type is the least legible setting in the
+   system, so it is pinned to 11px/600 at the 4.5:1 ink level and never used
+   for anything a reader has to parse: it names a region, it does not carry
+   content. */
+/* The section label. Uppercase micro-type is the least legible setting in the
+   system, so it is pinned to 11px/600 at the 4.5:1 ink level and never used for
+   anything a reader has to parse: it names a region, it does not carry content.
+   Tracking is 0.04em rather than 0.06 — at 0.06 the letters stop reading as a
+   word and start reading as separate letters, which is the look this whole pass
+   is trying to get away from. The public pages no longer use it at all. */
 .tech-label {
-  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em;
   text-transform: uppercase; color: var(--faint);
 }
-.sec-num { font-size: 11px; font-weight: 500; color: var(--faint); font-variant-numeric: tabular-nums; }
+.sec-num { font-size: 0.6875rem; font-weight: 500; color: var(--faint); font-variant-numeric: tabular-nums; }
 p, .prose { text-wrap: pretty; }
+
+/* ── reading prose ──────────────────────────────────────────────────────────
+   The docs pages referenced `.prose-omem` and it was never defined, so every
+   docs article was rendering as unstyled defaults. This is that class: a
+   measure, a rhythm, and rules for the elements a docs page actually uses. */
+/* 36em at the 17px document base is about 72 characters, which is inside the
+   45-75 a line has to stay in to be read comfortably. 42em was 84. */
+.prose-omem { max-width: 36em; }
+.prose-omem > * + * { margin-top: 1.1em; }
+/* em, not px, and a real step above the paragraph. A docs h2 was 20px sitting
+   over what the stylesheet intended as 17px body: 1.18x, which is not a heading,
+   it is a slightly emphatic line. Hierarchy is size AND weight AND colour here,
+   so the heading takes full ink while the paragraph under it stays --muted. */
+.prose-omem h2 {
+  margin-top: 2.4em; font-size: 1.45em; line-height: 1.25;
+  font-weight: 600; letter-spacing: -0.018em; color: var(--fg);
+}
+.prose-omem h3 {
+  margin-top: 1.8em; font-size: 1.1em; line-height: 1.4;
+  font-weight: 600; letter-spacing: -0.008em; color: var(--fg);
+}
+.prose-omem h2 + *, .prose-omem h3 + * { margin-top: 0.6em; }
+.prose-omem p { color: var(--muted); }
+.prose-omem strong { color: var(--fg); font-weight: 600; }
+.prose-omem ul, .prose-omem ol { padding-left: 1.2em; color: var(--muted); }
+.prose-omem li + li { margin-top: 0.4em; }
+.prose-omem ul { list-style: disc; }
+.prose-omem ol { list-style: decimal; }
+.prose-omem a:not([class]) {
+  text-decoration: underline; text-underline-offset: 3px;
+  text-decoration-color: var(--line-strong);
+}
+.prose-omem a:not([class]):hover { text-decoration-color: var(--accent); color: var(--accent); }
 
 /* ── surfaces ──────────────────────────────────────────────────────────────
    Borders only. Radius stays small and concentric: 6px outer, 4px inner. */
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-outer);
 }
 .panel > header { padding: 9px 14px; }
 
+/* A panel that is itself a link. The hover is a surface change and a rule
+   change together, because a background shift alone is invisible at the 2%
+   steps this palette moves in. */
+.panel-link { transition: background-color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease); }
+.panel-link:hover { background: var(--panel-raised); border-color: var(--line-strong); }
+
+/* ── the document surface ──────────────────────────────────────────────────
+   Everything below this line applies to `.reading` — the public pages — and
+   nothing in the dashboard references any of it.
+
+   THE RHYTHM.
+
+   The public sections were `py-16 sm:py-20`: 64px, 80px above 640. That is the
+   spacing of a dense application view, and it was being used to separate the
+   five arguments the product is trying to make. Every section touched the next
+   one, so the page read as one continuous column of text with rules ruled
+   across it, and no argument had room to land before the following one started.
+
+   88 → 112 → 136px. The step is what makes a section feel like a held thought
+   rather than a paragraph break, and it is the single biggest difference
+   between a documentation page and a product page.
+
+   In rem, not px, for the same reason the type scale is: somebody running their
+   browser at 125% is asking for the whole document to breathe, not just the
+   letters inside it. */
+.section-y { padding-top: 5.5rem; padding-bottom: 5.5rem; }
+@media (min-width: 640px)  { .section-y { padding-top: 7rem;   padding-bottom: 7rem; } }
+@media (min-width: 1024px) { .section-y { padding-top: 8.5rem; padding-bottom: 8.5rem; } }
+
+/* The opening screen gets less above (the header is already there) and more
+   below (the first section should not crowd the thing it follows). */
+.hero-y { padding-top: 4rem; padding-bottom: 6rem; }
+@media (min-width: 640px)  { .hero-y { padding-top: 6rem; padding-bottom: 7.5rem; } }
+@media (min-width: 1024px) { .hero-y { padding-top: 7rem; padding-bottom: 9rem; } }
+
+/* A sub-page header — pricing, security, changelog. Less than the hero, which
+   has one sentence to land, and more than a section, because the space above a
+   page title is what tells you a new document started. Asymmetric on purpose:
+   the gap below a title belongs to the title, so it stays smaller than the gap
+   above it or the header floats between its own page and the one before. */
+.page-y { padding-top: 4rem; padding-bottom: 3.25rem; }
+@media (min-width: 640px)  { .page-y { padding-top: 5.5rem; padding-bottom: 4rem; } }
+@media (min-width: 1024px) { .page-y { padding-top: 6.5rem; padding-bottom: 4.5rem; } }
+
+/* LIFT.
+   The border stays. This adds the ambient layer under it, so a panel reads as
+   sitting on the paper rather than being drawn onto it. `.lift-lg` is for the
+   one element on a page that is the subject of the screen — the demo, not the
+   supporting code sample. */
+.lift    { box-shadow: var(--lift-1); }
+.lift-md { box-shadow: var(--lift-2); }
+.lift-lg { box-shadow: var(--lift-3); }
+
+/* A panel that lifts further when pointed at. Paired with a 1px rise, which is
+   the smallest movement that still reads as a response. */
+.lift-hover {
+  transition: box-shadow var(--dur-2) var(--ease), transform var(--dur-2) var(--ease),
+              border-color var(--dur-2) var(--ease);
+}
+.lift-hover:hover {
+  box-shadow: var(--lift-2);
+  transform: translateY(-1px);
+  border-color: var(--line-strong);
+}
+@media (prefers-reduced-motion: reduce) {
+  .lift-hover:hover { transform: none; }
+}
+
+/* THE WASH.
+   Behind the top of the public pages, so the opening screen is not the same
+   flat paper as the footer.
+
+   It goes on the full-width <main>, NOT on the section.
+
+   The obvious version — a pseudo-element on the section with `width: 100vw;
+   margin-left: -50vw` — is the standard full-bleed trick and it is wrong here.
+   `100vw` is the viewport INCLUDING the vertical scrollbar, so on any page long
+   enough to scroll (which is all of them) it is ~15px wider than the space the
+   content actually has. That overflows horizontally, and a public page that
+   scrolls sideways on a phone is a worse defect than a flat background.
+
+   `main` is already the full width of the document, so `inset: 0 0 auto 0` is
+   full-bleed by construction and cannot overflow. The height is fixed rather
+   than tied to the hero: the gradient has faded to nothing by 62% anyway, so
+   where it ends is not a visible edge. */
+.wash-host { position: relative; }
+.wash-host::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 820px;
+  background: var(--wash);
+  pointer-events: none;
+  z-index: -1;
+}
+
 .chip {
   display: inline-flex; align-items: center; gap: 5px;
-  background: var(--chip); border-radius: 4px; padding: 2px 7px;
-  font-size: 11px; color: var(--muted);
+  background: var(--chip); border-radius: var(--radius-inner); padding: 2px 7px;
+  font-size: 0.6875rem; color: var(--muted);
 }
 .chip b { color: var(--fg); font-weight: 500; }
 
 .empty {
   padding: 18px 16px;
   border: 1px dashed var(--line-strong);
-  border-radius: 6px;
+  border-radius: var(--radius-outer);
   background: var(--panel-raised);
   color: var(--faint);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .rule { border-top: 1px solid var(--border); }
-.spec-row { display: grid; grid-template-columns: 128px 1fr; gap: 24px; }
+
+/* The specification row: a label column and a definition column, which is how
+   a record is set. It collapses to stacked at the point where a 128px column
+   would start hyphenating its own label. */
+/* 180/40, up from 128/24. The label column was set to the narrowest width its
+   longest label would fit in, which is the right instinct in a table and the
+   wrong one in a document: it put the term hard against its own definition, so
+   the pair read as one wrapped line rather than as two columns. The extra air
+   is what makes the left column scannable on its own — which is the entire
+   reason to set a record in two columns instead of as prose. */
+.spec-row { display: grid; grid-template-columns: 180px 1fr; gap: 40px; }
+@media (max-width: 900px) { .spec-row { grid-template-columns: 150px 1fr; gap: 28px; } }
 @media (max-width: 640px) { .spec-row { grid-template-columns: 1fr; gap: 8px; } }
 
 .link-underline {
   text-decoration: underline; text-underline-offset: 3px;
   text-decoration-color: var(--line-strong); text-decoration-thickness: 1px;
+  transition: color var(--dur-1) var(--ease), text-decoration-color var(--dur-1) var(--ease);
 }
 .link-underline:hover { text-decoration-color: var(--accent); color: var(--accent); }
+
+/* Form controls, so a page does not have to restate the same six utilities and
+   quietly drop the focus state on the seventh. */
+.field {
+  width: 100%;
+  height: var(--control-h-lg);
+  padding: 0 12px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-inner);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.9375rem;
+  transition: border-color var(--dur-1) var(--ease);
+}
+.field::placeholder { color: var(--faint); }
+.field:hover { border-color: var(--line-strong); }
+.field:focus { border-color: var(--accent); }
+.field-sm { height: var(--control-h); font-size: 0.8125rem; padding: 0 10px; }
+
+/* Mobile Safari zooms the page in when a focused input is set below 16px, and
+   leaves it zoomed afterwards -- so a sign-in on a phone ended with the whole
+   layout scaled up and scrolled sideways. 14px was under that threshold. On a
+   coarse pointer these go to exactly 16px, which is also the more comfortable
+   size for a field being filled with a thumb. */
+@media (pointer: coarse) {
+  .field, .field-sm { font-size: 1rem; }
+}
+textarea.field { height: auto; padding: 10px 12px; line-height: 1.5; resize: vertical; }
 
 /* ── state marks ───────────────────────────────────────────────────────────
    SHAPE first, colour second. A coloured dot encodes state in hue alone, which
    fails for ~4% of men and disappears entirely in a screenshot printed in
-   black. These read without colour: filled, hollow, struck, dotted.
-   `.led` keeps its name so the pages already using it inherit the new grammar. */
+   black. These read without colour: filled, hollow, struck, dotted. */
 .led {
   display: inline-block; width: 9px; height: 9px; flex: none;
   border-radius: 1px;                 /* squared: a mark stamped, not a bulb */
@@ -237,7 +792,8 @@ p, .prose { text-wrap: pretty; }
      ├╳╳╳╳╳╳╳╳╳╳┤        contradicted, hatched
 
    An open interval deliberately has no right edge. "No end recorded" is a real
-   state in this system and a bar that simply stops would read as "ended here". */
+   state in this system and a bar that simply stops would read as "ended here",
+   the most consequential thing a reader could misread on this screen. */
 .rail { position: relative; height: 10px; width: 100%; }
 .rail::before {                        /* the ruled baseline */
   content: ""; position: absolute; left: 0; right: 0; top: 50%;
@@ -266,12 +822,46 @@ p, .prose { text-wrap: pretty; }
   position: absolute; top: 0; bottom: 0; width: 1px; background: var(--accent);
 }
 
-/* ── code ─────────────────────────────────────────────────────────────────── */
+/* ── code ───────────────────────────────────────────────────────────────────
+   Syntax colour reuses the state palette rather than introducing a fifth and
+   sixth hue: a string is grounded-green, a keyword is ink, a comment is faint.
+   Nothing in a code block should compete with a belief state elsewhere on the
+   page for the same reader's attention. */
 .code-str { color: var(--believed); }
 .code-kw  { color: var(--accent); }
 .code-cm  { color: var(--faint); }
 
-/* Motion: felt, not watched. Entering curve only; nothing eases in. */
+/* ── motion ─────────────────────────────────────────────────────────────────
+   Felt, not watched. Entering curve only; nothing eases in. Motion is never
+   the sole carrier of information, so removing it removes nothing. */
+@keyframes omem-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes omem-fade { from { opacity: 0; } to { opacity: 1; } }
+.anim-rise { animation: omem-rise var(--dur-3) var(--ease) both; }
+.anim-fade { animation: omem-fade var(--dur-2) var(--ease) both; }
+
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Reduced transparency is handled where the transparency now lives, next to
+   `.chrome-bar.is-lifted`. This block used to target a `.translucent` class the
+   two sticky bars carried; they carry `.chrome-bar` instead, and a media query
+   that matches nothing is worse than no media query, because it reads as
+   coverage. */
+
+@media print {
+  .no-print { display: none !important; }
+  /* The scale is rem, so the print size is set once at the root and every step
+     follows it, instead of body overriding one level and nothing else moving. */
+  html { font-size: 12pt; }
+  body { background: #fff; font-size: 0.8125rem; }
+  .panel { break-inside: avoid; }
 }
