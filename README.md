@@ -81,10 +81,18 @@ actually shows.
 
 ```bash
 cd server
-python api.py
+python api.py            # or: python api.py 9000 for a different port
 ```
 
-Same server, started from source. Setup takes about a minute either way.
+Same server, same first-run project id and key, started from source. Setup takes
+about a minute either way. Two differences worth knowing:
+
+- **The database lands in a different place.** From source it is
+  `server/data/omem.db`; `omem-server` writes `./omem-data/omem.db` in whatever
+  directory you ran it from. `OMEM_DB` overrides either.
+- **The dashboard needs building once.** The wheel ships a built copy; a clone
+  does not, so the server prints "dashboard not bundled" until you run
+  `cd web && OMEM_STATIC=1 npm run build`. The API is identical either way.
 
 ## Self-healing
 
@@ -203,7 +211,11 @@ rotation tooling yet.
   engine itself lives in `server/omem_engine/` and is the source of truth for all
   memory decisions.
 - `sdk/python/` is the Python SDK and the `omem-server` / `omem-mcp` commands.
-- `sdk/typescript/` is the TypeScript SDK.
+  It is the one that is published: `pip install omem-infrastructure`.
+- `sdk/typescript/` is the TypeScript SDK. **It is not on npm yet** — it is used
+  from source, and it lags the Python SDK. `test_parity.mjs` runs it against a
+  live server and reports what is missing; closing that gap is the most useful
+  contribution available right now.
 - `web/` is the dashboard.
 
 ## Use it from an MCP client
@@ -243,8 +255,9 @@ has to be running for the tool to answer, so keep `omem-server` up.
 Free, and free while it stays in beta: no plans, no card, no quota.
 
 This is early software under active development. It is meant for testing and
-feedback right now. `web/app/(marketing)/security/page.tsx` lists what it
-protects and, just as importantly, what it does not yet: no SSO, no
+feedback right now.
+**[The security page](https://infrastructure.omem-cloud.com/security)** lists
+what it protects and, just as importantly, what it does not yet: no SSO, no
 certifications, no key rotation, an audit chain that detects tampering rather
 than preventing it, and one process holding authoritative state, enforced now,
 so a second one refuses to start rather than diverging, but that is the honest

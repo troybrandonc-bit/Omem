@@ -12,7 +12,7 @@
 <!-- "All suites pass" is fine. Silence is not. -->
 
 ```
-cd server && for t in tests*.py; do python "$t" || echo "FAILED: $t"; done
+cd server && python run_tests.py
 ```
 
 ## Checklist
@@ -21,7 +21,7 @@ cd server && for t in tests*.py; do python "$t" || echo "FAILED: $t"; done
 - [ ] New behaviour has a test that tries to break it, not one that proves it works on a good day
 - [ ] `CHANGELOG.md` updated if this affects someone *using* OMEM (engineering detail goes in `CHANGELOG-dev-notes.md`)
 - [ ] `cd web && npx tsc --noEmit` passes, if the dashboard changed
-- [ ] I have signed the [CLA](../CLA.md)
+- [ ] Every commit is signed off (`git commit -s`) — see [DCO.md](../DCO.md)
 
 ### Design rules
 

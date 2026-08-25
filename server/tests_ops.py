@@ -17,7 +17,8 @@ for f in (DB,):
     if os.path.exists(f):
         os.remove(f)
 os.environ["OMEM_DB"] = DB
-os.environ["OMEM_ADMIN_EMAILS"] = "founder@omem.dev"
+# Suite-unique admin address; the signup below must match it exactly.
+os.environ["OMEM_ADMIN_EMAILS"] = "founder-ops@omem.dev"
 os.environ["OMEM_BACKUP_DIR"] = "/tmp/omem-ops-backups"
 import shutil
 shutil.rmtree("/tmp/omem-ops-backups", ignore_errors=True)
@@ -118,7 +119,7 @@ for _sidecar in (_legacy + "-wal", _legacy + "-shm"):
         os.remove(_sidecar)
 
 print("== backups: run / status / failure / retention / verify ==")
-_, facct = call("POST", "/v1/signup", {"email": "founder@omem.dev"})
+_, facct = call("POST", "/v1/signup", {"email": "founder-ops@omem.dev"})
 FTOK = facct["token"]
 st, b = call("POST", "/v1/admin/backups/run", {}, FTOK)
 check("backup run completed", st == 200 and not b["failing"] and b["completed_count"] == 1, str(b))

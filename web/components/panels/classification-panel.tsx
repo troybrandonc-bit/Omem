@@ -40,7 +40,7 @@ export function ClassificationPanel() {
   return (
     <section className="panel overflow-hidden">
       <header className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2.5">
-        <h2 className="text-[14px] font-semibold">Business relevance</h2>
+        <h2 className="text-sm font-semibold">Business relevance</h2>
         <span className="text-2xs text-faint">
           <span className="num text-fg">{summary.messages_scanned}</span> scanned ·{" "}
           <span className="num text-fg">{summary.threads}</span> threads ·{" "}
@@ -54,7 +54,7 @@ export function ClassificationPanel() {
             className={cn("px-4 py-3 text-left transition-colors hover:bg-raised",
               tab === t.key && "bg-raised")}>
             <div className="text-2xs text-faint">{t.label}</div>
-            <div className={cn("num mt-1 text-[20px] leading-none", TONE[t.key])}>{by[t.key] ?? 0}</div>
+            <div className={cn("num mt-1 text-lg leading-none", TONE[t.key])}>{by[t.key] ?? 0}</div>
           </button>
         ))}
       </div>
@@ -75,7 +75,7 @@ function Row({ m }: { m: MessageClassification }) {
   return (
     <div className="px-4 py-2">
       <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-3 text-left">
-        <span className="min-w-0 flex-1 truncate text-[13px]">{m.subject || "(no subject)"}</span>
+        <span className="min-w-0 flex-1 truncate text-sm">{m.subject || "(no subject)"}</span>
         {m.business_type && (
           <span className="shrink-0 rounded-sm border border-line-strong px-1.5 py-px text-2xs text-muted">
             {m.business_type}

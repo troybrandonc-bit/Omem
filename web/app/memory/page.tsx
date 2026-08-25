@@ -82,15 +82,15 @@ export default function Memory() {
   return (
     <div className="mx-auto max-w-6xl space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="display text-[24px]">Memory</h1>
+        <h1 className="display text-lg">Memory</h1>
         <div className="flex flex-wrap items-center gap-3">
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filter by subject, proposition, source…"
-            className="w-64 rounded-md border bg-panel px-3 py-1.5 text-[13px] outline-none focus:border-accent" />
+            className="w-64 rounded-md border bg-panel px-3 py-1.5 text-sm outline-none focus:border-accent" />
           <label className="flex items-center gap-2 text-sm text-muted">
             <input type="checkbox" checked={openOnly} onChange={e => setOpenOnly(e.target.checked)} className="accent-[color:var(--accent)]" />
             Currently-believed only
           </label>
-          <Link href="/memory-health" className="flex items-center gap-1.5 text-[13px] font-semibold text-accent hover:underline">
+          <Link href="/memory-health" className="flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline">
             <ScanSearch className="h-4 w-4" />Memory health
           </Link>
         </div>
@@ -126,9 +126,9 @@ export default function Memory() {
 function FilterPill({ children, active, onClick }:
   { children: React.ReactNode; active: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick}
-      className={"rounded-sm border px-2.5 py-0.5 text-2xs font-semibold uppercase tracking-[0.05em] transition-colors " +
-        (active ? "border-accent text-accent" : "border-line-strong text-muted hover:text-ink")}>
+    <button onClick={onClick} aria-pressed={active}
+      className={"tap inline-flex h-7 items-center rounded-sm border px-2.5 text-2xs font-semibold uppercase tracking-[0.05em] transition-colors duration-1 ease-out " +
+        (active ? "border-accent bg-accentBg text-accent" : "border-line-strong text-muted hover:text-ink")}>
       {children}
     </button>
   );
@@ -143,7 +143,7 @@ function MemoryRow({ a, now, role }: { a: Assertion; now: number; role: string |
         <div className="min-w-0">
           <Link href={`/assertion?id=${encodeURIComponent(a.id)}`} className="group block">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="num text-[14px] font-medium group-hover:text-accent">{a.proposition}</span>
+              <span className="num text-sm font-medium group-hover:text-accent">{a.proposition}</span>
               {role && <Badge tone={role === "CUSTOMER" ? "believed" : role === "MARKETING" || role === "IGNORE" ? "conflict" : "accent"}>{role.replace(/_/g, " ")}</Badge>}
               {closed && <Badge tone="closed">no longer believed</Badge>}
             </div>

@@ -13,7 +13,8 @@ DB = "/tmp/omem_product_tests.db"
 if os.path.exists(DB):
     os.remove(DB)
 os.environ["OMEM_DB"] = DB
-os.environ["OMEM_ADMIN_EMAILS"] = "founder@omem.dev"
+# Suite-unique admin address; the signup below must match it exactly.
+os.environ["OMEM_ADMIN_EMAILS"] = "founder-product@omem.dev"
 
 import os as _os_seed
 _os_seed.environ['OMEM_SEED_DEMO']='1'
@@ -109,7 +110,7 @@ api.PLANS["free"]["quota_sources"] = orig_s
 print("== operator admin console ==")
 st, _ = call("GET", "/v1/admin/metrics", None, SESS)
 check("non-operator blocked -> 403", st == 403)
-_, facct = call("POST", "/v1/signup", {"email": "founder@omem.dev", "org": "OMEM"})
+_, facct = call("POST", "/v1/signup", {"email": "founder-product@omem.dev", "org": "OMEM"})
 st, m = call("GET", "/v1/admin/metrics", None, facct["token"])
 check("operator sees metrics", st == 200 and m["organizations"] >= 2)
 check("admin counts are real", m["assertions_created"] >= 3 and m["connected_sources"] >= 2)

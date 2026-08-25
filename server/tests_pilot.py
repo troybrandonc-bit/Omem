@@ -14,7 +14,8 @@ DB = "/tmp/omem_pilot_tests.db"
 if os.path.exists(DB):
     os.remove(DB)
 os.environ["OMEM_DB"] = DB
-os.environ["OMEM_ADMIN_EMAILS"] = "founder@omem.dev"
+# Suite-unique admin address; the signup below must match it exactly.
+os.environ["OMEM_ADMIN_EMAILS"] = "founder-pilot@omem.dev"
 
 import api  # noqa: E402
 from http.server import ThreadingHTTPServer  # noqa: E402
@@ -99,7 +100,7 @@ check("feedback summary counts", fb["summary"].get("useful") == 1 and fb["summar
 check("feedback rows carry comment", any(f.get("comment") == "wrong customer" for f in fb["data"]))
 
 print("== customer/pilot lifecycle ==")
-_, facct = call("POST", "/v1/signup", {"email": "founder@omem.dev"})
+_, facct = call("POST", "/v1/signup", {"email": "founder-pilot@omem.dev"})
 FTOK = facct["token"]
 OID = api.STORE.org_for_user(api.STORE.user_for_session(SESS)["id"])["id"]
 st, cs = call("POST", f"/v1/admin/orgs/{OID}/status", {"status": "trial", "pilot_start": time.time(), "notes": "security co pilot"}, FTOK)
@@ -122,7 +123,11 @@ st, _ = call("GET", f"/v1/admin/orgs/{OID}", None, SESS)
 check("customer blocked from admin drill-down", st == 403)
 
 print("== empty project onboarding (fresh org) ==")
-_, e2 = call("POST", "/v1/signup", {"email": "empty@x.com"})
+# Suite-unique. On PostgreSQL every suite shares one database, so a signup
+# address used by two suites makes the second one get an existing-account
+# response with no api_key/project. This pairs with OMEM_ADMIN_EMAILS above:
+# change one and you must change the other.
+_, e2 = call("POST", "/v1/signup", {"email": "empty-pilot@x.com"})
 _, chk = call("GET", f"/v1/onboarding?project={e2['project']['id']}", None, e2["token"])
 check("fresh org shows 3/8 done", chk["completed"] == 3, str(chk["completed"]))
 

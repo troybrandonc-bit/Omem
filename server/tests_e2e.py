@@ -18,7 +18,8 @@ DB = "/tmp/omem_e2e_tests.db"
 if os.path.exists(DB):
     os.remove(DB)
 os.environ["OMEM_DB"] = DB
-os.environ["OMEM_ADMIN_EMAILS"] = "founder@omem.dev"
+# Suite-unique admin address; the signup below must match it exactly.
+os.environ["OMEM_ADMIN_EMAILS"] = "founder-e2e@omem.dev"
 os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_test_secret"
 
 import api  # noqa: E402
@@ -185,7 +186,7 @@ st, _ = call("POST", "/v1/billing/webhook", cancel,
 check("cancellation lifecycle handled", api.ENT.billing(OID)["subscription_status"] == "cancelled")
 
 print("== operator sees the pilot end-to-end ==")
-_, facct = call("POST", "/v1/signup", {"email": "founder@omem.dev"})
+_, facct = call("POST", "/v1/signup", {"email": "founder-e2e@omem.dev"})
 st, det = call("GET", f"/v1/admin/orgs/{OID}", None, facct["token"])
 pd = [p for p in det["projects"] if p["id"] == PID][0]
 check("admin sees memories + sources + conflicts", pd["memories"] >= 3 and pd["source_records"] >= 4 and pd["conflicts"] >= 1)

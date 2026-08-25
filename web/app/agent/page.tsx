@@ -32,7 +32,7 @@ function AgentDetailInner() {
       <Link href="/agents" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg"><ArrowLeft className="h-4 w-4" /> Agents</Link>
       <div className="mb-5 flex items-center gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-lg border bg-panel"><Bot className="h-5 w-5 text-muted" /></div>
-        <div><h1 className="display text-[24px]">{data.label || data.id}</h1><div className="text-xs text-muted">{data.id} / {data.kind}</div></div>
+        <div><h1 className="display text-lg">{data.label || data.id}</h1><div className="text-xs text-muted">{data.id} / {data.kind}</div></div>
       </div>
       <div className="mb-2 tech-label">Claims asserted by this agent</div>
       <div className="space-y-2">

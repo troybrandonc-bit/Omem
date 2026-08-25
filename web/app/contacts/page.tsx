@@ -55,11 +55,11 @@ export default function Contacts() {
   return (
     <div className="mx-auto max-w-5xl space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="display text-[24px]">Contacts</h1>
+        <h1 className="display text-lg">Contacts</h1>
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filter contacts…"
-          className="w-64 rounded-md border bg-panel px-3 py-1.5 text-[13px] outline-none focus:border-accent" />
+          className="w-64 rounded-md border bg-panel px-3 py-1.5 text-sm outline-none focus:border-accent" />
       </div>
-      <p className="text-[13px] text-muted">
+      <p className="text-sm text-muted">
         Derived from real email interaction. Setting a role teaches OMEM how to treat
         future mail from that sender or domain, it never guesses relationships.
       </p>
@@ -73,7 +73,7 @@ export default function Contacts() {
               <div key={c.email} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[14px] font-medium">{c.name || c.email.split("@")[0]}</span>
+                    <span className="text-sm font-medium">{c.name || c.email.split("@")[0]}</span>
                     {c.role
                       ? <Badge tone={ROLE_TONE[c.role] ?? "muted"}>{c.role.replace(/_/g, " ")}</Badge>
                       : <Badge tone="muted">unclassified</Badge>}
