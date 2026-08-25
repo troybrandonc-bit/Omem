@@ -3,6 +3,60 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.2.2 - 25 Aug 2026
+
+A correctness and honesty release. Nothing about how you call OMEM changes; the
+dashboard stops lying to you on first load, and the documentation stops
+describing a product that does not exist.
+
+### Fixed
+
+- **The dashboard's first load was silently empty.** On any browser with no
+  stored session, the app raced itself: the provider that resolves your project
+  asked for it before the shell had established a session, got a 401, and gave
+  up permanently. Every panel then queried `?project=` and got a 404, so a
+  brand-new install showed "No conflicts" and empty lists **on a server with
+  your data in it**. Startup is now a single ordered sequence, so the state you
+  see is the state that exists.
+- **A failed read no longer reports itself as an empty result.** Every list
+  rendered `!data || data.length === 0` as an empty state, which collapses "the
+  request failed" into "there is nothing here" — and answered both with a
+  confident sentence about your data. The Conflicts screen said "Every
+  proposition has a consistent belief state" when it had simply failed to look.
+  Unreadable is now its own state, and it says so.
+- **`omem.__version__` reported 0.1.2** while the package was 0.2.1. It is now
+  checked against `pyproject.toml` at release time so it cannot drift again.
+
+### Documentation
+
+The published docs told you to run `pip install omem` (the package is
+`omem-infrastructure`; `omem` is a different project), `npm i @omem/sdk` (never
+published), and `omem.Client()` / `Client(embedded=True)` / `mem.entity()` /
+`mem.event()` — none of which exist. There was a Go SDK tab for an SDK that is
+not in this repository, and curl examples against `https://api.omem.dev`, a
+domain that does not resolve, carrying an `sk_live_` key format OMEM does not
+issue. Following the quickstart produced an `ImportError` on the first line.
+Every sample is now taken from `QUICKSTART.md`, which CI runs verbatim against a
+live server on every push.
+
+"CTS 29/29" has been removed from the marketing footer, the security page, the
+developers page and the server's startup banner. `ENGINE_VALIDATION.md` states
+that the conformance suite behind that figure is not in this repository and the
+number "should not be read as independent validation" — so it should not have
+been the most prominent claim on the site. What is checkable is reported
+instead: the frozen engine version, whose digests the suites verify.
+
+### Project
+
+- The contributor licence agreement is replaced by a **Developer Certificate of
+  Origin**. MIT already permits sublicensing and sale, so the CLA's stated
+  rationale did not hold, and it charged contributors an unreviewed legal
+  document for an option this project has committed never to exercise. Sign off
+  with `git commit -s`. See [DCO.md](DCO.md).
+- `LICENSE` names a copyright holder who exists.
+- Dependabot now watches npm, GitHub Actions and pip. All workflow actions moved
+  to Node 24 generations.
+
 ## 0.2.1 - 21 Aug 2026
 
 **If you are on Python 3.9, upgrade.** 0.2.0 did not import at all on it, so
