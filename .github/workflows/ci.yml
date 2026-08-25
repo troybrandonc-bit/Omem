@@ -23,7 +23,7 @@ jobs:
     name: server / sqlite
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       # hypothesis drives the property-based conformance fuzzing; without it
@@ -48,7 +48,7 @@ jobs:
           --health-cmd pg_isready --health-interval 10s
           --health-timeout 5s --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       - run: pip install psycopg2-binary hypothesis
@@ -90,7 +90,7 @@ jobs:
     name: server / encryption on
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       # cryptography, because content encryption REFUSES to run without real
@@ -113,7 +113,7 @@ jobs:
     name: server / auth modes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       - run: pip install cryptography
@@ -148,7 +148,7 @@ jobs:
     name: wheel / pip install and quickstart
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with: { python-version: "3.9" }        # the floor we advertise
       - uses: actions/setup-node@v7
@@ -205,7 +205,7 @@ jobs:
     defaults:
       run: { working-directory: web }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with: { node-version: "20", cache: npm, cache-dependency-path: web/package-lock.json }
       - run: npm ci
@@ -217,7 +217,7 @@ jobs:
     name: docker image
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker build -t omem:ci .
       # The container must actually come up: the bind guard plus a non-root
       # user are both new, and either could stop it dead.
