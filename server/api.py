@@ -23,9 +23,32 @@ import time
 import unicodedata
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
 from urllib.parse import urlparse, parse_qs
 
 import sys, os
+
+class _Server(ThreadingHTTPServer):
+    """The HTTP server, with SO_REUSEADDR off on Windows.
+
+    `allow_reuse_address` means two different things depending on the platform,
+    and http.server sets it to 1 for everyone. On POSIX it permits rebinding a
+    socket still in TIME_WAIT, which is what a server wants across a restart. On
+    Windows it permits binding a port ANOTHER PROCESS IS ALREADY LISTENING ON,
+    and which of the two sockets receives a given connection is undefined.
+
+    That is not a theoretical difference. Start a second OMEM server on a port
+    already serving one and both print "listening on 127.0.0.1:8787" while the
+    FIRST keeps answering: the new project id and key you were just handed then
+    fail with 401 against a server that has never heard of them. The symptom
+    points at authentication and the cause is the socket, which is a long way to
+    travel for a wrong answer.
+
+    So on Windows the bind is exclusive and a taken port fails loudly, which is
+    the behaviour every other platform already had.
+    """
+    allow_reuse_address = os.name != "nt"
+
 sys.path.insert(0, os.path.dirname(__file__))
 from store import Store, MIN_PASSWORD_LENGTH
 from ingest import Ingestor
@@ -4417,7 +4440,15 @@ def main(port=8787):
     STORE.writer_lock.acquire()
     SCHEDULER.start()
     Handler.timeout = 60          # a hung/half-open socket frees its thread
-    srv = ThreadingHTTPServer((host, port), Handler)
+    try:
+        srv = _Server((host, port), Handler)
+    except OSError as e:
+        # Most often the port is taken. Say which port and what to do, because
+        # the raw errno traceback tells a first-time user nothing.
+        print(f"\n  Could not bind {host}:{port}  ({e})")
+        print(f"  Something is already listening there. Use a different port")
+        print(f"  (`omem-server {port + 1}`) or stop the other process first.")
+        raise SystemExit(1)
     srv.daemon_threads = True     # in-flight handlers never block shutdown
     scheme = "https" if wrap_tls(srv) else "http"
     print(f"  listening on {scheme}://{host}:{port}")
