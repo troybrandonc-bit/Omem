@@ -15,12 +15,18 @@
  *
  * Authenticated agent (agent-bound key): the server authenticates the agent
  * identity, so you do NOT pass agent/viewer on every call, omit them and the
- * bound identity applies. A mismatched identity is rejected server-side (403).
+ * bound identity applies. A mismatched identity is rejected server-side (403),
+ * on WRITES as well as reads — a bound key cannot put another agent's name on a
+ * claim, which is what makes the provenance chain worth reading back.
  *
  *   const bob = new Memory({ apiKey: "omem_sk_<bob-bound-key>", project: "proj_..." });
  *   await bob.brief({ context: "acme renewal" });   // scoped to agent:bob
  *   await bob.recallPack({ context: "acme renewal" });
- *   // bob.brief({ agent: "agent:alice", ... })  ->  throws OmemError 403
+ *   // bob.brief({ agent: "agent:alice", ... })     ->  throws OmemError 403
+ *   // bob.remember({ agent: "agent:alice", ... })  ->  throws OmemError 403
+ *
+ * An UNBOUND key keeps the older behaviour and may name any agent, which is
+ * what a single trusted process writing on behalf of several agents needs.
  */
 
 export type PropositionState = "BELIEVED_TRUE" | "BELIEVED_FALSE" | "CONTRADICTED" | "UNKNOWN";
