@@ -65,6 +65,27 @@ jobs:
           fail=0
           for sha in $commits; do
             author=$(git show -s --format='%an <%ae>' "$sha")
+            name=$(git show -s --format='%an' "$sha")
+
+            # Bots are exempt, as they were under the CLA this replaced (its
+            # allowlist named dependabot[bot] and github-actions[bot]).
+            #
+            # Not a convenience: Dependabot DOES sign off, but it signs as
+            # `dependabot[bot] <support@github.com>` while its commit author is
+            # `dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>`.
+            # The exact author match below therefore fails, and the first eight
+            # Dependabot pull requests this repository ever received all went red
+            # on it. A dependency bump is also not the kind of contribution the
+            # DCO exists to certify: there is no human authorship to attest to.
+            #
+            # Compared with `=` rather than a `case` pattern on purpose. These
+            # names contain `[bot]`, which a case pattern would read as a
+            # character class matching b, o or t.
+            if [ "$name" = "dependabot[bot]" ] || [ "$name" = "github-actions[bot]" ]; then
+              echo "  skip  $(git rev-parse --short "$sha")  $author (bot)"
+              continue
+            fi
+
             # -F: the author name is arbitrary text and may contain regex
             # metacharacters. A contributor named "A. B. (C)" would otherwise be
             # matched as a pattern and pass or fail at random.
