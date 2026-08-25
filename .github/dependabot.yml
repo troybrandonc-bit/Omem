@@ -1,0 +1,42 @@
+version: 2
+
+# SECURITY.md promises a 3-day first response on vulnerability reports. Most of
+# what would ever be reported against this project is not OMEM's own code but a
+# dependency of the dashboard or of a workflow, and nobody was watching those.
+#
+# The server and the Python SDK deliberately have NO runtime dependencies, so
+# the pip entry below covers only the optional extras ([postgres], [encryption])
+# and the dev tooling. That is a small surface on purpose — see CONTRIBUTING.md,
+# rule 3. It is listed anyway because cryptography and psycopg2-binary are
+# exactly the two places where a CVE would matter.
+
+updates:
+  # The dashboard is the largest dependency surface in the repository by far.
+  - package-ecosystem: npm
+    directory: /web
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for the routine floor-bumps rather than fifteen. Security
+      # updates are NOT grouped: Dependabot raises those separately and they
+      # should be reviewable on their own.
+      dev-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
+      production-minor-patch:
+        dependency-type: production
+        update-types: [minor, patch]
+
+  # Actions are pinned by major tag (actions/checkout@v4). A compromised or
+  # abandoned action runs with this repository's tokens, and release.yml holds
+  # `id-token: write` for PyPI trusted publishing.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+
+  # Optional extras and dev tooling only; there are no runtime dependencies.
+  - package-ecosystem: pip
+    directory: /sdk/python
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 3

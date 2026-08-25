@@ -1,0 +1,16 @@
+# One maintainer, stated in SECURITY.md and CONTRIBUTING.md. This file makes
+# that explicit to GitHub so review is requested automatically rather than
+# depending on the maintainer noticing a pull request.
+*   @troybrandonc-bit
+
+# Called out separately because CONTRIBUTING.md rule 5 makes it frozen: the
+# engine is the authoritative reference and its SHA-256 digests are asserted by
+# the suites (tests_p10_engine_proof.py and others). A change here is a design
+# discussion, not a review.
+/server/omem_engine/   @troybrandonc-bit
+
+# The supply chain for everything `pip install omem-infrastructure` delivers.
+# release.yml publishes to PyPI over OIDC with `id-token: write`.
+/.github/workflows/    @troybrandonc-bit
+/sdk/python/pyproject.toml   @troybrandonc-bit
+/sdk/python/hatch_build.py   @troybrandonc-bit
