@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useApp } from "@/components/providers";
-import { Skeleton, Badge } from "@/components/ui/primitives";
+import { Skeleton, Badge, EmptyState, Button } from "@/components/ui/primitives";
+import { AlertTriangle, Network } from "lucide-react";
 import { useMemo } from "react";
 
 // Deterministic radial layout by node kind (agents left, entities right, events bottom,
@@ -15,7 +16,14 @@ const KIND_COLOR: Record<string, string> = {
 export default function Graph() {
   const { project, asOf } = useApp();
   const router = useRouter();
-  const { data, isLoading } = useQuery({ queryKey: ["graph", project, asOf], queryFn: () => api.graph(project, asOf ?? "now") });
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ["graph", project, asOf],
+    queryFn: () => api.graph(project, asOf ?? "now"),
+    // Without a project id there is nothing to ask for, and asking anyway is
+    // what produced a permanent skeleton on first load while Providers was
+    // still resolving which project to use.
+    enabled: !!project,
+  });
 
   const layout = useMemo(() => {
     if (!data) return null;
@@ -34,11 +42,62 @@ export default function Graph() {
     return { W, H, pos };
   }, [data]);
 
-  if (isLoading || !data || !layout) return <Skeleton className="h-[560px]" />;
+  /* Three outcomes, three answers.
+   *
+   * This was one line — `if (isLoading || !data || !layout) return <Skeleton/>`
+   * — which collapsed loading, failed and empty into a shimmering grey box that
+   * never resolved. Two of those three are lies. A query that has ERRORED is not
+   * loading, and telling somebody it still is means they wait for something that
+   * is never going to arrive; a project with no memories in it is not loading
+   * either, and it is the state every single new install starts in.
+   *
+   * The empty case is the important one. The graph is the first page most people
+   * open after starting the server, the database is empty until they write
+   * something, and what they got was an indefinite skeleton — indistinguishable
+   * from a hung page. It now says the graph is empty and what to do about it. */
+  /* `!project` FIRST, and it is not the same as loading.
+   * In react-query v5 a disabled query reports isPending with fetchStatus idle,
+   * so `isLoading` is FALSE while `enabled` is false. Without this guard the
+   * disabled state would fall straight through to the error branch below and
+   * accuse the server of failing before a single request had been made. */
+  if (!project) return <Skeleton className="h-[560px]" />;
+
+  if (isLoading) return <Skeleton className="h-[560px]" />;
+
+  if (isError || !data || !layout) {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <h1 className="mb-4 display text-lg">Memory graph</h1>
+        <EmptyState
+          icon={AlertTriangle}
+          title="Could not load the graph."
+          body={error instanceof Error ? error.message : "The OMEM server did not answer. Check that it is running on port 8787."}
+          action={<Button variant="secondary" size="sm" onClick={() => refetch()}>Retry</Button>}
+        />
+      </div>
+    );
+  }
+
+  if (!data.nodes.length) {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <h1 className="mb-1 display text-lg">Memory graph</h1>
+        <p className="mb-4 text-sm text-muted">
+          Agents assert claims about entities, grounded in events.
+        </p>
+        <EmptyState
+          icon={Network}
+          title="Nothing to graph yet."
+          body="This project has no assertions. Write one with mem.remember(…), or start the server with OMEM_SEED_DEMO=1 for a sample project."
+          action={<Button variant="secondary" size="sm" onClick={() => router.push("/playground")}>Open playground</Button>}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-6xl">
-      <h1 className="mb-1 display text-[21px]">Memory graph</h1>
+      <h1 className="mb-1 display text-lg">Memory graph</h1>
       <p className="mb-4 text-sm text-muted">Agents assert claims about entities, grounded in events. Click a belief node to inspect it.</p>
       <div className="mb-3 flex gap-3 text-2xs">
         {Object.entries(KIND_COLOR).map(([k, c]) => (

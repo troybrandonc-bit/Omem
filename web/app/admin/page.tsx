@@ -18,7 +18,7 @@ export default function Admin() {
   const { data, error } = useQuery({ queryKey: ["admin-metrics"], queryFn: api.adminMetrics, retry: false, refetchInterval: 5000 });
   const { data: orgs } = useQuery({ queryKey: ["admin-orgs"], queryFn: api.adminOrgs, retry: false, refetchInterval: 10000 });
 
-  if (error) return <div className="panel m-1 p-6 text-[13px] text-muted">Operator access only. Your account is not listed in OMEM_ADMIN_EMAILS.</div>;
+  if (error) return <div className="panel m-1 p-6 text-sm text-muted">Operator access only. Your account is not listed in OMEM_ADMIN_EMAILS.</div>;
   if (!data) return <Skeleton className="h-64" />;
 
   const CELLS: [string, number | string][] = [
@@ -31,8 +31,8 @@ export default function Admin() {
   return (
     <div className="space-y-5">
       <div className="flex items-baseline justify-between">
-        <h1 className="display text-[24px]">Operator console</h1>
-        <span className="text-[13px] text-muted">Internal. All counts live from the database.</span>
+        <h1 className="display text-lg">Operator console</h1>
+        <span className="text-sm text-muted">Internal. All counts live from the database.</span>
       </div>
 
       <section className="panel overflow-hidden">
@@ -40,7 +40,7 @@ export default function Admin() {
           {CELLS.map(([l, v]) => (
             <div key={l} className="px-4 py-3">
               <div className="text-2xs text-faint">{l}</div>
-              <div className="num mt-1 text-[20px] leading-none">{v}</div>
+              <div className="num mt-1 text-lg leading-none">{v}</div>
             </div>
           ))}
         </div>
@@ -48,12 +48,12 @@ export default function Admin() {
       </section>
 
       <section className="panel overflow-hidden">
-        <header className="border-b px-4 py-2.5"><h2 className="text-[14px] font-semibold">Job queue (all tenants)</h2></header>
+        <header className="border-b px-4 py-2.5"><h2 className="text-sm font-semibold">Job queue (all tenants)</h2></header>
         <div className="grid grid-cols-3 divide-x divide-y sm:grid-cols-6 sm:divide-y-0">
           {Object.entries(data.jobs).map(([st, n]) => (
             <div key={st} className="px-4 py-2.5.5">
               <div className="text-2xs text-faint">{st.replace("_", " ")}</div>
-              <div className="num mt-1 text-[17px] leading-none">{n}</div>
+              <div className="num mt-1 text-md leading-none">{n}</div>
             </div>
           ))}
         </div>
@@ -62,11 +62,11 @@ export default function Admin() {
       <BackupPanel />
 
       <section className="panel overflow-hidden">
-        <header className="border-b px-4 py-2.5"><h2 className="text-[14px] font-semibold">Customers</h2></header>
+        <header className="border-b px-4 py-2.5"><h2 className="text-sm font-semibold">Customers</h2></header>
         {!orgs ? <div className="p-5"><Skeleton className="h-24" /></div> : orgs.data.length === 0 ? (
           <div className="empty m-5">No organizations yet.</div>
         ) : (
-          <table className="w-full text-[13px]">
+          <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left text-2xs text-muted">
                 <th className="px-4 py-2 font-medium">Organization</th>
@@ -117,29 +117,29 @@ function BackupPanel() {
   return (
     <section className="panel overflow-hidden">
       <header className="flex items-center justify-between border-b px-4 py-2.5">
-        <h2 className="text-[14px] font-semibold">Backups</h2>
+        <h2 className="text-sm font-semibold">Backups</h2>
         <button onClick={async () => { await api.runBackup(); qc.invalidateQueries({ queryKey: ["backups"] }); }}
           className="rounded-md border px-3 py-1.5 text-2xs font-semibold text-muted hover:border-line-strong">Run now</button>
       </header>
       <div className="grid grid-cols-2 divide-x sm:grid-cols-4">
         <div className="px-4 py-3">
           <div className="text-2xs text-faint">State</div>
-          <div className={data.failing ? "mt-0.5 text-[14px] font-semibold text-conflict" : "mt-0.5 text-[14px] font-semibold text-believed"}>
+          <div className={data.failing ? "mt-0.5 text-sm font-semibold text-conflict" : "mt-0.5 text-sm font-semibold text-believed"}>
             {data.failing ? "FAILING" : "Healthy"}
           </div>
           {data.failing && data.last_run?.error && <div className="mt-1 text-2xs text-conflict">{data.last_run.error}</div>}
         </div>
         <div className="px-4 py-3">
           <div className="text-2xs text-faint">Last successful</div>
-          <div className="num mt-0.5 text-[13px]">{data.last_successful ? new Date(data.last_successful.started * 1000).toLocaleString() : "never"}</div>
+          <div className="num mt-0.5 text-sm">{data.last_successful ? new Date(data.last_successful.started * 1000).toLocaleString() : "never"}</div>
         </div>
         <div className="px-4 py-3">
           <div className="text-2xs text-faint">Completed</div>
-          <div className="num mt-1 text-[20px] leading-none">{data.completed_count}</div>
+          <div className="num mt-1 text-lg leading-none">{data.completed_count}</div>
         </div>
         <div className="px-4 py-3">
           <div className="text-2xs text-faint">Retention</div>
-          <div className="num mt-1 text-[20px] leading-none">{data.retain}</div>
+          <div className="num mt-1 text-lg leading-none">{data.retain}</div>
         </div>
       </div>
     </section>

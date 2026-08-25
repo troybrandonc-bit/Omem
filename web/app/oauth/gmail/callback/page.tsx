@@ -57,14 +57,14 @@ export default function GmailCallback() {
             (state === "done" ? "text-believed" : state === "error" ? "text-conflict" : "animate-spin text-muted")
           }
         />
-        <h1 className="display mt-4 text-[19px]">
+        <h1 className="display mt-4 text-lg">
           {state === "done" ? "Connected" : state === "error" ? "Connection failed" : "Connecting Gmail"}
         </h1>
-        <p className="mt-2 text-[13px] text-muted">{message}</p>
+        <p className="mt-2 text-sm text-muted">{message}</p>
         {state === "error" && (
           <button
             onClick={() => router.push("/sources")}
-            className="mt-5 rounded-md border px-3 py-1.5 text-[13px] font-medium text-muted hover:border-line-strong"
+            className="mt-5 rounded-md border px-3 py-1.5 text-sm font-medium text-muted hover:border-line-strong"
           >
             Back to Sources
           </button>

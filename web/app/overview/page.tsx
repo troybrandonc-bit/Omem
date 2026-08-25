@@ -30,12 +30,12 @@ export default function Overview() {
       {onb && onb.completed < onb.total && (
         <section className="panel overflow-hidden">
           <header className="flex items-center justify-between border-b px-4 py-2.5">
-            <h2 className="text-[14px] font-semibold">Getting started</h2>
+            <h2 className="text-sm font-semibold">Getting started</h2>
             <span className="num text-2xs text-muted">{onb.completed}/{onb.total}</span>
           </header>
           <div className="grid gap-x-6 gap-y-2 px-4 py-3 sm:grid-cols-2">
             {onb.steps.map(s_ => (
-              <div key={s_.id} className="flex items-center gap-2.5 text-[13px]">
+              <div key={s_.id} className="flex items-center gap-2.5 text-sm">
                 {s_.done
                   ? <Check className="h-3.5 w-3.5 text-believed" />
                   : <Circle className="h-3 w-3 text-faint" />}
@@ -103,12 +103,12 @@ export default function Overview() {
       {/* Monitoring panel */}
       <section className="panel overflow-hidden">
         <header className="flex items-center justify-between border-b px-4 py-2.5">
-          <h2 className="text-[14px] font-semibold">Monitoring</h2>
-          <Link href="/logs" className="text-[13px] font-medium text-accent hover:underline">View logs →</Link>
+          <h2 className="text-sm font-semibold">Monitoring</h2>
+          <Link href="/logs" className="text-sm font-medium text-accent hover:underline">View logs →</Link>
         </header>
         <div className="grid lg:grid-cols-2 lg:divide-x">
           <div className="px-4 py-3">
-            <div className="mb-2 flex items-center gap-4 text-[13px]">
+            <div className="mb-2 flex items-center gap-4 text-sm">
               <span className="flex items-center gap-1.5 font-medium">
                 <TrendingUp className="h-3.5 w-3.5 text-accent" /> <span className="num">{ok}</span> requests
               </span>
@@ -122,13 +122,13 @@ export default function Overview() {
             <Sparkline entries={entries} />
           </div>
           <div className="border-t px-4 py-3 lg:border-t-0">
-            <div className="mb-2 text-[13px] font-semibold">Recent beliefs</div>
+            <div className="mb-2 text-sm font-semibold">Recent beliefs</div>
             <div className="divide-y">
-              {latest.length === 0 && <div className="py-4 text-[13px] text-muted">No open beliefs yet.</div>}
+              {latest.length === 0 && <div className="py-4 text-sm text-muted">No open beliefs yet.</div>}
               {latest.map(b => (
                 <Link key={b.id} href={`/assertion?id=${encodeURIComponent(b.id)}`}
                   className="flex items-center justify-between gap-3 py-2 transition-colors hover:bg-raised">
-                  <span className="truncate text-[13px] font-medium">{b.label || b.proposition}</span>
+                  <span className="truncate text-sm font-medium">{b.label || b.proposition}</span>
                   <span className="num shrink-0 text-2xs text-faint">t={b.assertion_time}</span>
                 </Link>
               ))}
