@@ -36,7 +36,7 @@ jobs:
     outputs:
       version: ${{ steps.check.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: check
         run: |
           PKG=$(grep -m1 '^version = ' sdk/python/pyproject.toml | cut -d'"' -f2)
@@ -79,7 +79,7 @@ jobs:
     name: full suite on the tagged commit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       - run: pip install hypothesis cryptography
@@ -91,7 +91,7 @@ jobs:
     needs: [verify, test]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with: { node-version: "20", cache: npm, cache-dependency-path: web/package-lock.json }
       - uses: actions/setup-python@v7
@@ -148,7 +148,7 @@ jobs:
       id-token: write        # OIDC for trusted publishing
       contents: write        # to create the GitHub Release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with: { name: dist, path: dist/ }
 
