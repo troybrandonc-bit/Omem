@@ -16,6 +16,22 @@ updates:
     directory: /web
     schedule: { interval: weekly }
     open-pull-requests-limit: 5
+    # React majors are held back because they are not a dependency bump here.
+    # Dependabot's first attempt raised react-dom to 19 and left react at 18,
+    # which npm ci refuses: React 19's peer requirement is react@^19. It could
+    # not raise both, because Next 14 pins React 18 and React 19 needs Next 15.
+    # So the update is really a framework migration wearing a bump's clothes,
+    # and left unignored it reopens as an unmergeable pull request every week.
+    # Remove these two entries as part of moving to Next 15.
+    ignore:
+      - dependency-name: react
+        update-types: [version-update:semver-major]
+      - dependency-name: react-dom
+        update-types: [version-update:semver-major]
+      - dependency-name: "@types/react"
+        update-types: [version-update:semver-major]
+      - dependency-name: "@types/react-dom"
+        update-types: [version-update:semver-major]
     groups:
       # One PR for the routine floor-bumps rather than fifteen. Security
       # updates are NOT grouped: Dependabot raises those separately and they
