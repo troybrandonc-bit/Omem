@@ -4108,9 +4108,17 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts) == 4 and parts[:2] == ["v1", "assertions"] and parts[3] == "supersede":
             old = parts[2]
             nw = body["new"]
+            # Same binding rule as a plain assertion, and it matters more here: a
+            # supersession does not just put another agent's name on a claim, it
+            # retires that agent's existing belief and installs a replacement
+            # under their name. A bound key doing that can rewrite what another
+            # agent is on record as believing.
+            _agent, _err = self._effective_agent(auth, nw.get("agent"))
+            if _err:
+                return
             nid = nw.get("id") or mint("a")
             at = resolve_time(nw.get("assertion_time"))
-            record(p, "supersede", {"id": nid, "agent": nw["agent"], "subjects": nw["subjects"],
+            record(p, "supersede", {"id": nid, "agent": _agent, "subjects": nw["subjects"],
                                     "proposition": nw["proposition"], "assertion_time": at,
                                     "confidence": nw.get("confidence"), "olds": [old],
                                     "did": mint("d"), "label": nw.get("label")})
@@ -4124,7 +4132,13 @@ class Handler(BaseHTTPRequestHandler):
             a = e.store.assertion(old)
             if a is None:
                 return self._err(404, "not_found", "assertion not found")
-            record(p, "retract", {"id": nid, "agent": body["agent"], "subjects": list(a.subjects),
+            # Retraction is attributed too: without this a bound key could take a
+            # belief off the record under another agent's name, which reads as that
+            # agent having changed their mind.
+            _agent, _err = self._effective_agent(auth, body.get("agent"))
+            if _err:
+                return
+            record(p, "retract", {"id": nid, "agent": _agent, "subjects": list(a.subjects),
                                   "assertion_time": at, "old": old, "did": mint("d")})
             self._logreq(p, "POST", f"/v1/assertions/{old}/retract", 201, "retracted belief")
             return self._send(201, {"id": nid, "retracted": old, "object": "assertion"})
@@ -4145,10 +4159,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(201, {"token_a": ta, "token_b": tb, "object": "contradiction"})
 
         if parts == ["v1", "coreference"]:
+            _agent, _err = self._effective_agent(auth, body.get("agent"))
+            if _err:
+                return
             aid = body.get("id") or mint("cor")
             at = resolve_time(body.get("assertion_time"))
             record(p, "corefer", {"id": aid, "entity_a": body["entity_a"],
-                                  "entity_b": body["entity_b"], "agent": body["agent"],
+                                  "entity_b": body["entity_b"], "agent": _agent,
                                   "assertion_time": at})
             self._logreq(p, "POST", "/v1/coreference", 201, "coreference")
             return self._send(201, {"id": aid, "object": "assertion"})
@@ -4156,8 +4173,11 @@ class Handler(BaseHTTPRequestHandler):
         if parts == ["v1", "coreference", "split"] or (
                 len(parts) == 4 and parts[:2] == ["v1", "coreference"] and parts[3] == "split"):
             cor = body.get("coreference_id") or parts[2]
+            _agent, _err = self._effective_agent(auth, body.get("agent"))
+            if _err:
+                return
             at = resolve_time(body.get("assertion_time"))
-            record(p, "split", {"cor": cor, "agent": body["agent"], "assertion_time": at,
+            record(p, "split", {"cor": cor, "agent": _agent, "assertion_time": at,
                                 "id": mint("a"), "did": mint("d")})
             self._logreq(p, "POST", "/v1/coreference/split", 201, "split")
             return self._send(201, {"split": cor, "object": "assertion"})

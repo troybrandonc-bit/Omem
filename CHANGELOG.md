@@ -3,6 +3,41 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.2.4 - 26 Aug 2026
+
+**Security fix, and it completes 0.2.3.** Upgrade if you use agent-bound API
+keys. If you already upgraded to 0.2.3, upgrade again.
+
+### Fixed
+
+- **0.2.3 fixed one route; the same flaw was on four.** That release stopped an
+  agent-bound key attributing a new claim to another agent via
+  `POST /v1/assertions`, and stopped there. The identical pattern — recording
+  the caller's `agent` field without resolving it against the key's binding —
+  was still present on:
+
+  - `POST /v1/assertions/{id}/supersede`
+  - `POST /v1/assertions/{id}/retract`
+  - `POST /v1/coreference`
+  - `POST /v1/coreference/split`
+
+  Supersede and retract are the more serious two. They do not merely put another
+  agent's name on a new claim: they take that agent's existing belief off the
+  record under their own name, so the history reads as though that agent revised
+  or withdrew it. A key bound to `agent:bob` could retire what `agent:alice` was
+  on record as believing, and the audit trail would agree.
+
+  Every route that records an attributed write now resolves identity through the
+  same guard, and the test suite covers each one rather than only the first.
+
+  **Scope is unchanged from 0.2.3:** a single project, no cross-tenant access, no
+  data disclosure. Unbound keys and session tokens are unaffected.
+
+  If you rely on agent-bound keys for attribution, treat supersessions,
+  retractions and coreference claims written by a bound key before 0.2.4 as
+  unverified for the agent they name, on the same basis as assertions before
+  0.2.3.
+
 ## 0.2.3 - 25 Aug 2026
 
 **Security fix. Upgrade if you use agent-bound API keys.**
