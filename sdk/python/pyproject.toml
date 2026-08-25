@@ -12,7 +12,7 @@ license = { text = "MIT" }
 authors = [{ name = "OMEM" }]
 keywords = ["ai", "agents", "memory", "llm", "mcp", "knowledge", "belief"]
 # Zero third-party dependencies: the SDK is stdlib-only (urllib + json), so
-# `pip install omem` is instant and cannot break on dependency conflicts.
+# `pip install omem-infrastructure` is instant and cannot break on dependency conflicts.
 dependencies = []
 classifiers = [
   "Development Status :: 4 - Beta",
