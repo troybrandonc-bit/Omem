@@ -151,7 +151,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.9" }        # the floor we advertise
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: "20", cache: npm, cache-dependency-path: web/package-lock.json }
       # The dashboard is built here and copied into the wheel by hatch_build.py,
       # which is what makes `pip install` enough to get a UI. This is also the
@@ -206,7 +206,7 @@ jobs:
       run: { working-directory: web }
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: "20", cache: npm, cache-dependency-path: web/package-lock.json }
       - run: npm ci
       - run: npx tsc --noEmit
