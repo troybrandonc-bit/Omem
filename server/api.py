@@ -4034,9 +4034,25 @@ class Handler(BaseHTTPRequestHandler):
                 if not allowed:
                     return self._err(402, "quota_exceeded",
                                      f"Plan '{qinfo['plan']}' memory quota reached ({qinfo['used']}/{qinfo['quota']}). Upgrade to continue.")
+            # An agent-bound key may not file an assertion attributed to a
+            # different agent. Every other surface already resolved identity
+            # through _effective_agent — recall, brief, observe, chain, graph,
+            # conflicts, and the `viewer` on this same route — but the WRITE
+            # path read body["agent"] straight through. So the binding
+            # constrained what a key could read and not who it could speak as,
+            # and a key bound to agent:bob could put agent:alice's name on a
+            # claim. `mem.why(...)` would then return a chain naming alice, which
+            # is precisely the question provenance exists to answer.
+            #
+            # Unbound keys and sessions are unaffected: _effective_agent returns
+            # the requested value untouched when there is no binding, which is
+            # what every existing caller relies on.
+            _agent, _err = self._effective_agent(auth, body.get("agent"))
+            if _err:
+                return
             aid = body.get("id") or mint("a")
             at = resolve_time(body.get("assertion_time"))
-            record(p, "assert", {"id": aid, "agent": body["agent"], "subjects": body["subjects"],
+            record(p, "assert", {"id": aid, "agent": _agent, "subjects": body["subjects"],
                                  "proposition": body["proposition"], "assertion_time": at,
                                  "event_time": body.get("event_time"),
                                  "confidence": body.get("confidence"), "label": body.get("label")})

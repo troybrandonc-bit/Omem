@@ -110,6 +110,42 @@ check("conflicts: bound key rejects mismatched viewer (403)", st == 403, str(st)
 st, r = call("GET", f"/v1/assertions?project={PID}&viewer=agent:alice", None, BOB)
 check("assertions: bound key rejects mismatched viewer (403)", st == 403, str(st))
 
+# The WRITE path, which every check above skipped. Each of them constrains what
+# a bound key may READ (or the `viewer` it may read as); none of them touched
+# the `agent` a bound key may WRITE as. That gap let bob's key file an assertion
+# attributed to alice, and the record then said alice asserted it, with alice's
+# name on the provenance a caller inspects to decide whether to trust it.
+#
+# For a system whose claim is that you can ask why something is believed and get
+# the chain that led there, a forgeable "who said this" is the chain lying.
+st, r = call("POST", f"/v1/assertions?project={PID}",
+             {"agent": "agent:alice", "subjects": ["company:acme"],
+              "proposition": "forged_by_bob", "assertion_time": "now"}, BOB)
+check("assertions POST: bound key cannot write AS another agent (403)",
+      st == 403, f"status={st} body={str(r)[:120]}")
+
+# And the forgery must not be on record afterwards. A 403 that still wrote would
+# be worse than a clean rejection, because nothing would look wrong.
+st, allrows = call("GET", f"/v1/assertions?project={PID}", None, ADMIN)
+check("assertions POST: nothing was recorded under the impersonated agent",
+      all(a.get("proposition") != "forged_by_bob" for a in allrows.get("data", [])),
+      str([a.get("proposition") for a in allrows.get("data", [])])[:160])
+
+# Backward compatibility must survive the fix: an UNBOUND key still names any
+# agent it likes, which is what every existing caller does.
+st, r = call("POST", f"/v1/assertions?project={PID}",
+             {"agent": "agent:alice", "subjects": ["company:acme"],
+              "proposition": "written_by_unbound_admin", "assertion_time": "now"}, ADMIN)
+check("assertions POST: unbound key may still assert as any agent", st == 201, str(st))
+
+# A bound key writing as ITSELF keeps working. The engine requires the agent to
+# be recorded first (R_NO_AGENT otherwise), which the SDK does via auto_create.
+call("POST", f"/v1/agents?project={PID}", {"id": "agent:bob", "kind": "system"}, ADMIN)
+st, r = call("POST", f"/v1/assertions?project={PID}",
+             {"agent": "agent:bob", "subjects": ["company:acme"],
+              "proposition": "written_by_bob_as_bob", "assertion_time": "now"}, BOB)
+check("assertions POST: bound key may write as its own agent", st == 201, f"status={st} body={str(r)[:140]}")
+
 print("== bound key CANNOT see another agent's private memory even without naming it ==")
 # bob's key, no agent param -> forced to agent:bob -> alice's private memory invisible
 st, pk = call("POST", f"/v1/recall?project={PID}", {"context": "acme renewal"}, BOB)
