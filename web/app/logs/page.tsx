@@ -2,17 +2,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useApp } from "@/components/providers";
-import { Table, Th, Td, Skeleton, Badge, EmptyState } from "@/components/ui/primitives";
+import { Table, Th, Td, Skeleton, Badge, EmptyState, ErrorState } from "@/components/ui/primitives";
 import { ScrollText } from "lucide-react";
 
 export default function Logs() {
   const { project } = useApp();
-  const { data, isLoading } = useQuery({ queryKey: ["logs", project], queryFn: () => api.logs(project), refetchInterval: 3000 });
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["logs", project], queryFn: () => api.logs(project), refetchInterval: 3000, enabled: !!project });
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="mb-1 display text-[21px]">Logs</h1>
+      <h1 className="mb-1 display text-lg">Logs</h1>
       {isLoading ? <Skeleton className="h-64" /> :
-        !data || data.data.length === 0 ? <EmptyState icon={ScrollText} title="No requests yet" /> :
+        isError || !data ? <ErrorState title="Could not read the request log" onRetry={() => refetch()} /> :
+        data.data.length === 0 ? <EmptyState icon={ScrollText} title="No requests yet" /> :
         <Table><thead><tr><Th>Method</Th><Th>Path</Th><Th>Summary</Th><Th>Status</Th></tr></thead><tbody>
           {data.data.map(l => (
             <tr key={l.id} className="hover:bg-[color:var(--border)]/20">
