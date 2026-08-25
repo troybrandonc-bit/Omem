@@ -59,6 +59,12 @@ pip install omem-infrastructure
 omem-server
 ```
 
+Upgrading from an earlier version? `pip install --upgrade omem-infrastructure`.
+Plain `pip install` on a package you already have reports "Requirement already
+satisfied" and does nothing, which is a quiet way to keep running the version
+you were trying to leave. `python -c "import omem; print(omem.__version__)"`
+says what you actually have.
+
 That starts the server on http://127.0.0.1:8787 and, on first run, prints a
 project id and an API key: no signup call, no dashboard visit, nothing to
 configure. Paste them straight in:

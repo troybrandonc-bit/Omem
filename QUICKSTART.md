@@ -11,6 +11,12 @@ omem-server
 
 Python 3.9+. No other dependencies, no database to set up, no account anywhere.
 
+**Already have it installed?** Use `pip install --upgrade omem-infrastructure`.
+Plain `pip install` on a package you already have prints "Requirement already
+satisfied" and changes nothing, so an old version keeps running and the release
+you wanted never arrives. That matters here: 0.2.3 is a security fix. Check what
+you actually have with `python -c "import omem; print(omem.__version__)"`.
+
 The first run prints a project id and an API key:
 
 ```
