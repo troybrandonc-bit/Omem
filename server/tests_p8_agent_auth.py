@@ -146,6 +146,38 @@ st, r = call("POST", f"/v1/assertions?project={PID}",
               "proposition": "written_by_bob_as_bob", "assertion_time": "now"}, BOB)
 check("assertions POST: bound key may write as its own agent", st == 201, f"status={st} body={str(r)[:140]}")
 
+# Every OTHER route that writes an attributed record. The first fix covered
+# POST /v1/assertions and stopped there, which was fixing the instance rather
+# than the class: supersede, retract, coreference and split all recorded
+# body["agent"] the same way. Supersede and retract are the sharper two, because
+# they do not merely put another agent's name on a new claim, they take that
+# agent's existing belief off the record under their own name.
+st, ai = call("POST", f"/v1/assertions?project={PID}",
+              {"agent": "agent:alice", "subjects": ["company:acme"],
+               "proposition": "alice_original", "assertion_time": "now"}, ADMIN)
+_alice_aid = ai.get("id")
+
+st, r = call("POST", f"/v1/assertions/{_alice_aid}/supersede?project={PID}",
+             {"new": {"agent": "agent:alice", "subjects": ["company:acme"],
+                      "proposition": "forged_supersession", "assertion_time": "now"}}, BOB)
+check("supersede: bound key cannot revise another agent's belief (403)", st == 403, str(st))
+
+st, r = call("POST", f"/v1/assertions/{_alice_aid}/retract?project={PID}",
+             {"agent": "agent:alice", "assertion_time": "now"}, BOB)
+check("retract: bound key cannot retract as another agent (403)", st == 403, str(st))
+
+call("POST", f"/v1/entities?project={PID}", {"id": "company:acme2", "type": "thing"}, ADMIN)
+st, r = call("POST", f"/v1/coreference?project={PID}",
+             {"entity_a": "company:acme", "entity_b": "company:acme2",
+              "agent": "agent:alice", "assertion_time": "now"}, BOB)
+check("coreference: bound key cannot corefer as another agent (403)", st == 403, str(st))
+
+# and the belief alice actually asserted is still hers, untouched
+st, allrows = call("GET", f"/v1/assertions?project={PID}", None, ADMIN)
+_props = [a.get("proposition") for a in allrows.get("data", [])]
+check("no forged supersession or coreference reached the record",
+      "forged_supersession" not in _props, str(_props)[:160])
+
 print("== bound key CANNOT see another agent's private memory even without naming it ==")
 # bob's key, no agent param -> forced to agent:bob -> alice's private memory invisible
 st, pk = call("POST", f"/v1/recall?project={PID}", {"context": "acme renewal"}, BOB)
