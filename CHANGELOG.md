@@ -3,6 +3,41 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.2.3 - 25 Aug 2026
+
+**Security fix. Upgrade if you use agent-bound API keys.**
+
+### Fixed
+
+- **An agent-bound key could file a claim under another agent's name.** A key
+  minted with an `agent_id` constrained what it could *read* but not who it
+  could write *as*: `POST /v1/assertions` passed the caller's `agent` field
+  straight through, so a key bound to `agent:bob` could record an assertion
+  attributed to `agent:alice`. Asking `why()` afterwards returned a provenance
+  chain naming alice — the exact question provenance exists to answer.
+
+  The identity guard already existed and was already correct; it was applied on
+  every read surface (recall, brief, observe, chain, graph, conflicts, and the
+  `viewer` parameter on this same route) and not on the write. This adds the
+  missing call.
+
+  **Scope:** within a single project. API keys remain project-scoped, so no
+  other tenant was reachable. It matters wherever each agent holds its own bound
+  key and the record is trusted to say who spoke, which is the reason to bind a
+  key at all.
+
+  **Unbound keys are unaffected** and may still name any agent, which is what a
+  single trusted process writing for several agents depends on.
+
+  If you have relied on agent-bound keys for attribution, treat assertions
+  written by a bound key as unverified for the agent they name: the record
+  cannot distinguish a genuine claim from a forged one after the fact.
+
+- **`omem-data/` was not ignored by git.** `omem-server` writes it into whatever
+  directory it is started from, and the quickstart simply says to run it — so
+  anyone following the quickstart inside a clone got their memories, hashed API
+  keys and organisation rows sitting untracked in the working tree.
+
 ## 0.2.2 - 25 Aug 2026
 
 A correctness and honesty release. Nothing about how you call OMEM changes; the
