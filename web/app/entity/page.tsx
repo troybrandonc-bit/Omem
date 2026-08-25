@@ -19,25 +19,31 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api, isGrounded } from "@/lib/api";
 import { useApp } from "@/components/providers";
-import { Card, Skeleton, Badge } from "@/components/ui/primitives";
+import { Card, Skeleton, Badge, ErrorState } from "@/components/ui/primitives";
 import { ArrowLeft, Box } from "lucide-react";
 
 function EntityDetailInner() {
   const id = useSearchParams().get("id") || "";
   const { project, asOf } = useApp();
   const { data: ent } = useQuery({ queryKey: ["entity", project, id], queryFn: () => api.entity(project, id) });
-  const { data, isLoading } = useQuery({ queryKey: ["beliefs", project, id, asOf], queryFn: () => api.beliefsAbout(project, id, asOf ?? "now") });
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["beliefs", project, id, asOf],
+    queryFn: () => api.beliefsAbout(project, id, asOf ?? "now"), enabled: !!project });
   return (
     <div className="mx-auto max-w-3xl">
       <Link href="/entities" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg"><ArrowLeft className="h-4 w-4" /> Entities</Link>
       <div className="mb-5 flex items-center gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-lg border bg-panel"><Box className="h-5 w-5 text-muted" /></div>
-        <div><h1 className="display text-[24px]">{ent?.label || id}</h1><div className="text-xs text-muted">{id}{ent?.type ? ` / ${ent.type}` : ""}</div></div>
+        <div><h1 className="display text-lg">{ent?.label || id}</h1><div className="text-xs text-muted">{id}{ent?.type ? ` / ${ent.type}` : ""}</div></div>
       </div>
       <div className="mb-2 tech-label">
         What your AI believes about this entity{asOf !== null ? ` (as-of t=${asOf})` : ""}
       </div>
       {isLoading ? <Skeleton className="h-40" /> :
+        isError || !data ?
+          <ErrorState title="Could not read beliefs about this entity"
+            body="The request failed, so this is not a statement that nothing is believed."
+            onRetry={() => refetch()} /> :
         <div className="space-y-2">
           {(data?.data || []).map(b => (
             <Link key={b.id} href={`/assertion?id=${encodeURIComponent(b.id)}`}>
@@ -50,7 +56,7 @@ function EntityDetailInner() {
               </Card>
             </Link>
           ))}
-          {(!data || data.data.length === 0) && <div className="text-sm text-muted">No current beliefs about this entity.</div>}
+          {data.data.length === 0 && <div className="text-sm text-muted">No current beliefs about this entity.</div>}
         </div>}
     </div>
   );

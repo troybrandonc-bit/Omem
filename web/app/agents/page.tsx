@@ -3,17 +3,19 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { useApp } from "@/components/providers";
-import { Table, Th, Td, Skeleton, EmptyState, Badge } from "@/components/ui/primitives";
+import { Table, Th, Td, Skeleton, EmptyState, ErrorState, Badge } from "@/components/ui/primitives";
 import { Bot } from "lucide-react";
 
 export default function Agents() {
   const { project } = useApp();
-  const { data, isLoading } = useQuery({ queryKey: ["agents", project], queryFn: () => api.agents(project) });
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["agents", project], queryFn: () => api.agents(project), enabled: !!project });
   return (
     <div className="mx-auto max-w-4xl">
-      <h1 className="mb-1 display text-[21px]">Agents</h1>
+      <h1 className="mb-1 display text-lg">Agents</h1>
       {isLoading ? <Skeleton className="h-40" /> :
-        !data || data.data.length === 0 ? <EmptyState icon={Bot} title="No agents yet" /> :
+        isError || !data ? <ErrorState title="Could not read agents" onRetry={() => refetch()} /> :
+        data.data.length === 0 ? <EmptyState icon={Bot} title="No agents yet" /> :
         <Table><thead><tr><Th>Agent</Th><Th>Kind</Th><Th>ID</Th></tr></thead><tbody>
           {data.data.map(a => (
             <tr key={a.id} className="cursor-pointer hover:bg-[color:var(--border)]/20">
