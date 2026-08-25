@@ -16,6 +16,19 @@ Two claims conflict only when they are declared opposed. `X` and `not:X` are
 paired automatically; contradict() covers everything else. OMEM does not infer
 opposition from wording, which is what lets a belief state be reproduced without
 a model in the loop.
+
+Agent-bound keys. A key minted with an `agent_id` carries its own identity, so
+you omit `agent=` and the binding fills it in:
+
+    POST /v1/keys {"name": "support key", "agent_id": "agent:support-bot"}
+
+A bound key cannot act as a different agent. That holds for writes as well as
+reads: naming another agent in remember() is a 403, not a silently accepted
+claim with somebody else's name on it. Attribution is the thing why() reports,
+so a forgeable one would make the provenance chain worth nothing.
+
+An UNBOUND key keeps the older behaviour and may name any agent freely, which is
+what a single trusted process writing for several agents needs.
 """
 # `project: str | None` in the Memory signature below is PEP 604, which is a
 # TypeError on the Python 3.9 this package claims to support. Deferring
