@@ -48,7 +48,7 @@ function AssertionDetailInner() {
       {/* Header: claim, state, and the facts that matter, one dense block. */}
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="display text-[24px] leading-tight">{titleOf(a)}</h1>
+          <h1 className="display text-lg leading-tight">{titleOf(a)}</h1>
           <div className="mono mt-1 text-2xs text-muted">{a.proposition}</div>
         </div>
         <div className="flex items-center gap-2">
@@ -71,7 +71,7 @@ function AssertionDetailInner() {
         <span className="mono ml-auto text-faint">{a.id}</span>
       </div>
 
-      <p className="mb-5 max-w-3xl text-[13px] leading-relaxed text-muted">{explanation}</p>
+      <p className="mb-5 max-w-3xl text-sm leading-relaxed text-muted">{explanation}</p>
 
       <div className="grid grid-cols-3 gap-4">
         {/* left: facts */}
@@ -264,7 +264,7 @@ function SourceMessage({ why }: { why: WhyResult }) {
 
       {v && (
         <div className="space-y-2 px-4 py-3">
-          <div className="text-[14px] font-semibold leading-snug">{v.title}</div>
+          <div className="text-sm font-semibold leading-snug">{v.title}</div>
           <div className="grid gap-x-6 gap-y-1 text-2xs text-muted sm:grid-cols-2">
             {v.from && <div><span className="text-faint">From</span> {v.from}</div>}
             {v.to && <div><span className="text-faint">To</span> {v.to}</div>}
@@ -273,7 +273,7 @@ function SourceMessage({ why }: { why: WhyResult }) {
           </div>
           {v.body ? (
             <div className="rounded-md bg-raised px-3 py-2.5">
-              <p className={"whitespace-pre-wrap break-words text-[13px] leading-relaxed " + (open ? "max-h-[420px] overflow-y-auto" : "")}>
+              <p className={"whitespace-pre-wrap break-words text-sm leading-relaxed " + (open ? "max-h-[420px] overflow-y-auto" : "")}>
                 {renderBody(open ? v.body : v.body.slice(0, hit >= 0 ? Math.max(320, hit + evText.length + 40) : 320))}
                 {!open && v.body.length > 320 && "\u2026"}
               </p>
@@ -293,7 +293,7 @@ function SourceMessage({ why }: { why: WhyResult }) {
       {evidence && (
         <div className={v ? "border-t px-4 py-2.5" : "px-4 py-2.5"}>
           <div className="tech-label mb-1">Matched evidence</div>
-          <p className="text-[13px] leading-relaxed">{evidence}</p>
+          <p className="text-sm leading-relaxed">{evidence}</p>
           <div className="mt-1 flex flex-wrap gap-x-4 text-2xs text-muted">
             {why.evidence?.extractor && <span>extractor <span className="mono">{why.evidence.extractor}</span></span>}
             {why.source?.external_id && <span>source <span className="mono">{why.source.external_id}</span></span>}

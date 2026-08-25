@@ -44,26 +44,26 @@ export default function Playground() {
   return (
     <div className="space-y-5">
       <div className="flex items-baseline justify-between">
-        <h1 className="display text-[24px]">Playground</h1>
-        <span className="text-[13px] text-muted">Every call runs live against your project.</span>
+        <h1 className="display text-lg">Playground</h1>
+        <span className="text-sm text-muted">Every call runs live against your project.</span>
       </div>
 
       <section className="panel overflow-hidden">
-        <header className="border-b px-4 py-2.5"><h2 className="text-[14px] font-semibold">Teach your agent</h2></header>
+        <header className="border-b px-4 py-2.5"><h2 className="text-sm font-semibold">Teach your agent</h2></header>
         <div className="space-y-3 px-4 py-3">
           <div>
             <label className="text-2xs text-faint">Subject</label>
             <input value={about} onChange={e => setAbout(e.target.value)}
-              className="mono mt-1 w-full rounded-md border bg-panel px-3 py-2 text-[13px] outline-none focus:border-accent" />
+              className="mono mt-1 w-full rounded-md border bg-panel px-3 py-2 text-sm outline-none focus:border-accent" />
           </div>
           <div>
             <label className="text-2xs text-faint">What happened (free text)</label>
             <textarea value={text} onChange={e => setText(e.target.value)} rows={2}
-              className="mt-1 w-full rounded-md border bg-panel px-3 py-2 text-[13px] outline-none focus:border-accent" />
+              className="mt-1 w-full rounded-md border bg-panel px-3 py-2 text-sm outline-none focus:border-accent" />
           </div>
           {err && <div className="rounded-md border border-conflict/40 bg-conflictBg px-3 py-2 text-2xs text-conflict">{err}</div>}
           <button onClick={run} disabled={busy || !signed}
-            className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-1.5 text-[13px] font-semibold text-accentFg shadow-[0_1px_1px_rgba(0,0,0,0.06)] transition-opacity hover:opacity-[0.88] disabled:opacity-40">
+            className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-1.5 text-sm font-semibold text-accentFg shadow-[0_1px_1px_rgba(0,0,0,0.06)] transition-opacity hover:opacity-[0.88] disabled:opacity-40">
             {busy ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
             {signed ? "Learn → recall → why" : "Sign in to run"}
           </button>
@@ -72,12 +72,12 @@ export default function Playground() {
         {learned && (
           <div className="border-t px-4 py-3">
             {learned.length === 0 ? (
-              <div className="text-[13px] text-muted">No durable fact was found in that text. Try something like a preference, intent, or status.</div>
+              <div className="text-sm text-muted">No durable fact was found in that text. Try something like a preference, intent, or status.</div>
             ) : (
               <div className="space-y-4">
                 <Step n={1} label="Learned">
                   {learned.map(l => (
-                    <div key={l.assertion} className="flex items-center gap-2 text-[13px]">
+                    <div key={l.assertion} className="flex items-center gap-2 text-sm">
                       <span className="mono">{l.proposition}</span>
                       <StatePill state={l.state} />
                     </div>
@@ -85,13 +85,13 @@ export default function Playground() {
                 </Step>
                 {recalled !== null && (
                   <Step n={2} label="Recalled">
-                    <span className="text-[13px] text-muted"><span className="num font-semibold text-fg">{recalled}</span> belief{recalled === 1 ? "" : "s"} about <span className="mono">{about}</span></span>
+                    <span className="text-sm text-muted"><span className="num font-semibold text-fg">{recalled}</span> belief{recalled === 1 ? "" : "s"} about <span className="mono">{about}</span></span>
                   </Step>
                 )}
                 {why && (
                   <Step n={3} label="Why the agent believes it">
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-[13px]">
+                      <div className="flex items-center gap-2 text-sm">
                         <StatePill state={why.state} />
                         <span className="text-2xs text-faint">{why.grounded ? "grounded: reaches an event root" : "ungrounded"}</span>
                       </div>
@@ -110,7 +110,7 @@ export default function Playground() {
           <div className="flex">
             {(["curl", "python", "typescript"] as Lang[]).map(l => (
               <button key={l} onClick={() => setLang(l)}
-                className={cn("px-4 py-2.5 text-[13px] transition-colors", lang === l ? "font-semibold text-fg" : "text-muted hover:text-fg")}>
+                className={cn("px-4 py-2.5 text-sm transition-colors", lang === l ? "font-semibold text-fg" : "text-muted hover:text-fg")}>
                 {l === "curl" ? "cURL" : l === "python" ? "Python" : "TypeScript"}
               </button>
             ))}
@@ -120,7 +120,7 @@ export default function Playground() {
             {copied ? <Check className="h-3.5 w-3.5 text-believed" /> : <Copy className="h-3.5 w-3.5" />}
           </button>
         </header>
-        <pre className="mono overflow-x-auto p-4 text-[12.5px] leading-[1.7]">{snippet}</pre>
+        <pre className="mono overflow-x-auto p-4 text-xs leading-[1.7]">{snippet}</pre>
         <div className="flex items-center gap-2 border-t px-4 py-2.5 text-2xs text-muted">
           <Terminal className="h-3.5 w-3.5" /> The exact call the button runs, with your project id.
         </div>
@@ -176,19 +176,22 @@ function ProvChain({ why }: { why: WhyResult }) {
 }
 
 const CODE: Record<Lang, (p: string, agent: string, about: string, text: string) => string> = {
+  // api.omem.dev does not resolve and there is no hosted OMEM. The server you
+  // are reading this page from is the one to curl, so these are copy-pasteable
+  // rather than aspirational.
   curl: (p, agent, about, text) =>
 `# 1. learn from text
-curl https://api.omem.dev/v1/learn?project=${p} \\
+curl http://127.0.0.1:8787/v1/learn?project=${p} \\
   -H "Authorization: Bearer $OMEM_API_KEY" -H "Content-Type: application/json" \\
   -d '${JSON.stringify({ agent, about, text })}'
 
 # 2. recall what the agent knows
-curl https://api.omem.dev/v1/recall?project=${p} \\
+curl http://127.0.0.1:8787/v1/recall?project=${p} \\
   -H "Authorization: Bearer $OMEM_API_KEY" -H "Content-Type: application/json" \\
   -d '${JSON.stringify({ about })}'
 
 # 3. ask why (state + provenance)
-curl "https://api.omem.dev/v1/assertions/<id>/why?project=${p}" \\
+curl "http://127.0.0.1:8787/v1/assertions/<id>/why?project=${p}" \\
   -H "Authorization: Bearer $OMEM_API_KEY"`,
   python: (p, agent, about, text) =>
 `from omem import Memory
@@ -203,7 +206,8 @@ aid = result["learned"][0]["assertion"]
 print(agent.recall("${about}"))   # what does the agent know?
 print(agent.why(aid))              # why does it believe it? (state + provenance)`,
   typescript: (p, agent, about, text) =>
-`import { Memory } from "@omem/sdk";
+`// Not on npm yet: the TypeScript SDK is used from sdk/typescript/ in the repo.
+import { Memory } from "./sdk/typescript/src/index";
 
 const mem = new Memory({ apiKey: "omem_sk_...", project: "${p}" });
 const agent = mem.agent("${agent}");

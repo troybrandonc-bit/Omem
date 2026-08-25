@@ -14,7 +14,7 @@ export default function Team() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("developer");
 
-  if (error) return <div className="panel m-1 p-6 text-[13px] text-muted">Managing members requires an admin or owner role.</div>;
+  if (error) return <div className="panel m-1 p-6 text-sm text-muted">Managing members requires an admin or owner role.</div>;
 
   async function invite() {
     if (!email.includes("@")) return;
@@ -25,14 +25,14 @@ export default function Team() {
 
   return (
     <div className="space-y-5">
-      <h1 className="display text-[24px]">Team</h1>
+      <h1 className="display text-lg">Team</h1>
       <section className="panel overflow-hidden">
-        <header className="border-b px-4 py-2.5"><h2 className="text-[14px] font-semibold">Members</h2></header>
+        <header className="border-b px-4 py-2.5"><h2 className="text-sm font-semibold">Members</h2></header>
         {!data ? <div className="p-5"><Skeleton className="h-12" /></div> : (
           <div className="divide-y">
             {data.data.map(m => (
               <div key={m.user_id} className="flex items-center justify-between px-4 py-2.5">
-                <span className="text-[13px] font-medium">{m.email}</span>
+                <span className="text-sm font-medium">{m.email}</span>
                 <span className="rounded-sm border border-line-strong px-2 py-px text-2xs font-semibold uppercase text-muted">{m.role}</span>
               </div>
             ))}
@@ -40,11 +40,11 @@ export default function Team() {
         )}
         <div className="flex flex-wrap items-center gap-2 border-t px-4 py-2.5.5">
           <input value={email} onChange={e => setEmail(e.target.value)} placeholder="teammate@company.com"
-            className="flex-1 rounded-md border bg-panel px-3 py-1.5 text-[13px] outline-none focus:border-accent" />
-          <select value={role} onChange={e => setRole(e.target.value)} className="rounded-md border bg-panel px-2 py-1.5 text-[13px]">
+            className="flex-1 rounded-md border bg-panel px-3 py-1.5 text-sm outline-none focus:border-accent" />
+          <select value={role} onChange={e => setRole(e.target.value)} className="rounded-md border bg-panel px-2 py-1.5 text-sm">
             {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
           </select>
-          <button onClick={invite} className="rounded-md bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-accentFg hover:opacity-[0.88]">Set role</button>
+          <button onClick={invite} className="rounded-md bg-accent px-3.5 py-1.5 text-sm font-semibold text-accentFg hover:opacity-[0.88]">Set role</button>
         </div>
       </section>
     </div>

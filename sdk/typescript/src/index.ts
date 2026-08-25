@@ -2,7 +2,12 @@
  * OMEM TypeScript SDK. Ergonomic wrapper over the HTTP API.
  * Every method maps onto existing OMEM operations/queries. No new semantics.
  *
- *   import { Memory } from "@omem/sdk";
+ * NOT PUBLISHED TO npm. The package name below is reserved intent, not an
+ * install command: `npm i @omem/sdk` fails today. Use this from source, and see
+ * CONTRIBUTING.md — parity with the Python SDK is an open contribution, and
+ * `test_parity.mjs` runs against a live server to report what is missing.
+ *
+ *   import { Memory } from "@omem/sdk";   // once published
  *   const mem = new Memory({ apiKey: "omem_sk_...", project: "proj_..." });
  *   await mem.remember({ agent: "support", about: "customer:123",
  *                        claim: "prefers_annual_billing", because: ["ticket:8842"] });

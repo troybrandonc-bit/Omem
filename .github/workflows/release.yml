@@ -49,6 +49,19 @@ jobs:
             fi
             echo "tag v$TAG matches pyproject $PKG"
           fi
+      # `omem.__version__` is public API and drifted to 0.1.2 while the package
+      # shipped 0.2.1 — so anyone who checked the version they had installed got
+      # a number from two releases earlier. Nothing read it, which is exactly why
+      # nobody noticed. Now the tag, pyproject and the module all have to agree.
+      - name: The SDK __version__ must match pyproject
+        run: |
+          V="${{ steps.check.outputs.version }}"
+          MOD=$(grep -m1 '^__version__ = ' sdk/python/omem/__init__.py | cut -d'"' -f2)
+          if [ "$MOD" != "$V" ]; then
+            echo "::error::omem.__version__ is $MOD but pyproject says $V"; exit 1
+          fi
+          echo "omem.__version__ $MOD matches pyproject"
+
       - name: The changelog must have an entry for this version
         run: |
           V="${{ steps.check.outputs.version }}"

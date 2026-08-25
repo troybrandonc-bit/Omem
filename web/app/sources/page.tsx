@@ -5,7 +5,7 @@ import { api, type Connector } from "@/lib/api";
 import { useApp } from "@/components/providers";
 import { ProviderStatus } from "@/components/panels/provider-status";
 import { ClassificationPanel } from "@/components/panels/classification-panel";
-import { Skeleton } from "@/components/ui/primitives";
+import { Skeleton, ErrorState } from "@/components/ui/primitives";
 import { cn } from "@/lib/cn";
 import { Github, FileUp, Mail, RefreshCw, Play, Plug, AlertTriangle } from "lucide-react";
 
@@ -66,7 +66,7 @@ export default function Sources() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="display text-[24px]">Sources</h1>
+        <h1 className="display text-lg">Sources</h1>
         <div className="flex flex-wrap items-center gap-2">
           <Btn onClick={connectGithub} busy={busy === "github"} icon={<Github className="h-3.5 w-3.5" />}>Connect GitHub</Btn>
           <Btn onClick={uploadDoc} busy={busy === "doc"} icon={<FileUp className="h-3.5 w-3.5" />}>Upload document</Btn>
@@ -79,7 +79,7 @@ export default function Sources() {
                   act("bulk", () => api.bulkDeleteConnectors(project, { kind: "gmail" }));
                 }
               }}
-              className="rounded-md border px-3 py-1.5 text-[13px] font-medium text-muted hover:border-conflict hover:text-conflict">
+              className="rounded-md border px-3 py-1.5 text-sm font-medium text-muted hover:border-conflict hover:text-conflict">
               Remove all Gmail
             </button>
           )}
@@ -100,7 +100,7 @@ export default function Sources() {
         <section className="panel">
           <div className="empty m-5 flex flex-col items-center gap-2 py-8">
             <Plug className="h-5 w-5 text-faint" />
-            <div className="text-[13px] font-medium text-fg">Not connected</div>
+            <div className="text-sm font-medium text-fg">Not connected</div>
             <div className="text-2xs text-faint">No sources yet. Connect a repository to start building memory automatically.</div>
           </div>
         </section>
@@ -116,7 +116,7 @@ export default function Sources() {
 function Btn({ onClick, busy, icon, children }: { onClick: () => void; busy: boolean; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <button onClick={onClick} disabled={busy}
-      className="inline-flex items-center gap-2 rounded-md border bg-panel px-3 py-1.5 text-[13px] font-medium transition-colors hover:border-line-strong disabled:opacity-40">
+      className="inline-flex items-center gap-2 rounded-md border bg-panel px-3 py-1.5 text-sm font-medium transition-colors hover:border-line-strong disabled:opacity-40">
       {busy ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : icon}{children}
     </button>
   );
@@ -149,7 +149,7 @@ function SourceCard({ c, busy, act }: { c: Connector; busy: string | null; act: 
         <div className="flex items-center gap-2.5">
           {c.kind === "github" ? <Github className="h-4 w-4 text-muted" /> : <Plug className="h-4 w-4 text-muted" />}
           <div>
-            <div className="text-[14px] font-semibold">{c.name}</div>
+            <div className="text-sm font-semibold">{c.name}</div>
             <div className="mono text-2xs text-faint">{c.kind} / {c.agent_id}</div>
           </div>
         </div>
@@ -168,20 +168,20 @@ function SourceCard({ c, busy, act }: { c: Connector; busy: string | null; act: 
           )}
           <button onClick={() => act(c.id + "sync", async () => { await api.pollConnector(project, c.id); await api.processIngest(project); })}
             disabled={busy === c.id + "sync"}
-            className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-2xs font-semibold text-muted hover:border-line-strong disabled:opacity-40">
+            className="tap inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-2xs font-semibold text-muted hover:border-line-strong disabled:opacity-40">
             {busy === c.id + "sync" ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />} Sync now
           </button>
           <button onClick={() => act(c.id + "re", async () => { await api.resyncConnector(project, c.id); await api.pollConnector(project, c.id); await api.processIngest(project); })}
-            className="rounded-md border px-2.5 py-1 text-2xs font-semibold text-muted hover:border-line-strong">Re-sync all</button>
+            className="tap inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-2xs font-semibold text-muted hover:border-line-strong">Re-sync all</button>
           {(d?.jobs.dead_lettered ?? 0) > 0 && (
             <button onClick={() => act(c.id + "rd", async () => { await api.retryDeadLetters(project); await api.processIngest(project); })}
               disabled={busy === c.id + "rd"}
-              className="rounded-md border border-conflict/40 px-2.5 py-1 text-2xs font-semibold text-conflict hover:bg-conflictBg disabled:opacity-40">
+              className="tap inline-flex h-8 items-center gap-1.5 rounded-md border border-conflict/40 px-3 text-2xs font-semibold text-conflict hover:bg-conflictBg disabled:opacity-40">
               Retry {d?.jobs.dead_lettered} failed
             </button>
           )}
           <button onClick={() => act(c.id + "dc", () => api.disconnectConnector(project, c.id))}
-            className="rounded-md border px-2.5 py-1 text-2xs font-semibold text-muted hover:border-line-strong">Disconnect</button>
+            className="tap inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-2xs font-semibold text-muted hover:border-line-strong">Disconnect</button>
           <button
             onClick={() => {
               const ok = window.confirm(
@@ -190,7 +190,7 @@ function SourceCard({ c, busy, act }: { c: Connector; busy: string | null; act: 
               );
               if (ok) act(c.id + "rm", () => api.deleteConnector(project, c.id));
             }}
-            className="rounded-md border px-2.5 py-1 text-2xs font-semibold text-muted hover:border-conflict hover:text-conflict">Remove</button>
+            className="tap inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-2xs font-semibold text-muted hover:border-conflict hover:text-conflict">Remove</button>
         </div>
       </header>
 
@@ -231,7 +231,7 @@ function Cell({ label, value, small }: { label: string; value: number | string; 
   return (
     <div className="px-4 py-3">
       <div className="text-2xs text-faint">{label}</div>
-      <div className={cn("num mt-0.5", small ? "text-[13px]" : "text-xl")}>{value}</div>
+      <div className={cn("num mt-0.5", small ? "text-sm" : "text-xl")}>{value}</div>
     </div>
   );
 }
@@ -241,20 +241,36 @@ function Cell({ label, value, small }: { label: string; value: number | string; 
 // noise; excluding silently is worse. This makes the filter auditable.
 function FilteredPanel() {
   const { project } = useApp();
-  const { data } = useQuery({ queryKey: ["filtered", project], queryFn: () => api.filteredItems(project), refetchInterval: 10000 });
+  const { data, isError, refetch } = useQuery({
+    queryKey: ["filtered", project], queryFn: () => api.filteredItems(project),
+    refetchInterval: 10000, enabled: !!project });
   const [open, setOpen] = useState(false);
+  // This panel exists so that exclusion is auditable rather than silent. It used
+  // to `return null` whenever `data` was falsy, which folded "nothing was
+  // excluded" together with "we could not find out what was excluded" — and
+  // answered both by removing the panel from the page. That is the precise
+  // failure the panel was built to prevent, so a failed read now says so.
+  if (isError) {
+    return (
+      <section className="panel overflow-hidden p-4">
+        <ErrorState title="Could not read what was excluded"
+          body="The filter may still be excluding mail; this is a failed request, not an empty filter."
+          onRetry={() => refetch()} />
+      </section>
+    );
+  }
   if (!data || data.data.length === 0) return null;
   const shown = open ? data.data : data.data.slice(0, 5);
   return (
     <section className="panel overflow-hidden">
       <header className="flex items-center justify-between border-b px-4 py-2.5">
-        <h2 className="text-[14px] font-semibold">Excluded as non-business mail</h2>
+        <h2 className="text-sm font-semibold">Excluded as non-business mail</h2>
         <span className="num text-2xs text-muted">{data.data.length}</span>
       </header>
       <div className="divide-y">
         {shown.map((f, i) => (
           <div key={i} className="flex items-center justify-between gap-4 px-4 py-2">
-            <span className="truncate text-[13px]">{f.subject || f.external_id}</span>
+            <span className="truncate text-sm">{f.subject || f.external_id}</span>
             <span className="shrink-0 text-2xs text-muted">{f.reason}</span>
           </div>
         ))}

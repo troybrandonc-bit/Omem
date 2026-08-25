@@ -2,17 +2,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useApp } from "@/components/providers";
-import { Card, Skeleton, EmptyState } from "@/components/ui/primitives";
+import { Card, Skeleton, EmptyState, ErrorState } from "@/components/ui/primitives";
 import { Clock } from "lucide-react";
 
 export default function Timeline() {
   const { project, asOf } = useApp();
-  const { data, isLoading } = useQuery({ queryKey: ["timeline", project, asOf], queryFn: () => api.timeline(project, asOf ?? "now") });
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["timeline", project, asOf], queryFn: () => api.timeline(project, asOf ?? "now"), enabled: !!project });
   return (
     <div className="mx-auto max-w-4xl">
-      <h1 className="mb-1 display text-[21px]">Timeline</h1>
+      <h1 className="mb-1 display text-lg">Timeline</h1>
       {isLoading ? <Skeleton className="h-40" /> :
-        !data || data.events.length === 0 ? <EmptyState icon={Clock} title="No events yet" /> :
+        isError || !data ? <ErrorState title="Could not read the timeline" onRetry={() => refetch()} /> :
+        data.events.length === 0 ? <EmptyState icon={Clock} title="No events yet" /> :
         <div className="relative pl-6">
           <div className="absolute left-2 top-2 bottom-2 w-px bg-border" />
           {data.events.map(e => (

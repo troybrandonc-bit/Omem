@@ -21,18 +21,18 @@ export default function Usage() {
   return (
     <div className="space-y-5">
       <div className="flex items-baseline justify-between">
-        <h1 className="display text-[24px]">Usage</h1>
-        {billing && <span className="text-[13px] text-muted">Plan: <span className="font-semibold text-fg">{billing.plans[billing.plan]?.name ?? billing.plan}</span></span>}
+        <h1 className="display text-lg">Usage</h1>
+        {billing && <span className="text-sm text-muted">Plan: <span className="font-semibold text-fg">{billing.plans[billing.plan]?.name ?? billing.plan}</span></span>}
       </div>
 
       <section className="panel overflow-hidden">
-        <header className="border-b px-4 py-2.5"><h2 className="text-[14px] font-semibold">This project</h2></header>
+        <header className="border-b px-4 py-2.5"><h2 className="text-sm font-semibold">This project</h2></header>
         {!has ? <div className="empty m-5">No usage yet. Connect a source or send an assertion to start metering.</div> : (
           <div className="grid grid-cols-2 divide-x divide-y sm:grid-cols-3 lg:grid-cols-6 lg:divide-y-0">
             {METRICS.map(([k, label]) => (
               <div key={k} className="px-4 py-3">
                 <div className="text-2xs text-faint">{label}</div>
-                <div className="num mt-1 text-[20px] leading-none">{data.metrics[k] ?? 0}</div>
+                <div className="num mt-1 text-lg leading-none">{data.metrics[k] ?? 0}</div>
                 <Spark values={data.series[k] ?? []} />
               </div>
             ))}

@@ -1,7 +1,7 @@
 """The OMEM API, a thin HTTP layer over the authoritative OMEM engine.
 
 DESIGN RULE (enforced): this server invents NO memory semantics. Every memory
-operation delegates to exactly one method on omem_engine.Engine (the CTS-verified
+operation delegates to exactly one method on omem_engine.Engine (the frozen
 reference). The only things this layer adds are (a) multi-tenant store management
 (projects/environments each own an Engine instance) and (b) response *shaping* that
 assembles existing query results into UI-friendly objects. Where a UI needs a value,
@@ -34,6 +34,7 @@ from connectors import (OAuthStore, GmailConnector, MockGmailTransport, GmailTra
 from scheduler import Scheduler
 from enterprise import Enterprise, role_allows, ROLES, PLANS
 import providers
+from omem_engine import __version__ as ENGINE_VERSION
 from omem_engine.engine import Engine, ACCEPTED  # the authoritative engine
 from omem_engine.reasons import Rejected
 from omem_engine.primitives import Assertion
@@ -4386,7 +4387,13 @@ def main(port=8787):
             print(f"  env file: {_f}")
     else:
         print("  env file: none found (looked for server/.env.local, .env, repo .env*)")
-    print("  engine: authoritative reference, CTS 29/29")
+    # "CTS 29/29" was printed here on every boot. ENGINE_VALIDATION.md says
+    # plainly that the conformance suite those figures come from is not in this
+    # repository and that the number "should not be read as independent
+    # validation" — so the server was asserting, to every operator, a result
+    # nobody here can reproduce. What IS checkable is the engine's integrity:
+    # the digests in ENGINE_HASHES.txt, which the suites verify.
+    print(f"  engine: omem_engine {ENGINE_VERSION} (frozen, hash-checked)")
     validate_env()
     # Before anything is served: one writer per database. See store.WriterLock -
     # a second process would hold a second in-memory engine, and the two would

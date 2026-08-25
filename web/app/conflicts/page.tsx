@@ -3,24 +3,35 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { api, isGrounded } from "@/lib/api";
 import { useApp } from "@/components/providers";
-import { Skeleton, EmptyState } from "@/components/ui/primitives";
+import { Skeleton, EmptyState, ErrorState } from "@/components/ui/primitives";
 import { ShieldCheck } from "lucide-react";
 
 // Two incompatible beliefs, side by side. The layout is the argument:
 // claim A versus claim B, each carrying its own agent, time, and evidence.
 export default function Conflicts() {
   const { project, asOf } = useApp();
-  const { data, isLoading } = useQuery({ queryKey: ["conflicts", project, asOf], queryFn: () => api.conflicts(project, asOf ?? "now") });
+  // `enabled`: never ask about a project that is not known yet. Shell holds the
+  // app back until one is, so this is belt and braces — but it is the cheap kind,
+  // and an unguarded query here is what used to go out as `?project=` and 404.
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["conflicts", project, asOf],
+    queryFn: () => api.conflicts(project, asOf ?? "now"),
+    enabled: !!project,
+  });
 
   return (
     <div className="mx-auto max-w-4xl">
-      <h1 className="mb-1 display text-[21px]">Conflicts</h1>
-      <p className="mb-6 max-w-lg text-[13px] text-muted">
+      <h1 className="mb-1 display text-lg">Conflicts</h1>
+      <p className="mb-6 max-w-lg text-sm text-muted">
         Your AI holds incompatible beliefs about the same thing. OMEM records both sides and
         marks the proposition CONTRADICTED. It never silently picks a winner.
       </p>
       {isLoading ? <Skeleton className="h-40" /> :
-        !data || data.conflicts.length === 0 ?
+        isError || !data ?
+          <ErrorState title="Could not read conflicts"
+            body="This is a failed request, not a clean bill of health — there may or may not be contradictions."
+            onRetry={() => refetch()} /> :
+        data.conflicts.length === 0 ?
           <EmptyState icon={ShieldCheck} title="No conflicts" body="Every proposition has a consistent belief state at this point in time." /> :
           <div className="space-y-5">
             {data.conflicts.map((c, i) => (
@@ -33,7 +44,7 @@ export default function Conflicts() {
                   {c.pair.map((a, j) => (
                     <Link key={a.id} href={`/assertion?id=${encodeURIComponent(a.id)}`}
                       className={`group p-5 transition-colors hover:bg-panel ${j === 0 ? "border-b md:border-b-0 md:border-r" : ""}`}>
-                      <div className="text-[15px] leading-snug group-hover:text-accent">{a.label || a.proposition}</div>
+                      <div className="text-md leading-snug group-hover:text-accent">{a.label || a.proposition}</div>
                       <div className="mt-1 text-2xs text-muted">{a.proposition}</div>
                       <dl className="mt-4 space-y-1 text-2xs text-muted">
                         <div className="flex gap-2"><dt className="w-14">agent</dt><dd className="mono text-fg/80">{a.agent}</dd></div>

@@ -25,17 +25,17 @@ export default function Jobs() {
 
   return (
     <div className="space-y-5">
-      <h1 className="display text-[24px]">Jobs</h1>
+      <h1 className="display text-lg">Jobs</h1>
 
       <section className="panel overflow-hidden">
-        <header className="border-b px-4 py-2.5"><h2 className="text-[14px] font-semibold">Queue</h2></header>
+        <header className="border-b px-4 py-2.5"><h2 className="text-sm font-semibold">Queue</h2></header>
         {!stats ? <div className="p-5"><Skeleton className="h-12" /></div> : (
           <div className="grid grid-cols-3 divide-x divide-y sm:grid-cols-6 sm:divide-y-0">
             {[["Pending", stats.pending], ["Running", stats.running], ["Completed", stats.completed],
               ["Retrying", stats.retrying], ["Dead-letter", stats.dead], ["Cancelled", stats.cancelled]].map(([l, v]) => (
               <div key={l as string} className="px-4 py-3">
                 <div className="text-2xs text-faint">{l}</div>
-                <div className="num mt-1 text-[20px] leading-none">{v as number}</div>
+                <div className="num mt-1 text-lg leading-none">{v as number}</div>
               </div>
             ))}
           </div>
@@ -43,7 +43,7 @@ export default function Jobs() {
       </section>
 
       <section className="panel overflow-hidden">
-        <header className="border-b px-4 py-2.5"><h2 className="text-[14px] font-semibold">Recent jobs</h2></header>
+        <header className="border-b px-4 py-2.5"><h2 className="text-sm font-semibold">Recent jobs</h2></header>
         {!jobs ? <div className="p-5"><Skeleton className="h-32" /></div> : jobs.data.length === 0 ? (
           <div className="empty m-5">No jobs yet. Connect a source and sync to enqueue work.</div>
         ) : (

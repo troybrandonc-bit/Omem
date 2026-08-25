@@ -58,13 +58,13 @@ export function ProviderStatus() {
     <section className="panel overflow-hidden">
       <header className="flex items-center justify-between border-b px-4 py-2.5">
         <div className="flex items-center gap-2.5">
-          <h2 className="text-[15px] font-semibold">Provider connectivity</h2>
+          <h2 className="text-md font-semibold">Provider connectivity</h2>
           <span className={healthy ? "text-2xs text-believed" : "text-2xs text-conflict"}>
             {summary}
           </span>
         </div>
         <button onClick={() => refetch()} disabled={isFetching}
-          className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-2xs font-semibold text-muted hover:border-line-strong disabled:opacity-40">
+          className="tap inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-2xs font-semibold text-muted hover:border-line-strong disabled:opacity-40">
           {isFetching ? <RefreshCw className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Re-check
         </button>
       </header>
@@ -74,7 +74,7 @@ export function ProviderStatus() {
           return (
             <div key={r.label} className="flex items-start justify-between gap-4 px-4 py-2">
               <div className="min-w-0">
-                <div className="mono text-[13px]">{r.label}</div>
+                <div className="mono text-sm">{r.label}</div>
                 {(r.dns?.error || r.note) && (
                   <div className={"mt-0.5 text-2xs " + (r.dns?.error ? "text-conflict" : "text-muted")}>
                     {r.dns?.error ?? r.note}
