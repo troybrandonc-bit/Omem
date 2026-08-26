@@ -1,0 +1,25 @@
+{
+  // The SDK is one file with no relative imports, so NodeNext costs nothing
+  // here and keeps the emitted package honest for plain-JS consumers: real
+  // ESM, real .d.ts, no bundler assumed on the far side.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    // fetch, setTimeout and process all come from here. Node 18 is the floor
+    // because that is where global fetch stopped being a flag.
+    "types": ["node"],
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}

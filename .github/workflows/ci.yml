@@ -199,6 +199,34 @@ jobs:
           curl -sf http://127.0.0.1:8788/v1/health >/dev/null || { echo "::error::static serving broke the API"; exit 1; }
           echo "dashboard served, API intact"
 
+  sdk-typescript:
+    name: sdk / typescript
+    runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: sdk/typescript }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: "20", cache: npm, cache-dependency-path: sdk/typescript/package-lock.json }
+      # test_parity.mjs starts the REAL server and drives the built SDK against
+      # it, so this job needs a Python as well as a Node.
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      - run: npm ci
+      # Typecheck and emit are separate steps so a type error and a build error
+      # are distinguishable in the log.
+      - run: npx tsc --noEmit
+      - run: npm run build
+      - name: The build must actually produce the entrypoint
+        # package.json main points at dist/index.js. Until there was a build
+        # step it pointed at src/index.ts, and test_parity.mjs imported a
+        # dist/ that no command created - so the one contribution README calls
+        # "the most useful available right now" died on ERR_MODULE_NOT_FOUND
+        # for anyone who tried it. Assert the file exists rather than assume.
+        run: test -f dist/index.js && test -f dist/index.d.ts
+      - name: Parity against a live server
+        run: node test_parity.mjs
+
   dashboard:
     name: dashboard / web
     runs-on: ubuntu-latest
