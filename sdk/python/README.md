@@ -1,3 +1,5 @@
+<!-- mcp-name: io.github.troybrandonc-bit/omem -->
+
 # OMEM: trustworthy memory for AI agents
 
 OMEM is a memory layer for AI agents that tracks beliefs over time and handles
