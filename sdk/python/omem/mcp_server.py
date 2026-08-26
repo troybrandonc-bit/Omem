@@ -8,10 +8,21 @@ Exposes exactly three tools (no dangerous primitives):
     omem_observe  raw interaction in -> what became memory (engine-decided)
     omem_why      full provenance/state explanation for one memory
 
-The AGENT IDENTITY IS FIXED AT PROCESS LEVEL (OMEM_AGENT): tool arguments
-cannot name a different viewer, so a model speaking MCP cannot spoof its way
-into another agent's private memory. Scope rules are enforced server-side on
-every call; this process holds no memory state of its own.
+IDENTITY IS FIXED AT PROCESS LEVEL, on BOTH axes that scope memory:
+
+    OMEM_AGENT  the agent whose memory this is  (agent: scope)
+    OMEM_USER   the end user being acted for    (user: scope, optional)
+
+Tool arguments cannot name either, so a model speaking MCP cannot spoof its way
+into another agent's or another user's private memory. Scope rules are enforced
+server-side on every call; this process holds no memory state of its own.
+
+OMEM_USER used to be a tool ARGUMENT named `user`, described in the schema as
+"unlocks user-scoped memory" -- which it did, for whatever value the model
+chose. The agent axis was pinned and the user axis was handed to the untrusted
+party, in a design whose whole point is that the model does not get to say who
+it is. Leave OMEM_USER unset and no user-scoped memory is visible at all, which
+is the right default for a process that has not been told who it is acting for.
 
 Protocol subset implemented: initialize, notifications/initialized (ignored),
 tools/list, tools/call, ping. Unknown methods answer with JSON-RPC
@@ -38,7 +49,6 @@ TOOLS = [
             "properties": {
                 "context": {"type": "string", "description": "The current conversation/situation"},
                 "task": {"type": "string", "description": "What the agent is trying to do"},
-                "user": {"type": "string", "description": "Acting end-user entity id (unlocks user-scoped memory)"},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 25},
             },
         },
@@ -71,16 +81,18 @@ TOOLS = [
 
 
 class McpServer:
-    def __init__(self, memory: Memory, agent_id: str):
+    def __init__(self, memory: Memory, agent_id: str, acting_user: str | None = None):
         self.memory = memory
         self.agent_id = agent_id if agent_id.startswith("agent:") else f"agent:{agent_id}"
+        # None means "no user-scoped memory", not "any user".
+        self.acting_user = acting_user or None
 
     # ── tool implementations (thin; all decisions are server-side) ──
     def _recall(self, a: dict) -> dict:
         return self.memory.recall(agent=self.agent_id,
                                   context=str(a.get("context") or ""),
                                   task=str(a.get("task") or ""),
-                                  user=a.get("user"),
+                                  user=self.acting_user,
                                   limit=int(a.get("limit") or 8))
 
     def _observe(self, a: dict) -> dict:
@@ -163,7 +175,8 @@ def main():
     mem = Memory(key,
                  base_url=os.environ.get("OMEM_BASE_URL", "http://127.0.0.1:8787"),
                  project=os.environ.get("OMEM_PROJECT"))
-    McpServer(mem, os.environ.get("OMEM_AGENT", "mcp-agent")).serve_stdio()
+    McpServer(mem, os.environ.get("OMEM_AGENT", "mcp-agent"),
+              os.environ.get("OMEM_USER")).serve_stdio()
 
 
 if __name__ == "__main__":

@@ -50,6 +50,35 @@ route in the family 0.2.3, 0.2.4 and 0.2.5 worked through.
   from 0.2.3 to 0.2.5:** a single project, no cross-tenant access, no data
   disclosure.
 
+- **Over MCP, the model could name the end user whose memory it read.** The MCP
+  server pins the agent identity to the process (`OMEM_AGENT`) precisely so a
+  model cannot ask for another agent's private memory. But `user` — the other
+  axis that scopes memory — was a tool *argument*, advertised in the tool schema
+  as "unlocks user-scoped memory". It did exactly that, for whatever value the
+  model put there, so a model could read memories scoped `user:<anyone>` by
+  naming them.
+
+  The end user is now pinned to the process too, via `OMEM_USER`, and the
+  argument is gone from the schema. Leave `OMEM_USER` unset and no user-scoped
+  memory is visible at all, which is the right default for a process that has
+  not been told who it is acting for.
+
+  This only ever affected `omem-mcp`. The HTTP API is unchanged: there the
+  caller is your own application, which is trusted to say which end user it is
+  acting for. The whole point of the MCP surface is that the model is not.
+
+  **If you run `omem-mcp` and use `user:` scopes**, set `OMEM_USER` in your MCP
+  client config — see the README — and treat user-scoped memory as having been
+  readable by the model before this release.
+
+- **The wheel shipped a developer's test cache.** 0.2.2 through 0.2.5 included
+  48 `.hypothesis` files — a fifth of the archive, every byte of it one
+  machine's local property-testing cache — plus `run_tests.py`, which the build
+  hook already intended to exclude and missed because it tested for names
+  starting with `tests`. `run_tests` mattered slightly more than dead weight:
+  `omem-server` puts the bundled server directory first on `sys.path`, so it
+  became an importable top-level module in the process. Neither ships now.
+
 - **A memory-sharing grant did not record who granted it.** When a caller set
   `scope` on `POST /v1/assertions`, the assertion was attributed to the
   identity resolved from the key, but the grant beside it recorded the raw
