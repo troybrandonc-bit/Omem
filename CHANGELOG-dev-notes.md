@@ -699,6 +699,31 @@ unchanged at 1498 checks, 0 failed.
 CI still runs Linux only, so this class of defect -- anything where a path, a
 line ending or a temp directory behaves differently -- remains uncovered there.
 
+## The release publishes to the MCP Registry (this cycle)
+
+Listing the server was manual, and `server.json` pins the version twice: once
+for the server, once for the package. Ship a release without updating both and
+re-running `mcp-publisher publish`, and the registry keeps advertising the old
+version to every MCP client, silently and indefinitely, because nothing
+anywhere fails.
+
+`release.yml` now checks both pins against pyproject in the `verify` job, and
+checks that `sdk/python/README.md` still carries the `mcp-name:` line matching
+the server name. That readme is the one the registry reads for ownership
+verification, because pyproject points `readme` at it; the repository root
+readme is not consulted and putting the line there instead fails at publish
+time with nothing visible in the diff.
+
+A `registry` job then publishes on tag via GitHub OIDC, so there is no
+long-lived token in repository secrets, matching the PyPI trusted-publishing
+setup. It runs AFTER the PyPI job rather than beside it: the registry verifies
+ownership by fetching the package description from PyPI, so a registry publish
+that beats PyPI fails with "Package validation failed", which reads like a
+broken server.json and is not one. It also waits for the version to appear on
+PyPI first, because the JSON API and the file index do not update together --
+observed about a minute apart on 0.2.6, where the JSON API served the new
+version while `pip install` of it still 404'd.
+
 ## Run
 
 ```bash

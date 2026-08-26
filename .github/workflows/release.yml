@@ -62,6 +62,30 @@ jobs:
           fi
           echo "omem.__version__ $MOD matches pyproject"
 
+      # server.json pins the version TWICE, and the registry keeps serving the
+      # last version it was told about. Ship 0.2.8 without re-publishing and the
+      # registry still advertises 0.2.7 to every MCP client, silently and
+      # indefinitely, because nothing anywhere fails.
+      - name: server.json must agree with the package
+        run: |
+          V="${{ steps.check.outputs.version }}"
+          S=$(jq -r '.version' server.json)
+          P=$(jq -r '.packages[0].version' server.json)
+          if [ "$S" != "$V" ] || [ "$P" != "$V" ]; then
+            echo "::error::server.json has version=$S and package version=$P, but pyproject says $V"
+            exit 1
+          fi
+          # Ownership verification reads the PACKAGED readme, the one that
+          # becomes the PyPI description. pyproject points `readme` at
+          # sdk/python/README.md, NOT the repository root readme, and getting
+          # that wrong fails at publish time with nothing visible in the diff.
+          N=$(jq -r '.name' server.json)
+          if ! grep -qF "mcp-name: $N" sdk/python/README.md; then
+            echo "::error::sdk/python/README.md has no 'mcp-name: $N' line, so the registry cannot verify ownership"
+            exit 1
+          fi
+          echo "server.json agrees with pyproject at $V, and the ownership line is present"
+
       - name: The changelog must have an entry for this version
         run: |
           V="${{ steps.check.outputs.version }}"
@@ -186,3 +210,45 @@ jobs:
           else
             gh release create "v$V" dist/* --title "v$V" --notes-file notes.md
           fi
+
+  # Must run after PyPI, not alongside it. The registry verifies ownership by
+  # fetching the package description from PyPI and matching the mcp-name line,
+  # so a registry publish that beats PyPI fails with "Package validation
+  # failed" -- which reads like a broken server.json and is not one.
+  registry:
+    name: publish to the MCP Registry
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write        # OIDC. No token in secrets, same reasoning as PyPI.
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Wait for the release to be visible on PyPI
+        # PyPI's JSON API and its file index do not update together. Observed
+        # roughly a minute apart on the 0.2.6 release: the JSON API served the
+        # new version while `pip install` of it still 404'd.
+        run: |
+          V="${GITHUB_REF#refs/tags/v}"
+          for i in $(seq 1 30); do
+            if curl -sf "https://pypi.org/pypi/omem-infrastructure/$V/json" >/dev/null; then
+              echo "omem-infrastructure $V is live on PyPI"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$V never appeared on PyPI after 5 minutes"; exit 1
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Validate server.json
+        run: ./mcp-publisher validate
+
+      - name: Authenticate with OIDC
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish
+        run: ./mcp-publisher publish
