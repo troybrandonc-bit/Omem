@@ -3,10 +3,27 @@
   "version": "0.1.0",
   "description": "OMEM SDK: trustworthy memory for AI agents",
   "type": "module",
-  "//": "private until there is a build step. `main` points at raw TypeScript, so publishing this today would ship a package that breaks on import for every plain-JS consumer, under a name that is then taken. Remove `private` in the same change that adds a build.",
-  "private": true,
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "//": "`main` points at built ESM in dist/, produced by `npm run build`. It pointed at src/index.ts until there was a build step, which is why this package was marked private: publishing it would have shipped raw TypeScript that breaks on import for every plain-JS consumer, under a name then taken. The build exists now, so the guard is gone. The version stays behind sdk/python on purpose - this SDK does not yet cover the whole Python surface, and `npm test` reports what is missing.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node test_parity.mjs",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.6.0"
+  },
   "license": "MIT",
   "homepage": "https://infrastructure.omem-cloud.com",
   "repository": { "type": "git", "url": "git+https://github.com/troybrandonc-bit/Omem.git", "directory": "sdk/typescript" },

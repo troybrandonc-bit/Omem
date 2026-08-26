@@ -276,26 +276,58 @@ check("self-coreference is a partition no-op (co still singleton-or-in-its-class
 # ═══════════════════════════════════════════════════════════════════════════
 print("== 8. SCALE CHARACTERISTICS (measured, not claimed) ==")
 import time as _t
-def bench_conflicts(n):
+
+
+def _build_conflicts(n):
     e = new_engine(); e.put_agent("ag", "human")
     e.declare_contradiction("P", "Q")
     for i in range(n):
         e.put_entity(f"e{i}", "org")
         e.assert_(f"a{i}", "ag", [f"e{i}"], "P" if i % 2 else "Q", i + 1)
-    t0 = _t.perf_counter(); e.conflicts(n + 10); return _t.perf_counter() - t0
-def bench_state(n):
+    return e
+
+
+def _build_state(n):
     e = new_engine(); e.put_agent("ag", "human")
     for i in range(n):
         e.put_entity(f"e{i}", "org")
         e.assert_(f"a{i}", "ag", [f"e{i}"], "P", i + 1)
-    t0 = _t.perf_counter()
-    for _ in range(20):
-        e.proposition_state(["e0"], "P", n + 10)
-    return (_t.perf_counter() - t0) / 20
-c100, c200, c400 = bench_conflicts(100), bench_conflicts(200), bench_conflicts(400)
-print(f"  conflicts(): n=100 {c100*1000:.0f}ms  n=200 {c200*1000:.0f}ms  n=400 {c400*1000:.0f}ms")
-ratio = (c400 / c200) if c200 else 0
-print(f"  conflicts() growth 200->400 ratio = {ratio:.1f}x (linear~2x, quadratic~4x)")
+    return e
+
+
+def _fastest(call, repeats):
+    """The FASTEST of `repeats` runs. Not one run, and not the mean.
+
+    A single timed call is what made this section flaky. At the sizes it used
+    to measure the work took 1-2ms, so one OS scheduler slice or GC pause
+    landing inside the measurement moved the number further than any real
+    change to the algorithm would. The ratio came out over the bound and failed
+    a suite that had found nothing wrong: observed at ratio=3.4 against a limit
+    of 3, on roughly one run in twelve, which is often enough to red a release
+    build at random.
+
+    The minimum is the right statistic here. Interference can only ever make a
+    run slower, never faster, so the fastest run is the one with the least of
+    it in the sample and is the closest estimate of the work itself. A mean
+    averages the noise in instead of filtering it out. The sizes below are also
+    larger than they were, so each measurement covers more work and the noise
+    is a smaller fraction of it. Both changes push the same way: the number
+    moves when the algorithm does, and not otherwise.
+    """
+    best = float("inf")
+    for _ in range(repeats):
+        t0 = _t.perf_counter(); call(); dt = _t.perf_counter() - t0
+        if dt < best:
+            best = dt
+    return best
+
+
+_ec400, _ec800 = _build_conflicts(400), _build_conflicts(800)
+c400 = _fastest(lambda: _ec400.conflicts(410), 9)
+c800 = _fastest(lambda: _ec800.conflicts(810), 9)
+print(f"  conflicts(): n=400 {c400*1000:.1f}ms  n=800 {c800*1000:.1f}ms  (fastest of 9)")
+ratio = (c800 / c400) if c400 else 0
+print(f"  conflicts() growth 400->800 ratio = {ratio:.1f}x (linear~2x, quadratic~4x)")
 # This check used to assert the OPPOSITE: that doubling the input more than
 # tripled the time, confirming the near-cubic growth as a known scale risk. It
 # was an honest characterisation of a real defect, and it failed the moment the
@@ -305,18 +337,22 @@ print(f"  conflicts() growth 200->400 ratio = {ratio:.1f}x (linear~2x, quadratic
 # cost of conflicts() must stay close to the cost of the data. Doubling the
 # assertions may not much more than double the work.
 #
-# The bound is 3x rather than 2x because this benchmark gives every assertion its
-# own entity, so every open assertion lands in its own referent bucket and the
-# measurement is dominated by per-assertion overhead and timer noise at these
-# small sizes. A regression to the old behaviour would be ~4x and upwards.
+# The bound is 3x rather than 2x because this benchmark gives every assertion
+# its own entity, so every open assertion lands in its own referent bucket and
+# some of the measurement is per-assertion overhead rather than the pairing
+# itself. A regression to the old behaviour would be ~4x and upwards, which is
+# clear of the bound even with the headroom.
 check("conflicts() growth stays near-linear (ratio<=3)", ratio <= 3,
       f"ratio={ratio:.1f}. Above 3 means the per-pair partition recomputation is back")
-s100, s400 = bench_state(100), bench_state(400)
-print(f"  proposition_state single-query: n=100 {s100*1000:.1f}ms  n=400 {s400*1000:.1f}ms")
+_es200, _es800 = _build_state(200), _build_state(800)
+s200 = _fastest(lambda: _es200.proposition_state(["e0"], "P", 210), 200)
+s800 = _fastest(lambda: _es800.proposition_state(["e0"], "P", 810), 200)
+print(f"  proposition_state single-query: n=200 {s200*1000:.2f}ms  n=800 {s800*1000:.2f}ms")
 # Same reasoning for a single belief query, which was 2.2 in the log-log fit
-# recorded in ENGINE_VALIDATION.md and is linear now.
-_sratio = (s400 / s100) if s100 else 0
-print(f"  proposition_state growth 100->400 ratio = {_sratio:.1f}x (linear~4x, quadratic~16x)")
+# recorded in ENGINE_VALIDATION.md and is linear now. The sizes are 4x apart,
+# so linear is ~4x and the old quadratic behaviour would be ~16x.
+_sratio = (s800 / s200) if s200 else 0
+print(f"  proposition_state growth 200->800 ratio = {_sratio:.1f}x (linear~4x, quadratic~16x)")
 check("proposition_state growth stays near-linear (ratio<=8)", _sratio <= 8,
       f"ratio={_sratio:.1f}. Above 8 means the per-subject partition recomputation is back")
 
