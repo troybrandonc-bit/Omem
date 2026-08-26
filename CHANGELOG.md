@@ -3,6 +3,31 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## Unreleased
+
+### Added
+
+- **`OMEM_REQUIRE_GROUNDED=1` refuses a claim with nothing behind it.** OMEM has
+  always recorded whether a belief is grounded, meaning its provenance reaches a
+  real event, and left you to filter on the verdict. This makes it a write
+  gate instead: an assertion that cites no evidence, or cites evidence that
+  does not reach an event, is refused with `422 R_UNGROUNDED` and nothing is
+  written.
+
+  Evidence counts if it is a recorded event, or an assertion that is itself
+  grounded, so reasoning that bottoms out in something observed is admitted and
+  reasoning that bottoms out in nothing is not.
+
+  Suggested by a reader, whose argument was better than the one we shipped
+  with: "the consumer can filter" holds only until someone forgets to filter,
+  while "it never got in" holds always. The ingestion path has had exactly this
+  gate from the beginning, where every candidate is graded before the engine
+  sees it and `DO_NOT_STORE` and `LOW` never become assertions. The direct API
+  path did not, and now can.
+
+  Off by default and scoped to direct writes. Supersede and retract replace a
+  claim that already passed admission and inherit its provenance.
+
 ## 0.2.7 - 26 Aug 2026
 
 ### Added
