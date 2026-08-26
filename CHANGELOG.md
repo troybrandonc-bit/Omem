@@ -3,6 +3,43 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.2.5 - 26 Aug 2026
+
+**Security fix. Upgrade if you use agent-bound API keys — this one makes 0.2.3
+and 0.2.4 actually effective.**
+
+### Fixed
+
+- **An agent-bound key could mint its way out of the binding.** 0.2.3 and 0.2.4
+  stopped a bound key writing under another agent's name on every route that
+  records memory. `POST /v1/keys` was not one of those routes, and it issued
+  credentials: a key bound to `agent:bob` could request a key with **no**
+  `agent_id` and role `owner`, receive it, and then speak as any agent at all.
+
+  The boundary was enforced everywhere except at the door where you collect a
+  new one, which meant the previous two fixes could be stepped around in a
+  single request.
+
+  Three things changed:
+
+  - A bound key may only create keys bound to the **same** agent.
+  - No key may create a key with a **higher role** than its own.
+  - `POST /v1/keys` and `POST /v1/keys/{id}/revoke` now check `key.create` /
+    `key.revoke` at all. They previously checked no permission, so a `viewer`
+    key — the read-only role — could mint itself a writable one.
+
+  `key.create` remains available to `developer` and above, which is unchanged
+  and deliberate. Unbound keys, sessions, and normal key management are
+  unaffected: an admin key still issues keys as before, and a bound key may
+  still issue keys for itself.
+
+  **Scope is unchanged:** a single project, no cross-tenant access, no data
+  disclosure.
+
+  Anyone who issued agent-bound keys before 0.2.5 should review the keys on
+  their projects (`GET /v1/keys?project=...`) for credentials they did not
+  create, and revoke anything unexpected.
+
 ## 0.2.4 - 26 Aug 2026
 
 **Security fix, and it completes 0.2.3.** Upgrade if you use agent-bound API

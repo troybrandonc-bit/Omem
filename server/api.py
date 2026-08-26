@@ -2885,14 +2885,46 @@ class Handler(BaseHTTPRequestHandler):
             p = self._proj(qs)
             if p is None:
                 return self._err(404, "not_found", "project not found")
+            # This route asked for no permission at all, so a `viewer` key —
+            # the read-only role — could mint keys. key.create is deliberately
+            # available to `developer` and above (see _require), so this check
+            # is not what stops the escalation below; it is what stops a
+            # read-only credential becoming a writable one.
+            if not self._require(auth, "key.create", self._org_of_project(pid), pid):
+                return self._err(403, "permission", "requires key.create")
+
             bind_agent = body.get("agent_id")
             if bind_agent is not None:
                 bind_agent = str(bind_agent)
                 if not bind_agent.startswith("agent:") or len(bind_agent) > 80:
                     return self._err(422, "invalid_request",
                                      "agent_id must be an 'agent:<id>' identifier", param="agent_id")
+
+            # These two are what actually close the escalation, and without them
+            # everything 0.2.3 and 0.2.4 did to agent binding was decorative: a
+            # key bound to agent:bob could POST /v1/keys asking for an UNBOUND
+            # key with role owner, receive one, and then speak as any agent it
+            # liked. Binding was enforced on the routes that write memory and
+            # not on the route that hands out credentials, so the boundary held
+            # everywhere except at the door where you get a new one.
+            #
+            # So: a bound key mints only keys bound to the same agent, and no
+            # key mints one that outranks it.
+            _caller_bound = _key_bound_agent(auth)
+            if _caller_bound is not None and bind_agent != _caller_bound:
+                return self._err(403, "permission",
+                                 "An agent-bound key may only create keys bound to the same agent.")
+            # ROLES is ordered most- to least-powerful, so a smaller index is
+            # more authority. A key may not mint one that outranks it.
+            _role = str(body.get("role", "developer")).lower()
+            if "key" in auth:
+                _caller_role = (auth["key"].get("role") or "developer").lower()
+                if (_role in ROLES and _caller_role in ROLES
+                        and ROLES.index(_role) < ROLES.index(_caller_role)):
+                    return self._err(403, "permission",
+                                     "A key cannot create a key with a higher role than its own.")
             key = STORE.create_key(pid, body.get("name") or "API key",
-                                   body.get("role", "developer"), agent_id=bind_agent)
+                                   _role, agent_id=bind_agent)
             ENT.audit("key.created", actor=auth.get("user", {}).get("id"),
                       org_id=self._org_of_project(pid), project_id=pid,
                       resource=key["prefix"],
@@ -2905,6 +2937,10 @@ class Handler(BaseHTTPRequestHandler):
 
         if len(parts) == 4 and parts[:2] == ["v1", "keys"] and parts[3] == "revoke":
             pid = qs.get("project", [None])[0]
+            # Revoking is privileged for the same reason creating is: a key that
+            # can revoke can disable the keys that would have caught it.
+            if not self._require(auth, "key.revoke", self._org_of_project(pid), pid):
+                return self._err(403, "permission", "requires key.revoke")
             ok = STORE.revoke_key(parts[2], pid)
             if ok:
                 ENT.audit("key.revoked", actor=auth.get("user", {}).get("id"),
