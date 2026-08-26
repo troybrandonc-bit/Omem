@@ -668,6 +668,37 @@ it. `_send` learned to emit `Allow` when a handler sets `self._allow`. Full
 suite: 50 passed, 2 partial, 2 skipped, 0 failed, 1482 checks. Frozen engine
 hashes unchanged.
 
+## First run against PostgreSQL 18, on Windows (this cycle)
+
+The two PostgreSQL suites skip without a live server, and CI supplies
+postgres:16 on Linux, so nothing had ever run them on PostgreSQL 18 or on
+Windows. Doing both at once found one real defect immediately.
+
+`Store.__init__` called `os.makedirs(os.path.dirname(path))` unconditionally,
+then picked its backend afterwards. Under `OMEM_DATABASE_URL` the path is never
+opened, so the directory was created for a file that would not exist. Invisible
+while every caller passed a real path. `tests_healing_pg.py` passes the DATABASE
+URL as `path` -- reasonable, given the path is unused under PostgreSQL -- and
+that turned the latent wrongness into two different bugs:
+
+  POSIX    dirname("postgres://u:p@host:5432/db") -> "postgres://u:p@host:5432"
+           created as a directory tree, silently, on every CI postgres run
+  Windows  the colon is not legal in a path: OSError [WinError 123], fatal
+
+So the suite had never once executed on Windows, and on Linux it passed while
+littering the runner. The fix chooses the backend first and touches the
+filesystem only for SQLite.
+
+Results on PostgreSQL 18.4 after the fix: 52 passed, 1 partial, 1 skipped, 0
+failed, 1499 checks. `tests_pg_live.py` contributes 32 checks and
+`tests_healing_pg.py` 4, including a DB-enforced single writer across 10
+concurrent connections and cross-tenant isolation. The one skip is
+`tests_p9_dr.py`, which inspects SQLite internals and says so. SQLite is
+unchanged at 1498 checks, 0 failed.
+
+CI still runs Linux only, so this class of defect -- anything where a path, a
+line ending or a temp directory behaves differently -- remains uncovered there.
+
 ## Run
 
 ```bash
