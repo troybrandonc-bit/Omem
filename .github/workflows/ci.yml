@@ -227,6 +227,30 @@ jobs:
       - name: Parity against a live server
         run: node test_parity.mjs
 
+  integrations:
+    name: server / framework integrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      # Without langgraph the adapter suite skips honestly and verifies
+      # nothing, which is the failure mode this repository's test runner exists
+      # to make visible. Installing it here is what turns the adapter from
+      # "there is a file" into "it satisfies the interface LangGraph calls".
+      - run: pip install langgraph
+      - name: The LangGraph store adapter, against a real server
+        working-directory: server
+        run: python tests_langgraph_store.py
+      - name: It must not have skipped
+        working-directory: server
+        run: |
+          out=$(python tests_langgraph_store.py)
+          if echo "$out" | grep -qE '^[[:space:]]*SKIP:'; then
+            echo "::error::the adapter suite skipped in the job that installs langgraph"; exit 1
+          fi
+          echo "$out" | tail -1
+
   dashboard:
     name: dashboard / web
     runs-on: ubuntu-latest
