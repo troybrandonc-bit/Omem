@@ -265,6 +265,39 @@ callers should not break on upgrade.
   available right now.
 - `web/` is the dashboard.
 
+## Use it from LangChain
+
+OMEM implements LangGraph's `BaseStore`, which is how LangChain agents hold
+long-term memory:
+
+```bash
+pip install "omem-infrastructure[langgraph]"
+```
+
+```python
+from omem import Memory
+from omem.integrations.langgraph_store import OmemStore
+
+store = OmemStore(Memory(api_key="omem_sk_...", project="proj_..."))
+store.put(("memories", "alice"), "pref", {"text": "prefers annual billing"})
+store.get(("memories", "alice"), "pref").value
+# -> {"text": "prefers annual billing"}
+```
+
+Pass it to `create_react_agent(..., store=store)` or any LangGraph graph, the
+same as `InMemoryStore`.
+
+The difference from the built-in stores is what happens on the second write.
+They overwrite, and `delete` erases. Here a `put` over an existing key
+**supersedes**: the previous value stays on the record with the moment it
+stopped being believed, and `delete` **retracts** rather than destroys. Every
+write is attributed, so `mem.why(assertion_id)` answers where a memory came
+from. That costs a network round trip per operation, which is the trade.
+
+Vector search on the store is not implemented yet. `search()` filters by
+namespace and by field; passing `query=` raises rather than quietly returning a
+substring match dressed as semantic search.
+
 ## Use it from an MCP client
 
 Installing the package gives you an `omem-mcp` command that speaks MCP over
