@@ -23,7 +23,20 @@ updates:
     # So the update is really a framework migration wearing a bump's clothes,
     # and left unignored it reopens as an unmergeable pull request every week.
     # Remove these two entries as part of moving to Next 15.
+    #
+    # The same trap, found the same way: Cloudflare builds non-production
+    # branches, so dependabot's eslint PR built and died on
+    # "peer eslint@^7.23.0 || ^8.0.0 from eslint-config-next@14.2.5". Anything
+    # pinned by Next 14 has to move WITH Next 14, and moving Next is a
+    # framework migration rather than a bump. Remove all of these together as
+    # part of going to Next 15, not one at a time.
     ignore:
+      - dependency-name: next
+        update-types: [version-update:semver-major]
+      - dependency-name: eslint
+        update-types: [version-update:semver-major]
+      - dependency-name: eslint-config-next
+        update-types: [version-update:semver-major]
       - dependency-name: react
         update-types: [version-update:semver-major]
       - dependency-name: react-dom
