@@ -87,6 +87,23 @@ print("== nothing was written by any of those ==")
 st, lst = call("GET", f"/v1/assertions?project={PID}", None, KEY)
 check("the record is still empty", len(lst.get("data", [])) == 0, str(lst)[:160])
 
+print("== every refusal is recorded, not just refused ==")
+# A refusal that leaves no trace is its own kind of silence. These land in the
+# same fact_decisions table the ingestion gate writes to, so one query answers
+# "what did this project decline to store, and why" across both paths.
+st, fd = call("GET", f"/v1/fact-decisions?project={PID}", None, KEY)
+rows = fd.get("data", fd) if isinstance(fd, dict) else fd
+rows = [r for r in rows] if isinstance(rows, list) else []
+denied = [r for r in rows if r.get("category") == "direct_write"]
+check("the denials were logged", len(denied) >= 3, f"{len(denied)} rows: {str(rows)[:200]}")
+check("logged as not stored", all(int(r.get("stored", 1)) == 0 for r in denied), str(denied)[:200])
+check("with the proposition that was refused",
+      any(r.get("proposition") == "prefers_annual" for r in denied), str(denied)[:200])
+check("and a reason a human can read",
+      any("because" in json.dumps(r.get("reasons") or "") for r in denied), str(denied)[:200])
+check("and the candidate itself, so a repeat offender is visible",
+      any("agent:a" in json.dumps(r.get("evidence") or "") for r in denied), str(denied)[:200])
+
 print("== citing a real event is admitted ==")
 st, ev = call("POST", f"/v1/events?project={PID}",
               {"id": "evt_call", "kind": "observation", "event_time": 1}, KEY)

@@ -23,6 +23,14 @@ Release notes for people using OMEM. Engineering history lives in
   field; `query=` raises rather than returning a substring match dressed as
   semantic search.
 
+- **A refused write is now recorded, not just refused.** When
+  `OMEM_REQUIRE_GROUNDED` denies a direct write, the denial lands in the same
+  `fact_decisions` table the ingestion quality gate has always written to, so
+  `GET /v1/fact-decisions` answers "what did this project decline to store, and
+  why" across both paths rather than only the one with a connector attached.
+  The candidate itself is recorded alongside the reason, because if a caller is
+  being denied repeatedly you want to see what they kept trying to store.
+
 - **`OMEM_REQUIRE_GROUNDED=1` refuses a claim with nothing behind it.** OMEM has
   always recorded whether a belief is grounded, meaning its provenance reaches a
   real event, and left you to filter on the verdict. This makes it a write

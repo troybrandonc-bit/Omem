@@ -1296,6 +1296,38 @@ class Handler(BaseHTTPRequestHandler):
             "doc_url": (f"https://docs.omem.dev/errors/{reason_code}" if reason_code else None),
             "request_id": "req_" + uuid.uuid4().hex[:16]}})
 
+    def _log_denied_write(self, project_id, body, reason):
+        """Record a refused direct write in fact_decisions.
+
+        Same table the ingestion quality gate writes to, so one query answers
+        "what did this project decline to store, and why" across both paths
+        rather than only the one that happened to have a connector attached.
+        `stored=0` and a null connector_id are what distinguish these rows.
+
+        Never raises. A refusal that fails to log is still a refusal, and
+        turning a bookkeeping error into a different error for the caller would
+        make the failure harder to read, not easier.
+        """
+        try:
+            subjects = body.get("subjects") or []
+            STORE.db.execute(
+                "INSERT INTO fact_decisions(project_id,connector_id,source_record_id,"
+                "subject,proposition,speech_act,quality,score,reasons,category,stored,evidence,ts) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (project_id, None, None,
+                 str(subjects[0]) if subjects else "",
+                 str(body.get("proposition") or ""),
+                 "assertion", "DO_NOT_STORE", 0.0,
+                 json.dumps([reason]), "direct_write", 0,
+                 json.dumps({"agent": body.get("agent"),
+                             "subjects": subjects,
+                             "because": body.get("because"),
+                             "label": body.get("label")})[:400],
+                 time.time()))
+            STORE.db.commit()
+        except Exception:
+            pass
+
     MAX_BODY_BYTES = int(os.environ.get("OMEM_MAX_BODY_BYTES", str(1_000_000)))  # 1 MB default
 
     def _body(self):
@@ -4277,6 +4309,16 @@ class Handler(BaseHTTPRequestHandler):
             # claim that already passed admission, and they inherit its
             # provenance rather than inventing a new claim from nothing.
             if os.environ.get("OMEM_REQUIRE_GROUNDED") and not _would_be_grounded(p, body.get("because")):
+                # A refusal that leaves no trace is its own kind of silence. The
+                # ingestion path has always written its verdicts to
+                # fact_decisions, so "why was this not stored" is a query rather
+                # than a shrug; a direct write that gets refused belongs in the
+                # same place, and GET /v1/fact-decisions already reads it.
+                #
+                # The candidate is recorded, not just the fact of a refusal. If
+                # a caller is being denied repeatedly you want to see WHAT they
+                # kept trying to store.
+                self._log_denied_write(p.id, body, "no `because` evidence reaching a recorded event")
                 return self._err(
                     422, "invalid_request",
                     "OMEM_REQUIRE_GROUNDED is on: an assertion must cite `because` "
