@@ -3,6 +3,62 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.2.5 - 26 Aug 2026
+
+**Security fix. Upgrade if you use agent-bound API keys — this one makes 0.2.3
+and 0.2.4 actually effective.**
+
+### Fixed
+
+- **An agent-bound key could mint its way out of the binding.** 0.2.3 and 0.2.4
+  stopped a bound key writing under another agent's name on every route that
+  records memory. `POST /v1/keys` was not one of those routes, and it issued
+  credentials: a key bound to `agent:bob` could request a key with **no**
+  `agent_id` and role `owner`, receive it, and then speak as any agent at all.
+
+  The boundary was enforced everywhere except at the door where you collect a
+  new one, which meant the previous two fixes could be stepped around in a
+  single request.
+
+  Three things changed:
+
+  - A bound key may only create keys bound to the **same** agent.
+  - No key may create a key with a **higher role** than its own.
+  - `POST /v1/keys` and `POST /v1/keys/{id}/revoke` now check `key.create` /
+    `key.revoke` at all. They previously checked no permission, so a `viewer`
+    key — the read-only role — could mint itself a writable one.
+
+  `key.create` remains available to `developer` and above, which is unchanged
+  and deliberate. Unbound keys, sessions, and normal key management are
+  unaffected: an admin key still issues keys as before, and a bound key may
+  still issue keys for itself.
+
+  **Scope is unchanged:** a single project, no cross-tenant access, no data
+  disclosure.
+
+  Anyone who issued agent-bound keys before 0.2.5 should review the keys on
+  their projects (`GET /v1/keys?project=...`) for credentials they did not
+  create, and revoke anything unexpected.
+
+- **Any authenticated account could push into another tenant's webhook
+  connector.** `POST /v1/webhooks/{connector_id}` resolved the connector by id
+  and accepted the payload without checking who was asking. A valid credential
+  from *any* project on the server was enough to inject items into another
+  project's ingestion pipeline, where they run through extraction and
+  classification and can become memory in a project the caller has no access to.
+
+  This is the only issue found in this round that crossed the tenant boundary,
+  and it crossed it in the direction that writes. It required a valid account on
+  the same server and knowledge of the connector id; unauthenticated requests
+  were already refused.
+
+  The receiver now requires that the caller own the connector's project. A
+  foreign connector returns 404 rather than 403, so the endpoint cannot be used
+  to discover which connector ids exist.
+
+  Self-hosted single-user installs (`OMEM_AUTH=local`) were not exposed: there
+  is only one tenant. Multi-user servers (`OMEM_AUTH=password`) were.
+
 ## 0.2.4 - 26 Aug 2026
 
 **Security fix, and it completes 0.2.3.** Upgrade if you use agent-bound API
