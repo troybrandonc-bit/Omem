@@ -618,6 +618,56 @@ mailbox (8 real junk shapes + 6 business mails + 1 personal): 15 scanned,
 8 memories, all correct, zero junk. Tests: `tests_corpus.py` (44 checks) plus
 all prior suites, 601 checks green. Frozen engine hashes unchanged.
 
+## Test and build reliability (this cycle)
+
+`tests_p10_engine_proof.py` had a scale check that failed roughly one run in
+twelve on nothing at all. It timed `conflicts()` once at n=200 and once at
+n=400 and asserted the ratio stayed under 3. The work took 1-2ms at those
+sizes, so a scheduler slice or a GC pause inside the measurement moved the
+number further than a genuine algorithmic regression would; it was observed
+failing at ratio=3.4. The suite runs in four CI jobs including the one gating
+a release, so a bad roll could red a tag build.
+
+The measurement now takes the FASTEST of nine runs rather than one, at n=400
+and n=800 rather than 200 and 400. Interference can only make a run slower, so
+the minimum is the sample with the least of it in it, and the larger sizes put
+more work behind each number. Measured over 30 consecutive runs the ratio
+spread went from 1.4-3.4 (breaching the bound of 3) to 1.80-2.10. The
+`proposition_state` check got the same treatment at n=200/800: 3.60-4.00
+against a bound of 8, previously 3.6-5.0. Neither bound moved, so a real
+regression to the old superlinear behaviour still fails as loudly as before.
+
+`sdk/typescript` had no build. `package.json` pointed `main` at `src/index.ts`
+and was marked `private` because of it, while `test_parity.mjs` imported
+`./dist/index.js` — a path no command in the repository produced. So the
+parity suite, which both `README.md` and `CONTRIBUTING.md` name as the most
+useful contribution available, died on `ERR_MODULE_NOT_FOUND` for anyone who
+followed that advice. It now has a `tsconfig.json` (NodeNext, strict,
+declarations) and `npm run build`; the whole 531-line SDK compiles clean under
+`strict` with no changes to the source. `private` is gone, per the note in
+`package.json` that asked for it to be removed alongside a build step.
+Publishing remains a separate deliberate act.
+
+`test_parity.mjs` was POSIX-only besides: `new URL().pathname` (which yields
+`/C:/...` on Windows), a hardcoded `/tmp`, `spawnSync("rm")`, and `python3`.
+Now `fileURLToPath`, `os.tmpdir()`, `fs.rmSync`, and a `python`/`python3` pick
+overridable with `OMEM_PYTHON`, plus cleanup of the scratch database and a
+readable error when no interpreter is found. It passes 42 checks against a
+live server.
+
+A `sdk / typescript` CI job runs typecheck, build, an assertion that
+`dist/index.js` and `dist/index.d.ts` actually exist, and the parity suite —
+the SDK had zero CI coverage before this. Dependabot now watches
+`sdk/typescript` too, and its comment claiming actions are pinned at
+`actions/checkout@v4` was three majors stale.
+
+`tests_json_contract.py` gained a "DELETE means delete" section: six checks
+that the verb is refused with a `405`, a real JSON error body and an `Allow`
+header on a POST-only route, and still reaches the two routes that implement
+it. `_send` learned to emit `Allow` when a handler sets `self._allow`. Full
+suite: 50 passed, 2 partial, 2 skipped, 0 failed, 1482 checks. Frozen engine
+hashes unchanged.
+
 ## Run
 
 ```bash

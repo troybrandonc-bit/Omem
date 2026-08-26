@@ -219,9 +219,17 @@ rotation tooling yet.
 - `sdk/python/` is the Python SDK and the `omem-server` / `omem-mcp` commands.
   It is the one that is published: `pip install omem-infrastructure`.
 - `sdk/typescript/` is the TypeScript SDK. **It is not on npm yet** — it is used
-  from source, and it lags the Python SDK. `test_parity.mjs` runs it against a
-  live server and reports what is missing; closing that gap is the most useful
-  contribution available right now.
+  from source, and it lags the Python SDK. It builds and tests itself against a
+  real server:
+
+  ```bash
+  cd sdk/typescript
+  npm install && npm test    # builds, then runs test_parity.mjs against a live server
+  ```
+
+  `test_parity.mjs` starts the Python server, drives the built SDK against it and
+  reports what is missing. Closing that gap is the most useful contribution
+  available right now.
 - `web/` is the dashboard.
 
 ## Use it from an MCP client

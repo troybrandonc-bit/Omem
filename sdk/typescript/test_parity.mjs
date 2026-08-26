@@ -3,26 +3,43 @@
  * port, then drives the compiled SDK against it, proving the SDK actually
  * communicates with the current API (not just that types compile).
  *
- * Run: node test_parity.mjs
+ * Run: npm test          (builds the SDK first, then runs this)
+ * Or:  npm run build && node test_parity.mjs
  */
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
+import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Memory, OmemError } from "./dist/index.js";
 
-const SERVER_DIR = new URL("../../server/", import.meta.url).pathname;
+// fileURLToPath, not URL.pathname: on Windows the latter yields "/C:/..." with
+// a leading slash, which is not a path any API here accepts. Same reason the
+// temp file comes from os.tmpdir() rather than a hardcoded /tmp, and the stale
+// database is removed with fs rather than by shelling out to `rm`.
+const SERVER_DIR = fileURLToPath(new URL("../../server/", import.meta.url));
 const PORT = 8900 + Math.floor(Math.random() * 400);
-const DB = `/tmp/omem_ts_parity_${PORT}.db`;
+const DB = join(tmpdir(), `omem_ts_parity_${PORT}.db`);
+// `python3` does not exist on a default Windows install, where the launcher is
+// `python`. OMEM_PYTHON overrides both for anyone with neither on PATH.
+const PYTHON = process.env.OMEM_PYTHON || (process.platform === "win32" ? "python" : "python3");
 
 let pass = 0, fail = 0;
 const ok = (n, c, d = "") => { if (c) { pass++; console.log(`  ok  ${n}`); }
   else { fail++; console.log(`  FAIL ${n}  ${d}`); } };
 
 // clean db
-spawnSync("rm", ["-f", DB]);
+rmSync(DB, { force: true });
 
-const srv = spawn("python3", ["api.py", String(PORT)], {
+const srv = spawn(PYTHON, ["api.py", String(PORT)], {
   cwd: SERVER_DIR, env: { ...process.env, OMEM_DB: DB },
   stdio: ["ignore", "pipe", "pipe"],
+});
+srv.on("error", (e) => {
+  console.log(`FAIL could not start ${PYTHON}: ${e.message}`);
+  console.log("Set OMEM_PYTHON to a Python 3.9+ interpreter and re-run.");
+  process.exit(1);
 });
 srv.stderr.on("data", () => {}); // silence
 
@@ -209,6 +226,9 @@ try {
   fail++;
 } finally {
   srv.kill("SIGKILL");
+  // The database is this run's alone - the port is in its name - so leaving it
+  // behind just accumulates scratch files in the temp directory.
+  try { rmSync(DB, { force: true }); } catch { /* the OS can have it */ }
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

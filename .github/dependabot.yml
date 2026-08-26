@@ -43,7 +43,15 @@ updates:
         dependency-type: production
         update-types: [minor, patch]
 
-  # Actions are pinned by major tag (actions/checkout@v4). A compromised or
+  # The TypeScript SDK gained a build step, and with it a lockfile and two dev
+  # dependencies. Small surface, but it is compiled and published output, so a
+  # compromised toolchain dependency would end up in what consumers install.
+  - package-ecosystem: npm
+    directory: /sdk/typescript
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 3
+
+  # Actions are pinned by major tag (actions/checkout@v7). A compromised or
   # abandoned action runs with this repository's tokens, and release.yml holds
   # `id-token: write` for PyPI trusted publishing.
   - package-ecosystem: github-actions

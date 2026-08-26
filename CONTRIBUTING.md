@@ -152,8 +152,9 @@ than a description.
 - **Breakage reports.** Early software, used in ways we have not tried.
 - **The five-minute experience.** If the quickstart did not work, that is a bug
   in the quickstart.
-- **TypeScript SDK parity.** It lags the Python SDK; `sdk/typescript/test_parity.mjs`
-  runs against a real server and will tell you what is missing.
+- **TypeScript SDK parity.** It lags the Python SDK. `cd sdk/typescript &&
+  npm install && npm test` builds it and runs `test_parity.mjs` against a real
+  server, which will tell you what is missing.
 - **Docs.** Especially anywhere the reason for a design decision is not written
   down.
 
