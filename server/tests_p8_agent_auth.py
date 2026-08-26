@@ -178,6 +178,32 @@ _props = [a.get("proposition") for a in allrows.get("data", [])]
 check("no forged supersession or coreference reached the record",
       "forged_supersession" not in _props, str(_props)[:160])
 
+print("== a bound key cannot mint its way out of the binding ==")
+# Everything above constrains what a bound key may write. None of it mattered
+# while POST /v1/keys would hand the same key an UNBOUND one: bob asks for a key
+# with no agent_id and role owner, gets it, and speaks as anybody. The boundary
+# held on every route that writes memory and not on the route that issues
+# credentials.
+st, r = call("POST", f"/v1/keys?project={PID}", {"name": "esc", "role": "owner"}, BOB)
+check("keys: bound key cannot mint a higher role than its own (403)", st == 403, str(st))
+st, r = call("POST", f"/v1/keys?project={PID}", {"name": "esc2"}, BOB)
+check("keys: bound key cannot mint an UNBOUND key (403)", st == 403, str(st))
+st, r = call("POST", f"/v1/keys?project={PID}", {"name": "esc3", "agent_id": "agent:alice"}, BOB)
+check("keys: bound key cannot mint a key for another agent (403)", st == 403, str(st))
+
+# The legitimate cases must survive, or this has just broken key management.
+st, r = call("POST", f"/v1/keys?project={PID}", {"name": "same", "agent_id": "agent:bob"}, BOB)
+check("keys: bound key may mint a key bound to itself", st == 201, str(st))
+st, r = call("POST", f"/v1/keys?project={PID}", {"name": "from admin"}, ADMIN)
+check("keys: an unbound admin key may still mint keys", st == 201, str(st))
+
+# And a read-only credential must not be able to promote itself, which is what
+# the missing permission check allowed regardless of binding.
+st, vk = call("POST", f"/v1/keys?project={PID}", {"name": "viewer key", "role": "viewer"}, ADMIN)
+_viewer = vk.get("secret")
+st, r = call("POST", f"/v1/keys?project={PID}", {"name": "promote"}, _viewer)
+check("keys: a viewer key cannot mint keys at all (403)", st == 403, str(st))
+
 print("== bound key CANNOT see another agent's private memory even without naming it ==")
 # bob's key, no agent param -> forced to agent:bob -> alice's private memory invisible
 st, pk = call("POST", f"/v1/recall?project={PID}", {"context": "acme renewal"}, BOB)
