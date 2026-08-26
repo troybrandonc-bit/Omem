@@ -3,6 +3,21 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## Unreleased
+
+### Fixed
+
+- **Running on PostgreSQL still created a local data directory.** `Store`
+  created the directory for its SQLite file before working out which backend it
+  was going to use. Under `OMEM_DATABASE_URL` that file is never opened — the
+  data lives in PostgreSQL — so the directory was made for something that would
+  never exist. Harmless in itself, but it meant the path was being treated as a
+  filesystem location before anything had established that it was one, and a
+  caller passing the database URL as that path (reasonable, since the path is
+  unused under PostgreSQL) got a silently-created directory tree named after the
+  URL on Linux, and a hard `OSError` on Windows. The backend is now chosen
+  first, and the filesystem is touched only when SQLite is actually in use.
+
 ## 0.2.6 - 26 Aug 2026
 
 **Security fix. Upgrade if you use agent-bound API keys.** This closes the last
