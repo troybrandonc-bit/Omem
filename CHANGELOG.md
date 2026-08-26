@@ -3,9 +3,59 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
-## Unreleased
+## 0.2.6 - 26 Aug 2026
+
+**Security fix. Upgrade if you use agent-bound API keys.** This closes the last
+route in the family 0.2.3, 0.2.4 and 0.2.5 worked through.
 
 ### Fixed
+
+- **A bound key could write as another agent by creating a connector.** 0.2.3
+  and 0.2.4 stopped an agent-bound key attributing a claim to another agent on
+  every route that records memory, and 0.2.5 stopped it minting its way out of
+  the binding. `POST /v1/connectors` was none of those routes, and a connector
+  **is** an OMEM agent: every assertion it produces is recorded under the
+  `agent_id` given when it was created.
+
+  So a key bound to `agent:bob` could not write as `agent:alice` directly — it
+  was refused with a 403 — but it could create a connector with
+  `agent_id: "agent:alice"`, and everything that connector ingested went onto
+  the permanent record as alice's belief.
+
+  Three things made it worse than the direct write it was blocked from:
+
+  - **It persists.** One request establishes the channel. Every future poll and
+    every webhook delivery writes as the impersonated agent.
+  - **It supersedes.** The ingestion path records supersessions under the same
+    identity, so the connector could take another agent's existing beliefs off
+    the record under that agent's own name — the capability 0.2.4 singled out
+    as the more serious one.
+  - **It could outrank everyone.** `authority` was taken from the request body
+    and written to the trust column unchecked. Conflict resolution breaks a tie
+    on the highest authority among the connectors sharing an agent id, so a
+    forged connector at `authority: 999` won every contradiction it entered.
+
+  Now an agent-bound key may only create connectors that write as its own agent
+  or as a `connector:<kind>` identity, `authority` must be a number between 0
+  and 1, creating a connector requires `connector.manage` exactly as deleting
+  one always has, and the creation is audited.
+
+  The rule is an allowlist rather than a check on the `agent:` prefix, because
+  agent ids are frequently unprefixed — this README uses `support` and the
+  quickstart uses `support-bot` — and a prefix check would have refused the
+  obvious forgery while passing those straight through.
+
+  **Unbound keys and sessions are unchanged**, which is what a single trusted
+  process provisioning connectors for many agents needs. **Scope is unchanged
+  from 0.2.3 to 0.2.5:** a single project, no cross-tenant access, no data
+  disclosure.
+
+- **A memory-sharing grant did not record who granted it.** When a caller set
+  `scope` on `POST /v1/assertions`, the assertion was attributed to the
+  identity resolved from the key, but the grant beside it recorded the raw
+  `agent` field from the request body. Agent-bound callers are told to omit
+  that field and let the binding apply, so for exactly those callers
+  `granted_by` was stored as null. It now records the resolved identity.
 
 - **`DELETE` did whatever `POST` does.** The handler for `DELETE` was a bare
   call into the `POST` dispatcher, so every route that accepts a `POST` also
