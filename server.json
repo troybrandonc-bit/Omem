@@ -1,0 +1,59 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.troybrandonc-bit/omem",
+  "title": "OMEM",
+  "description": "Memory for AI agents that tracks beliefs over time and surfaces contradictions",
+  "version": "0.2.7",
+  "websiteUrl": "https://infrastructure.omem-cloud.com",
+  "repository": {
+    "url": "https://github.com/troybrandonc-bit/Omem",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "omem-infrastructure",
+      "version": "0.2.7",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "OMEM_API_KEY",
+          "description": "API key from the OMEM server. It is printed on first run of `omem-server`.",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "OMEM_PROJECT",
+          "description": "Project id to read and write memory in, also printed on first run.",
+          "isRequired": true,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "OMEM_BASE_URL",
+          "description": "URL of the OMEM server.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string",
+          "default": "http://127.0.0.1:8787"
+        },
+        {
+          "name": "OMEM_AGENT",
+          "description": "The agent whose memory this process reads and writes. Fixed here rather than passed as a tool argument, so the model cannot act as a different agent.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string",
+          "default": "mcp-agent"
+        },
+        {
+          "name": "OMEM_USER",
+          "description": "The end user this process is acting for. Also fixed here, not a tool argument. Leave unset and no user-scoped memory is visible.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

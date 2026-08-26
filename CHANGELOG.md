@@ -3,7 +3,16 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
-## Unreleased
+## 0.2.7 - 26 Aug 2026
+
+### Added
+
+- **Listed in the MCP Registry.** `server.json` describes the `omem-mcp` server
+  for the official registry at `registry.modelcontextprotocol.io`, so MCP
+  clients can discover it rather than being told about it. The environment
+  variables are declared there too, including that `OMEM_AGENT` and `OMEM_USER`
+  are process configuration and not tool arguments, which is the whole reason a
+  model cannot ask this server for someone else's memory.
 
 ### Fixed
 
