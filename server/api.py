@@ -1207,6 +1207,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Headers", "Content-Type,Authorization")
             self.send_header("OMEM-Protocol", "1.0")
             self.send_header("OMEM-CTS-Digest", "cts-v1-29")
+            # RFC 9110: a 405 MUST name the methods that ARE allowed. Set by
+            # the handler that rejects the verb; absent on every other reply.
+            _allow = getattr(self, "_allow", None)
+            if _allow:
+                self.send_header("Allow", _allow)
             self._security_headers()
             self.send_header("Connection", "close")
             self.close_connection = True
@@ -2768,7 +2773,39 @@ class Handler(BaseHTTPRequestHandler):
         return True
 
     # ---- POST ----
+    # The only two routes that genuinely delete. They live in _route_post and
+    # branch on self.command themselves, which is why DELETE shares the POST
+    # dispatcher at all.
+    _DELETE_ROUTES = (["v1", "connectors"], ["v1", "projects"])
+
     def do_DELETE(self):
+        """DELETE reaches only the routes that implement it.
+
+        This used to be a bare `self.do_POST()`, which handed every route in
+        _route_post a DELETE alias for free: `DELETE /v1/assertions` ran the
+        create handler and returned 201 with a new assertion on the record.
+
+        No authorization was bypassed - _guard and the read-only key check run
+        first either way, and a viewer key or an anonymous caller was refused
+        exactly as on POST. What it broke is the contract everything *in front*
+        of this server reasons about. A reverse proxy, a WAF rule, or an audit
+        review that treats DELETE differently from POST would have been reading
+        a verb that did not mean what it says.
+
+        The Allow header is server-level rather than resource-level: these are
+        the verbs this handler dispatches at all. Naming the exact set per path
+        would mean a second copy of the routing table, and a second copy is the
+        one that goes stale.
+        """
+        self._req_start = time.perf_counter(); self._metrics_recorded = False
+        u = urlparse(self.path)
+        parts = [x for x in u.path.split("/") if x]
+        if not any(len(parts) == 3 and parts[:2] == r for r in self._DELETE_ROUTES):
+            self._allow = "GET, POST, OPTIONS"
+            self._err(405, "invalid_request",
+                      "DELETE is not supported on this route.",
+                      reason_code="method_not_allowed")
+            return
         self.do_POST()
 
     def do_POST(self):
