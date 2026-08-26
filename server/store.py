@@ -282,13 +282,30 @@ class _Result:
 
 class Store:
     def __init__(self, path: str):
-        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        import os as _os
-        _pg_url = _os.environ.get("OMEM_DATABASE_URL")
+        # Pick the backend BEFORE touching the filesystem. Under PostgreSQL
+        # `path` is never opened -- PgDB gets the URL from the environment --
+        # so creating a directory for it is work done for a file that will not
+        # exist, and it was being done unconditionally.
+        #
+        # That was invisible while every caller passed a real path: makedirs
+        # just created the data directory it was going to need anyway. A caller
+        # that passes the DATABASE URL as `path`, which is a reasonable thing to
+        # write when the path is documented as unused, made it visible:
+        #
+        #   POSIX  os.path.dirname("postgres://u:p@host:5432/db")
+        #            -> "postgres://u:p@host:5432", created SILENTLY as a
+        #               directory tree, on every run
+        #   Windows the colon is not legal in a path, so the same call is fatal:
+        #            OSError [WinError 123]
+        #
+        # tests_healing_pg.py does exactly that, which is why it had never run
+        # on Windows and had been quietly littering the Linux CI runners.
+        _pg_url = os.environ.get("OMEM_DATABASE_URL")
         if _pg_url and _pg_url.startswith("postgres"):
             from db_adapter import PgDB
             self.db = PgDB(_pg_url)
         else:
+            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
             self.db = _ThreadSafeSqlite(path)
         self.db.executescript(SCHEMA)
         # repair pre-existing databases (columns added in later versions)
