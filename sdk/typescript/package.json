@@ -12,8 +12,13 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
-  "engines": { "node": ">=18" },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
@@ -26,7 +31,24 @@
   },
   "license": "MIT",
   "homepage": "https://infrastructure.omem-cloud.com",
-  "repository": { "type": "git", "url": "git+https://github.com/troybrandonc-bit/Omem.git", "directory": "sdk/typescript" },
-  "bugs": { "url": "https://github.com/troybrandonc-bit/Omem/issues" },
-  "keywords": ["ai", "agents", "memory", "llm", "mcp", "belief-revision", "provenance"]
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/troybrandonc-bit/Omem.git",
+    "directory": "sdk/typescript"
+  },
+  "bugs": {
+    "url": "https://github.com/troybrandonc-bit/Omem/issues"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "memory",
+    "llm",
+    "mcp",
+    "belief-revision",
+    "provenance"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }
