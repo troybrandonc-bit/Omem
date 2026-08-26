@@ -769,6 +769,51 @@ def _key_bound_agent(auth) -> str | None:
     return None
 
 
+def _connector_identity_ok(auth, agent_id: str) -> bool:
+    """May this caller create a connector that writes as `agent_id`?
+
+    A connector IS an OMEM agent: ingest.py records every assertion and every
+    SUPERSEDE it produces under this exact identity. So naming it is an
+    attributed write, and the same boundary that governs POST /v1/assertions
+    has to govern it -- otherwise a key bound to agent:bob creates a connector
+    that writes as agent:alice and the binding means nothing. Worse than the
+    direct write it was blocked from, in fact: the connector keeps writing on
+    every future poll, and a supersede takes alice's existing beliefs off the
+    record under her own name.
+
+    _effective_agent cannot be used as-is here. Its contract is "match the
+    binding or be filled in", and a connector's identity is normally NOT an
+    agent identity at all -- it defaults to `connector:<kind>`. Running that
+    through _effective_agent would refuse a bound key the ordinary act of
+    connecting a mailbox.
+
+    So the rule is an allowlist, and it has to be one: agent ids are frequently
+    unprefixed (README uses `support`, QUICKSTART uses `support-bot`), so a
+    denylist keyed on the `agent:` prefix would leave every one of those
+    forgeable.
+
+    Unbound keys and sessions are unchanged: a single trusted process legitimately
+    provisions connectors on behalf of many agents, which is the same reason
+    _effective_agent leaves them alone.
+    """
+    bound = _key_bound_agent(auth)
+    if bound is None:
+        return True
+    return agent_id == bound or agent_id.startswith("connector:")
+
+
+def _valid_authority(v) -> bool:
+    """Authority is a trust weight, not free-form input.
+
+    conflict.py resolves a tie by MAX(authority) among the connectors sharing
+    an agent id, so this number decides which of two contradicting claims wins.
+    It was taken from the request body and written to a REAL column with no
+    check at all: a string sails into SQLite untyped, and 999 outranks every
+    honest source in the project permanently.
+    """
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and 0.0 <= float(v) <= 1.0
+
+
 def _viewer_scope_ok(pid: str, assertion_id: str, viewer: str | None,
                      acting_user: str | None = None) -> bool:
     """Scope check for agent-parameterized reads. Reads WITHOUT a viewer are
@@ -3099,7 +3144,10 @@ class Handler(BaseHTTPRequestHandler):
         if parts == ["v1", "oauth", "gmail", "begin"]:
             pid = qs.get("project", [None])[0]
             c = INGEST.add_connector(pid, "gmail", body.get("name", "Gmail"),
-                                     {}, agent_id="connector:gmail", authority=body.get("authority", 0.8))
+                                     {}, agent_id="connector:gmail",
+                                     authority=(float(body["authority"])
+                                                if _valid_authority(body.get("authority"))
+                                                else 0.8))
             if providers.google_configured():
                 # REAL flow: signed single-use state bound to this connector,
                 # then Google's actual consent screen.
@@ -3205,9 +3253,32 @@ class Handler(BaseHTTPRequestHandler):
                                      f"Plan '{info['plan']}' source quota reached ({info['used']}/{info['quota']}).")
             if not self._proj(qs):
                 return self._err(404, "not_found", "project not found")
+            # Creating a connector is a connector.manage action exactly as
+            # deleting one is. The delete and bulk-delete routes above have
+            # always required it; this one asked for nothing, so the two halves
+            # of the same capability were guarded differently.
+            if not self._require(auth, "connector.manage", self._org_of_project(pid)):
+                return self._err(403, "permission", "Requires developer or above.")
+            _cagent = body.get("agent_id") or f"connector:{body['kind']}"
+            if not isinstance(_cagent, str) or not _cagent or len(_cagent) > 80:
+                return self._err(422, "invalid_request",
+                                 "agent_id must be a non-empty identifier of at most 80 characters",
+                                 param="agent_id")
+            if not _connector_identity_ok(auth, _cagent):
+                return self._err(403, "permission",
+                                 "An agent-bound key may only create connectors that write as "
+                                 "its own agent or as a 'connector:<kind>' identity.")
+            _cauth = body.get("authority", 0.5)
+            if not _valid_authority(_cauth):
+                return self._err(422, "invalid_request",
+                                 "authority must be a number between 0 and 1", param="authority")
             c = INGEST.add_connector(pid, body["kind"], body["name"], body.get("config", {}),
-                                     body.get("agent_id") or f"connector:{body['kind']}",
-                                     body.get("authority", 0.5))
+                                     _cagent, float(_cauth))
+            ENT.audit("connector.created",
+                      actor=auth.get("user", {}).get("id") if isinstance(auth, dict) else None,
+                      org_id=self._org_of_project(pid), project_id=pid, resource=c["id"],
+                      metadata={"agent_id": _cagent, "authority": float(_cauth)},
+                      correlation_id=self._corr())
             return self._send(201, c)
         if len(parts) == 4 and parts[:2] == ["v1", "connectors"] and parts[3] == "poll":
             try:
@@ -4186,7 +4257,12 @@ class Handler(BaseHTTPRequestHandler):
                 if not _recall.valid_scope(_scope):
                     return self._err(422, "invalid_request",
                                      "scope must be org, team:<id>, agent:<id> or user:<id>")
-                SCOPES.set(p.id, aid, _scope, granted_by=body.get("agent"))
+                # _agent, not body.get("agent"). README tells an agent-bound
+                # caller to OMIT the agent field and let the binding apply, so
+                # the raw body value is None for exactly the callers this
+                # feature exists for -- and "who authorised this sharing" was
+                # recorded as null every time.
+                SCOPES.set(p.id, aid, _scope, granted_by=_agent)
             ENT.meter(p.id, "assertions_created")
             self._logreq(p, "POST", "/v1/assertions", 201, f"belief {body['proposition']}")
             return self._send(201, shape_assertion(p, aid))

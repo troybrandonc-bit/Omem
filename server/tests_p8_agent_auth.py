@@ -306,6 +306,65 @@ if _zeta_alice:
     st, _ = call("GET", f"/v1/agents/agent:alice?project={PID}", None, OTHER)
     check("B1: cross-tenant still blocked on /v1/agents (403)", st == 403, str(st))
 
+print("== a connector is an attributed write, so the binding governs it ==")
+# A connector IS an OMEM agent: ingest.py records every assertion AND every
+# supersede it produces under the connector's agent_id. Binding was enforced on
+# POST /v1/assertions and not here, so the write a bound key was refused
+# directly it could make by proxy -- and keep making, on every future poll.
+st, r = call("POST", f"/v1/connectors?project={PID}",
+             {"kind": "support_inbox", "name": "forged", "agent_id": "agent:alice"}, BOB)
+check("bound key cannot create a connector writing as another agent", st == 403, f"HTTP {st}: {r}")
+
+# Agent ids are frequently unprefixed -- README uses `support`, QUICKSTART uses
+# `support-bot` -- so a rule keyed on the "agent:" prefix would refuse the
+# obvious forgery and wave the ordinary one straight through.
+st, r = call("POST", f"/v1/connectors?project={PID}",
+             {"kind": "support_inbox", "name": "forged2", "agent_id": "support"}, BOB)
+check("and cannot do it with an unprefixed agent id either", st == 403, f"HTTP {st}: {r}")
+
+# The legitimate paths, asserted alongside the refusals: a fix here that quietly
+# broke connector creation would be worse than the flaw it closes.
+st, c1 = call("POST", f"/v1/connectors?project={PID}",
+              {"kind": "support_inbox", "name": "ordinary"}, BOB)
+check("a bound key still creates an ordinary connector", st == 201, f"HTTP {st}: {c1}")
+check("which writes as connector:<kind>", c1.get("agent_id") == "connector:support_inbox", str(c1))
+
+st, c2 = call("POST", f"/v1/connectors?project={PID}",
+              {"kind": "support_inbox", "name": "mine", "agent_id": "agent:bob"}, BOB)
+check("a bound key still creates one writing as ITSELF", st == 201, f"HTTP {st}: {c2}")
+
+st, c3 = call("POST", f"/v1/connectors?project={PID}",
+              {"kind": "support_inbox", "name": "any", "agent_id": "agent:alice"}, ADMIN)
+check("an UNBOUND key may still name any agent (unchanged)", st == 201, f"HTTP {st}: {c3}")
+
+print("== authority is a trust weight, not free-form input ==")
+# conflict.py breaks a tie on MAX(authority) among the connectors sharing an
+# agent id, so this number decides which of two contradicting claims wins. It
+# went into a REAL column unchecked.
+for _bad, _label in ((999, "999"), ("high", "a string"), (-1, "negative"), (True, "a bool")):
+    st, r = call("POST", f"/v1/connectors?project={PID}",
+                 {"kind": "support_inbox", "name": f"auth{_label}", "authority": _bad}, ADMIN)
+    check(f"authority rejects {_label}", st == 422, f"HTTP {st}: {r}")
+st, r = call("POST", f"/v1/connectors?project={PID}",
+             {"kind": "support_inbox", "name": "ok", "authority": 0.7}, ADMIN)
+check("authority accepts a real weight in range", st == 201 and r.get("authority") == 0.7, str(r))
+
+print("== a scope grant records WHO granted it ==")
+# granted_by used the raw body value while the assertion beside it used the
+# resolved identity. README tells a bound caller to OMIT agent, so granted_by
+# was null for precisely the callers agent binding exists for.
+call("POST", f"/v1/agents?project={PID}", {"id": "agent:bob", "kind": "ai"}, ADMIN)
+call("POST", f"/v1/entities?project={PID}", {"id": "cust:scope", "type": "customer"}, ADMIN)
+st, a = call("POST", f"/v1/assertions?project={PID}",
+             {"subjects": ["cust:scope"], "proposition": "prefers_annual",
+              "scope": "agent:bob"}, BOB)
+check("bound key asserts with a scope, agent omitted", st == 201, f"HTTP {st}: {a}")
+_row = api.SCOPES.db.execute(
+    "SELECT granted_by FROM memory_scopes WHERE assertion_id=?", (a.get("id"),)).fetchone()
+check("granted_by is the resolved bound agent, not null",
+      _row is not None and _row["granted_by"] == "agent:bob",
+      str(dict(_row)) if _row else "no row")
+
 print("== engine integrity ==")
 import hashlib
 h = {f: hashlib.sha256(open(os.path.join(HERE, "omem_engine", f), "rb").read()).hexdigest()
