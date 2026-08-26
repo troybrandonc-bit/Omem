@@ -40,6 +40,25 @@ and 0.2.4 actually effective.**
   their projects (`GET /v1/keys?project=...`) for credentials they did not
   create, and revoke anything unexpected.
 
+- **Any authenticated account could push into another tenant's webhook
+  connector.** `POST /v1/webhooks/{connector_id}` resolved the connector by id
+  and accepted the payload without checking who was asking. A valid credential
+  from *any* project on the server was enough to inject items into another
+  project's ingestion pipeline, where they run through extraction and
+  classification and can become memory in a project the caller has no access to.
+
+  This is the only issue found in this round that crossed the tenant boundary,
+  and it crossed it in the direction that writes. It required a valid account on
+  the same server and knowledge of the connector id; unauthenticated requests
+  were already refused.
+
+  The receiver now requires that the caller own the connector's project. A
+  foreign connector returns 404 rather than 403, so the endpoint cannot be used
+  to discover which connector ids exist.
+
+  Self-hosted single-user installs (`OMEM_AUTH=local`) were not exposed: there
+  is only one tenant. Multi-user servers (`OMEM_AUTH=password`) were.
+
 ## 0.2.4 - 26 Aug 2026
 
 **Security fix, and it completes 0.2.3.** Upgrade if you use agent-bound API
