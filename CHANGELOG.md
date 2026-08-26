@@ -7,6 +7,22 @@ Release notes for people using OMEM. Engineering history lives in
 
 ### Added
 
+- **OMEM works as a LangGraph store, so LangChain agents can use it.**
+  `omem.integrations.langgraph_store.OmemStore` implements LangGraph's
+  `BaseStore`, the interface LangChain agents use for long-term memory. Install
+  with `pip install "omem-infrastructure[langgraph]"` and pass it anywhere
+  `InMemoryStore` goes.
+
+  What differs from the built-in stores is the second write. They overwrite,
+  and `delete` erases. Here `put` over an existing key supersedes, so the
+  previous value stays on the record with the moment it stopped being believed,
+  and `delete` retracts rather than destroys. Every write is attributed, so you
+  can ask why a memory is there.
+
+  Vector search is not implemented. `search()` filters by namespace and by
+  field; `query=` raises rather than returning a substring match dressed as
+  semantic search.
+
 - **`OMEM_REQUIRE_GROUNDED=1` refuses a claim with nothing behind it.** OMEM has
   always recorded whether a belief is grounded, meaning its provenance reaches a
   real event, and left you to filter on the verdict. This makes it a write
