@@ -3,6 +3,51 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## Unreleased
+
+### Fixed
+
+- **`DELETE` did whatever `POST` does.** The handler for `DELETE` was a bare
+  call into the `POST` dispatcher, so every route that accepts a `POST` also
+  answered a `DELETE` — and answered it by doing the `POST`.
+  `DELETE /v1/assertions` ran the create handler and returned `201` with a new
+  assertion written to the record.
+
+  Nothing was bypassed by this: authentication, project scoping and the
+  read-only key check all run before the dispatch either way, so no caller
+  could reach anything they could not already reach with a `POST`. What it
+  broke is the meaning of the verb for everything sitting in front of OMEM. A
+  reverse proxy rule, a WAF policy, or an audit review that treats `DELETE`
+  differently from `POST` was reading a method that did not describe the
+  request, and a call that *created* data was indistinguishable in any
+  method-keyed log from one that destroyed it.
+
+  Only `DELETE /v1/connectors/{id}` and `DELETE /v1/projects/{id}` implement
+  the verb. Everything else now returns `405` with an `Allow` header and the
+  usual JSON error body (`reason_code: method_not_allowed`). Both real delete
+  routes are unchanged.
+
+  If you have a client sending `DELETE` to a route that is not one of those
+  two, it was creating or updating rather than deleting, and it now fails
+  loudly instead.
+
+### Changed
+
+- **The TypeScript SDK builds.** `sdk/typescript` had no build step, so
+  `package.json` pointed `main` at raw TypeScript and the parity test imported
+  a `dist/` that no command produced — running it failed immediately with
+  `ERR_MODULE_NOT_FOUND`. It now compiles to ESM with type declarations:
+
+  ```bash
+  cd sdk/typescript
+  npm install && npm test    # builds, then runs the parity suite against a live server
+  ```
+
+  The suite starts a real Python server and drives the built SDK against it:
+  42 checks, all passing. It runs in CI on every push, so the SDK can no longer
+  drift from the API unnoticed. Still not on npm, and it still does not cover
+  the whole Python surface — `npm test` is what tells you where the gaps are.
+
 ## 0.2.5 - 26 Aug 2026
 
 **Security fix. Upgrade if you use agent-bound API keys — this one makes 0.2.3
