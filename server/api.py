@@ -814,6 +814,29 @@ def _valid_authority(v) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool) and 0.0 <= float(v) <= 1.0
 
 
+def _would_be_grounded(p, because) -> bool:
+    """Would an assertion citing `because` come back GROUNDED?
+
+    The engine's rule is any-path: GROUNDED iff provenance traversal reaches at
+    least one Event. This answers the same question BEFORE the write, so a
+    refusal leaves nothing on the record rather than writing a claim and then
+    retracting it, which would put the thing we refused into the log forever.
+
+    An antecedent grounds this claim if it IS an Event, or if it is an
+    assertion that is itself already grounded, since reaching it reaches
+    whatever grounds it.
+    """
+    for pid in (because or []):
+        if not isinstance(pid, str):
+            continue
+        if p.engine.store.event(pid) is not None:
+            return True
+        if (p.engine.store.assertion(pid) is not None
+                and p.engine.graph.is_grounded(pid)):
+            return True
+    return False
+
+
 def _viewer_scope_ok(pid: str, assertion_id: str, viewer: str | None,
                      acting_user: str | None = None) -> bool:
     """Scope check for agent-parameterized reads. Reads WITHOUT a viewer are
@@ -4238,6 +4261,28 @@ class Handler(BaseHTTPRequestHandler):
             _agent, _err = self._effective_agent(auth, body.get("agent"))
             if _err:
                 return
+            # Write-admission. Off by default; OMEM_REQUIRE_GROUNDED=1 turns a
+            # claim with nothing behind it into a refusal instead of a stored
+            # row marked UNGROUNDED.
+            #
+            # OMEM already recorded the verdict, and a consumer could filter on
+            # it. But "the consumer can filter" is a weaker guarantee than "it
+            # never got in", and only the second one survives someone forgetting
+            # to filter. The ingestion path has had a write-admission gate from
+            # the start (extraction grades every candidate and DO_NOT_STORE and
+            # LOW never reach the engine); this gives the direct API path the
+            # same option.
+            #
+            # Scope is this route on purpose. Supersede and retract replace a
+            # claim that already passed admission, and they inherit its
+            # provenance rather than inventing a new claim from nothing.
+            if os.environ.get("OMEM_REQUIRE_GROUNDED") and not _would_be_grounded(p, body.get("because")):
+                return self._err(
+                    422, "invalid_request",
+                    "OMEM_REQUIRE_GROUNDED is on: an assertion must cite `because` "
+                    "evidence that reaches a recorded event. Record the event or "
+                    "source first, then cite it.",
+                    reason_code="R_UNGROUNDED", param="because")
             aid = body.get("id") or mint("a")
             at = resolve_time(body.get("assertion_time"))
             record(p, "assert", {"id": aid, "agent": _agent, "subjects": body["subjects"],

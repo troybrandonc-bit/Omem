@@ -211,6 +211,39 @@ than falling back to the stdlib keystream used for OAuth tokens.
 **Lose the key and the data is gone**: there is no recovery path, and no
 rotation tooling yet.
 
+## Refusing ungrounded writes
+
+Every belief carries a grounding verdict: `GROUNDED` if its provenance reaches a
+recorded event, `UNGROUNDED` if it only ever rests on other claims. That verdict
+is returned on every read, so a caller can filter on it.
+
+Filtering only helps the caller who remembers to filter. Set
+`OMEM_REQUIRE_GROUNDED=1` and OMEM refuses the write instead:
+
+```bash
+OMEM_REQUIRE_GROUNDED=1 omem-server
+```
+
+```python
+mem.remember(agent="support", about="customer:1", claim="prefers_annual")
+# -> 422 R_UNGROUNDED: cite `because` evidence that reaches a recorded event
+
+mem.remember(agent="support", about="customer:1", claim="prefers_annual",
+             because=["evt_call_2026_08_26"])   # accepted
+```
+
+Evidence counts if it is a recorded event, or an assertion that is itself
+grounded, so a chain of reasoning that bottoms out in something observed is
+admitted while a chain that bottoms out in nothing is not.
+
+It applies to direct writes. Supersede and retract replace a claim that already
+passed admission and inherit its provenance, and the ingestion path has always
+had its own gate: every candidate is graded before the engine sees it, and
+`DO_NOT_STORE` and `LOW` never become assertions.
+
+Off by default, because it is a real constraint on how you write and existing
+callers should not break on upgrade.
+
 ## What is in this repo
 
 - `server/` is the OMEM server: an HTTP API wrapping the memory engine. The
