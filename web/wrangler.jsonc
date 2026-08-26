@@ -1,0 +1,27 @@
+{
+  // Deploys the static export in ./out to Cloudflare Workers.
+  //
+  // There is deliberately no "main" here. This is a static-assets-only Worker:
+  // there is no server-side code to run, because the whole point of the export
+  // (see next.config.js) is that the site is files. Adding a script would mean
+  // maintaining a request handler that does nothing a static host does not.
+  //
+  // The build that produces ./out is `OMEM_STATIC=1 npm run build`. Without
+  // that variable next.config.js does not set output:"export", the build
+  // writes .next instead, and the deploy fails on a missing directory. It is
+  // set as a build environment variable in the Cloudflare project rather than
+  // hardcoded, because the same config also serves `npm run dev` and the
+  // wheel-bundling build.
+  "name": "omem-docs",
+  "compatibility_date": "2026-08-26",
+  "assets": {
+    "directory": "./out",
+    // Directory-style routes (out/docs/index.html) come from
+    // trailingSlash:true, so every path resolves the same way and an unknown
+    // one should land on the export's own 404 page rather than a Cloudflare
+    // error page. Not "single-page-application": this is a multi-page static
+    // site, and serving index.html for every miss would turn a typo'd URL into
+    // a silent homepage.
+    "not_found_handling": "404-page"
+  }
+}
