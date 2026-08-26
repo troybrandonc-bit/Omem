@@ -241,6 +241,24 @@ OTHER = acct2["api_key"]["secret"]
 st, r = call("POST", f"/v1/recall?project={PID}", {"agent": "agent:bob", "context": "acme"}, OTHER)
 check("foreign tenant key still 403 on this project", st == 403, str(st))
 
+# The webhook receiver resolved a connector by id and pushed into it without
+# checking who was asking. Every other cross-tenant route here is closed, and
+# this one crossed the boundary in the direction that writes: an item injected
+# into a foreign connector runs through extraction and can become memory in a
+# project the caller cannot otherwise touch.
+st, _conn = call("POST", f"/v1/connectors?project={PID}",
+                 {"kind": "webhook", "name": "inbound"}, ADMIN)
+_cid = _conn.get("id")
+if _cid:
+    st, r = call("POST", f"/v1/webhooks/{_cid}", {"id": "x1", "text": "injected"}, OTHER)
+    # 404 not 403, so a stranger cannot use this to discover which ids exist.
+    check("webhooks: foreign tenant cannot push into another project's connector",
+          st == 404, f"status={st} body={str(r)[:110]}")
+    st, r = call("POST", f"/v1/webhooks/{_cid}", {"id": "x2", "text": "owner"}, ADMIN)
+    check("webhooks: the owning project can still push", st == 202, str(st))
+    st, r = call("POST", f"/v1/webhooks/{_cid}", {"id": "x3", "text": "anon"}, None)
+    check("webhooks: unauthenticated still refused", st == 401, str(st))
+
 print("== security-audit regressions: unscoped read paths must not leak ==")
 # deterministic cross-scope conflict: bob public vs alice PRIVATE, same subject
 if "company:zeta" not in P.labels:

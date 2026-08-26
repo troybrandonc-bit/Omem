@@ -3394,6 +3394,27 @@ class Handler(BaseHTTPRequestHandler):
             conn = INGEST.connector(cid)
             if conn is None:
                 return self._err(404, "not_found", "webhook connector not found")
+
+            # The caller must own the connector's project. This route resolved a
+            # connector by id and pushed into it with no ownership check at all,
+            # so any authenticated account on the server could inject items into
+            # ANOTHER TENANT'S ingestion pipeline: the payload runs through
+            # extraction and classification and can become memory in a project
+            # the caller has no access to. Every other cross-tenant path here is
+            # closed; this one crossed it, and it wrote rather than read.
+            #
+            # 404 rather than 403 on a foreign connector, so this cannot be used
+            # to enumerate which connector ids exist on the server.
+            _cproj = conn.get("project_id")
+            if "key" in auth:
+                _ok = _cproj == auth["key"].get("project_id")
+            elif "user" in auth:
+                _ok = bool(_cproj) and STORE.user_can_access(auth["user"]["id"], _cproj)
+            else:
+                _ok = False
+            if not _ok:
+                return self._err(404, "not_found", "webhook connector not found")
+
             ext_id = body.get("id") or _mint_global("wh")
             INGEST.push_item(cid, ext_id, body)
             queued = INGEST.poll_connector(cid)
