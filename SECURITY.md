@@ -65,6 +65,64 @@ will be documented here rather than assumed.
 Listed here rather than buried in the changelog, because someone evaluating this
 project deserves to find them without digging.
 
+### 0.2.x before 0.2.6: over MCP, the model chose the end user (fixed in 0.2.6)
+
+`omem-mcp` fixes the agent identity to the process (`OMEM_AGENT`) so that a
+model speaking MCP cannot ask for another agent's private memory. The *other*
+axis that scopes memory, the acting end user, was a tool argument the model
+filled in — described in the tool schema as "unlocks user-scoped memory", which
+is what it did for whatever value the model supplied. A model could therefore
+read memories scoped `user:<id>` by naming that id.
+
+**Only `omem-mcp` was affected.** Over the HTTP API the caller is your own
+application, which is trusted to say which end user it is acting for; the MCP
+surface exists precisely because a model is not.
+
+Fixed in 0.2.6: the end user is pinned to the process via `OMEM_USER` and the
+argument is gone from the schema. Unset means no user-scoped memory is visible.
+**If you ran `omem-mcp` with `user:` scopes before 0.2.6**, treat that memory as
+having been readable by the model.
+
+### 0.2.0 to 0.2.5: an agent-bound key could act as another agent (fixed in 0.2.6)
+
+One flaw, closed four times, because it was the same omission on four different
+routes rather than four separate bugs.
+
+An API key minted with an `agent_id` is *bound*: it is supposed to be able to
+read and write only as that agent, which is what makes agent-private scope a
+security boundary and what makes a provenance chain worth reading back. The
+binding constrained reads from the beginning. On writes it was applied route by
+route, and each release closed the routes then known:
+
+| Release | What could still be done before it |
+|---|---|
+| 0.2.3 | `POST /v1/assertions` recorded a claim under another agent's name |
+| 0.2.4 | So did supersede, retract, coreference and coreference/split — the first two retire another agent's belief *under that agent's name* |
+| 0.2.5 | `POST /v1/keys` issued an unbound `owner` key to a bound caller, stepping around both fixes above in one request |
+| 0.2.6 | `POST /v1/connectors` created a connector writing as another agent — persistently, including supersessions, and with an unchecked `authority` that let it win conflicts |
+
+**What this never allowed**, in every one of the four: crossing a project
+boundary, reading another tenant's data, or obtaining data the caller could not
+already read. The caller needed a valid credential in the project already.
+Unbound keys and session tokens were unaffected throughout — a single trusted
+process writing on behalf of several agents is a supported pattern, not the
+flaw.
+
+**What it did allow** is the thing OMEM exists to be trusted about: the record
+of *who* believed something, and *who* withdrew it. A bound key could put
+another agent's name on a claim, and from 0.2.4's routes could take that
+agent's existing belief off the record under their own name.
+
+**If you issued agent-bound keys before 0.2.6:** upgrade, then treat
+attribution written by bound keys before the upgrade as unverified — assertions,
+supersessions, retractions and coreference claims alike. Review the connectors
+in each project and confirm the `agent_id` on each is one you intended; a
+connector created before 0.2.6 keeps writing under whatever identity it was
+given. Review outstanding keys for bindings and roles you did not issue.
+
+0.2.0 predates release tagging and was published by hand, so treat it as
+affected. See [CHANGELOG.md](CHANGELOG.md) for the per-release detail.
+
 ### 0.1.0 to 0.1.2: authentication bypass (fixed in 0.2.0)
 
 `POST /v1/session {"email": "..."}` returned a valid 30-day session for **any**

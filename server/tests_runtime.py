@@ -264,6 +264,10 @@ check("messages adapter: memory is its own user message after system",
 check("messages adapter: system prompt untouched",
       msgs_seen[-1][0]["content"] == "You are helpful.")
 
+# A memory private to ONE end user, for the MCP user-scope checks below.
+mem.remember(agent="agent:billing", about="customer:acme",
+             claim="alice_only_billing_note", scope="user:alice")
+
 print("== MCP over real stdio ==")
 env_vars = {**os.environ, "OMEM_API_KEY": KEY, "OMEM_BASE_URL": BASE,
             "OMEM_PROJECT": PID, "OMEM_AGENT": "billing",
@@ -293,6 +297,38 @@ pack = json.loads(rc["result"]["content"][0]["text"])
 check("23. MCP recall returns a real pack", "memories" in pack and "stats" in pack)
 check("25. MCP cannot bypass scope (secret agent's memory absent)",
       all(m["id"] != aid_priv for m in pack["memories"]), str(pack["memories"])[:120])
+# The agent axis was pinned to the process from the start. The USER axis was a
+# tool argument the model filled in, advertised in the schema as "unlocks
+# user-scoped memory" -- and it did, for whatever value the model chose. In a
+# design whose whole point is that the model does not get to say who it is, one
+# of the two axes that scope memory was handed to it.
+check("MCP does not offer the model a `user` argument",
+      "user" not in [t for t in tl["result"]["tools"]
+                     if t["name"] == "omem_recall"][0]["inputSchema"]["properties"],
+      str(names))
+rc_u = rpc({"jsonrpc": "2.0", "id": 31, "method": "tools/call",
+            "params": {"name": "omem_recall",
+                       "arguments": {"context": "customer:acme billing note",
+                                     "user": "alice"}}})
+pack_u = json.loads(rc_u["result"]["content"][0]["text"])
+check("a model naming a user cannot unlock that user's memory",
+      all(m["proposition"] != "alice_only_billing_note" for m in pack_u.get("memories", [])),
+      str(pack_u.get("memories"))[:150])
+
+# The legitimate path, because pinning it to nothing would be a "fix" that just
+# deleted the feature. In-process rather than a second subprocess: this asserts
+# the identity plumbing, and the stdio transport is already covered above.
+from omem.mcp_server import McpServer  # noqa: E402
+_pinned = McpServer(mem, "billing", "alice")
+_pack_p = json.loads(_pinned.handle(
+    {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+     "params": {"name": "omem_recall",
+                "arguments": {"context": "customer:acme billing note"}}}
+)["result"]["content"][0]["text"])
+check("a process pinned to OMEM_USER still sees that user's memory",
+      any(m["proposition"] == "alice_only_billing_note" for m in _pack_p.get("memories", [])),
+      str(_pack_p.get("memories"))[:150])
+
 rw = rpc({"jsonrpc": "2.0", "id": 4, "method": "tools/call",
           "params": {"name": "omem_why", "arguments": {"memory_id": aid_priv}}})
 why_out = json.loads(rw["result"]["content"][0]["text"])

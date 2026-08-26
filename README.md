@@ -241,6 +241,13 @@ stdio, so MCP clients like Claude Desktop can use OMEM as a memory tool:
 OMEM_API_KEY=... OMEM_BASE_URL=http://127.0.0.1:8787 OMEM_AGENT=support omem-mcp
 ```
 
+Identity is fixed by the environment, never by a tool argument, on both axes
+that scope memory: `OMEM_AGENT` is the agent whose memory this is, and
+`OMEM_USER` is the end user it is acting for. A model speaking MCP cannot name
+either, so it cannot ask for another agent's or another user's private memory.
+`OMEM_USER` is optional; leave it unset and no user-scoped memory is visible,
+which is the right default for a process that has not been told who it acts for.
+
 To wire it into Claude Desktop, start `omem-server` once to get a project id and
 key, then add this to `claude_desktop_config.json` and restart the app:
 
@@ -253,7 +260,8 @@ key, then add this to `claude_desktop_config.json` and restart the app:
         "OMEM_API_KEY": "omem_sk_...",
         "OMEM_BASE_URL": "http://127.0.0.1:8787",
         "OMEM_PROJECT": "proj_...",
-        "OMEM_AGENT": "claude"
+        "OMEM_AGENT": "claude",
+        "OMEM_USER": "you@example.com"
       }
     }
   }

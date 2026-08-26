@@ -18,22 +18,31 @@ resulting wheel would be quietly broken in exactly the way this exists to
 prevent. When the source tree is absent and `_server` is already present, that
 is the sdist case and the existing copy is correct.
 
-What is excluded and why: `tests*.py` (the server directory is placed on
-sys.path, so shipping them would put importable top-level modules named `tests`
-into every user's process), `data/` (a developer's local database), `.env`
-(secrets), and `__pycache__`.
+What is excluded and why: `tests*.py` and `run_tests.py` (server_cli puts the
+server directory FIRST on sys.path, so shipping them would put importable
+top-level modules named `tests`/`run_tests` into every user's process),
+`data/` (a developer's local database), `.env` (secrets), `__pycache__`, and
+`.hypothesis` (the property-testing example cache).
+
+The last two were found in a published wheel rather than reasoned about in
+advance: 0.2.2 shipped 48 `.hypothesis` files, a fifth of the whole archive and
+every byte of it one developer's local cache, plus `run_tests.py` -- which the
+paragraph above already explains should not be there, and which the filter
+missed only because it tested `startswith("tests")` against a name beginning
+`run_`.
 """
 import os
 import shutil
 
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 
-EXCLUDED_DIRS = {"__pycache__", "data", ".pytest_cache"}
+EXCLUDED_DIRS = {"__pycache__", "data", ".pytest_cache", ".hypothesis"}
 DEST = os.path.join("omem", "_server")
 
 
 def _skip(name: str) -> bool:
     return (name.startswith("tests")
+            or name == "run_tests.py"
             or name.startswith(".env")
             or name.endswith((".pyc", ".db", ".db-wal", ".db-shm")))
 
