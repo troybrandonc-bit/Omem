@@ -37,6 +37,12 @@ Issues = "https://github.com/troybrandonc-bit/Omem/issues"
 [project.scripts]
 # `omem-mcp` starts the MCP server over stdio, so any MCP client can launch it.
 omem-mcp = "omem.mcp_server:main"
+# `omem-verify` replays the op log and proves the state follows from it, and
+# with --anchor compares against a digest recorded earlier and kept elsewhere.
+# A reproducibility claim nobody can check is the weakest part of an
+# accountability pitch, so it ships with the package rather than living in the
+# repository where only contributors would find it.
+omem-verify = "omem.verify_cli:main"
 # `omem-server` starts the full OMEM server (engine + HTTP API), bundled in the
 # package — so `pip install omem-infrastructure` then `omem-server` runs a server
 # with no repo clone and no dependencies.
