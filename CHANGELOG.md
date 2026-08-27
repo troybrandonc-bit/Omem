@@ -38,6 +38,23 @@ Release notes for people using OMEM. Engineering history lives in
   field; `query=` raises rather than returning a substring match dressed as
   semantic search.
 
+- **`agent:`-scoped memory was readable by nobody, including its own agent.**
+  The visibility rule compared a scope against `f"agent:{viewer}"`, but a viewer
+  is already resolved as `agent:bob`, so it built `agent:agent:bob` and matched
+  only a scope written that same doubled way. `observe` happened to write it
+  doubled too, so private-by-default worked and this stayed invisible.
+
+  The caller-facing paths did not. `POST /v1/memory/share` and `scope` on
+  `POST /v1/assertions` store exactly what you send, and the API tells you to
+  send `agent:<id>`. Doing what the documentation said produced a memory that
+  no read path would ever return, including to the agent it was scoped to.
+
+  It failed **closed**, so nothing was ever disclosed. The feature just silently
+  did not work through the public API.
+
+  Both spellings now resolve, so memories already written the doubled way keep
+  working, and new ones are written canonically.
+
 - **A refused write is now recorded, not just refused.** When
   `OMEM_REQUIRE_GROUNDED` denies a direct write, the denial lands in the same
   `fact_decisions` table the ingestion quality gate has always written to, so

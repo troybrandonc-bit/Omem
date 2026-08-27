@@ -3982,9 +3982,13 @@ class Handler(BaseHTTPRequestHandler):
                 # PRIVATE BY DEFAULT: an agent's observation is its own memory
                 # unless the caller explicitly widens it. Sharing later is an
                 # explicit promotion (POST /v1/memory/share).
-                mem_scope = body.get("scope") or f"agent:{agent}"
+                # `agent` is already "agent:<id>", so f"agent:{agent}" wrote
+                # "agent:agent:<id>". New rows use the documented single-prefix
+                # form; visible() still reads the doubled rows already stored.
+                _bare = agent[6:] if agent.startswith("agent:") else agent
+                mem_scope = body.get("scope") or f"agent:{_bare}"
                 if not _recall.valid_scope(mem_scope):
-                    mem_scope = f"agent:{agent}"
+                    mem_scope = f"agent:{_bare}"
                 SCOPES.set(p.id, aid, mem_scope, granted_by=agent)
                 st = e_state(p, [subj["id"]], f["proposition"])
                 out.append({"assertion": aid, "subject": subj["id"],

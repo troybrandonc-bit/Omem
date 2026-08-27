@@ -154,8 +154,13 @@ st, obA = call("POST", f"/v1/observe?project={PID}",
                 {"text": "We have decided to renew the annual contract.",
                  "speaker": "pat@nimbus.io", "audience": "p1@kronos.com"}}, KEY)
 aidA = obA["memories"][0]["assertion"]
+# Was asserting "agent:agent:alpha". That doubled prefix was the bug, not the
+# contract: observe built f"agent:{agent}" over an already-prefixed agent. It
+# happened to match because visible() doubled it too, which is exactly why the
+# documented single-prefix form -- the one POST /v1/memory/share stores -- was
+# readable by nobody. The scope is written canonically now.
 check("observe defaults to agent-private scope",
-      obA["memories"][0]["scope"] == "agent:agent:alpha", str(obA["memories"][0]))
+      obA["memories"][0]["scope"] == "agent:alpha", str(obA["memories"][0]))
 st, pkB = pack(agent="agent:beta", context="what do we know about nimbus renewal?")
 check("agent B cannot see A's private memory in packs",
       all(m["id"] != aidA for m in pkB["memories"]))
@@ -253,5 +258,28 @@ st, bad = pack(agent="agent:sales", context="acme", as_of="banana")
 check("bad as_of degrades safely (422, JSON)", st == 422, str(st))
 
 srv.shutdown()
+
+print("== the DOCUMENTED agent scope form resolves ==")
+# visible() built f"agent:{viewer}" over an already-prefixed viewer, so it only
+# matched a scope written the same doubled way. observe wrote it doubled too,
+# so private-by-default worked and this went unseen. The caller-facing paths,
+# POST /v1/memory/share and `scope` on POST /v1/assertions, store exactly what
+# the caller sends, and the validator tells callers to send "agent:<id>" -- so
+# following the documentation produced a memory nobody could read, including
+# the agent it belonged to. It failed closed, so nothing leaked; the feature
+# just silently did not work.
+check("an agent sees its own agent:<id> scoped memory",
+      api.SCOPES.visible("agent:bob", "agent:bob", set(), None) is True)
+check("another agent does not",
+      api.SCOPES.visible("agent:bob", "agent:eve", set(), None) is False)
+check("an unprefixed viewer works too",
+      api.SCOPES.visible("agent:bob", "bob", set(), None) is True)
+check("the legacy doubled form still resolves (rows already written that way)",
+      api.SCOPES.visible("agent:agent:bob", "agent:bob", set(), None) is True)
+check("and the doubled form is still not visible to others",
+      api.SCOPES.visible("agent:agent:bob", "agent:eve", set(), None) is False)
+check("no viewer sees no agent-scoped memory",
+      api.SCOPES.visible("agent:bob", None, set(), None) is False)
+
 print(f"\n{PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)
