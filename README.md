@@ -314,9 +314,9 @@ callers should not break on upgrade.
   memory decisions.
 - `sdk/python/` is the Python SDK and the `omem-server` / `omem-mcp` commands.
   It is the one that is published: `pip install omem-infrastructure`.
-- `sdk/typescript/` is the TypeScript SDK. **It is not on npm yet** — it is used
-  from source, and it lags the Python SDK. It builds and tests itself against a
-  real server:
+- `sdk/typescript/` is the TypeScript SDK, published as
+  **`npm install @omem/sdk`**. It lags the Python SDK, and it builds and tests
+  itself against a real server:
 
   ```bash
   cd sdk/typescript
