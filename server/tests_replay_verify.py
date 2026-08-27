@@ -16,7 +16,6 @@ nothing the determinism check did not already cover.
 """
 import json
 import os
-import sqlite3
 import subprocess
 import sys
 import threading
@@ -74,7 +73,16 @@ def call(m, path, body=None, key=None):
         return st, {}
 
 
-st, acct = call("POST", "/v1/signup", {"email": "replay@x.com"})
+# Unique per run. The sqlite path deletes its database at the top of this file
+# and starts clean; a PostgreSQL one persists, so a second run of this suite
+# against the same cluster hit "that address already has an account", signup
+# returned no key, and the failure surfaced twelve lines later as
+# KeyError: 'api_key'. CI never saw it because its postgres container is fresh
+# every time, which is exactly the kind of thing that only breaks for whoever
+# runs it locally twice.
+st, acct = call("POST", "/v1/signup",
+                {"email": "replay-%d-%d@x.com" % (os.getpid(), int(time.time()))})
+assert "api_key" in acct, "signup did not return a key: %s" % str(acct)[:200]
 KEY, PID = acct["api_key"]["secret"], acct["project"]["id"]
 call("POST", "/v1/agents?project=" + PID, {"id": "agent:a", "kind": "ai"}, KEY)
 call("POST", "/v1/entities?project=" + PID, {"id": "cust:1", "type": "customer"}, KEY)
@@ -151,13 +159,38 @@ check("and says so per project",
       (out.get("projects", {}).get(PID, {}).get("anchor")) == "match", str(out)[:200])
 
 print("== a rewritten log still replays cleanly, and the anchor catches it ==")
-c = sqlite3.connect(DB)
-target = c.execute("SELECT seq, args FROM ops WHERE kind='assert' ORDER BY seq").fetchone()
-args = json.loads(target[1])
+# Tamper the way the system stores, not the way it looks in a plaintext dump.
+# Reading the args column and json.loads-ing it works only while
+# OMEM_ENCRYPT_AT_REST is off; with it on the column holds a "v1g." ciphertext
+# token and the parse dies. Going through the same encrypt/decrypt helpers
+# store.py uses means this exercises the identical scenario under both, which
+# matters because encryption-on is a CI job and the whole point here is an
+# attacker with database write access.
+#
+# And go through STORE.db rather than sqlite3.connect(DB). Under
+# OMEM_DATABASE_URL the ops are in PostgreSQL and that sqlite file is empty, so
+# a direct connection found no rows and died on None. The store's adapter is
+# the same one the server writes through and translates placeholders for both
+# backends, which is the point: an attacker edits the database the server
+# actually uses.
+from secrets_provider import decrypt_content, encrypt_content  # noqa: E402
+
+#
+# Scoped to THIS project. Without the project_id filter the query took the
+# first assert op in the whole table, which is this project's only when the
+# database contains nothing else. On PostgreSQL the suites share one database,
+# so it rewrote an earlier suite's op instead, left this project untouched, and
+# the anchor correctly reported "match" -- a tampering test that tampered with
+# the wrong row and then passed for the wrong reason.
+_db = api.STORE.db
+_row = _db.execute(
+    "SELECT seq, args FROM ops WHERE project_id=? AND kind='assert' ORDER BY seq",
+    (PID,)).fetchone()
+args = json.loads(decrypt_content(_row["args"]))
 args["proposition"] = "prefers_monthly"          # rewrite what the agent said
-c.execute("UPDATE ops SET args=? WHERE seq=?", (json.dumps(args), target[0]))
-c.commit()
-c.close()
+_db.execute("UPDATE ops SET args=? WHERE seq=?",
+            (encrypt_content(json.dumps(args)), _row["seq"]))
+_db.commit()
 
 r = subprocess.run([sys.executable, "replay_verify.py", "--json", "--anchor", ANCHOR],
                    cwd=HERE, capture_output=True, text=True,

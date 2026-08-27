@@ -95,7 +95,27 @@ class ScopeStore:
         if scope == "org":
             return True
         if scope.startswith("agent:"):
-            return viewer_agent is not None and scope == f"agent:{viewer_agent}"
+            # Both spellings, because two of them are in the wild.
+            #
+            # This used to be `scope == f"agent:{viewer_agent}"`. A viewer is
+            # resolved as "agent:bob", so that built "agent:agent:bob" and only
+            # matched a scope that had been written the same doubled way. The
+            # observe path DID write it doubled (`f"agent:{agent}"` over an
+            # already-prefixed agent), so private-by-default worked and nobody
+            # noticed.
+            #
+            # What did not work was the documented form. POST /v1/memory/share
+            # and `scope` on POST /v1/assertions both store exactly what the
+            # caller sends, and the validator tells callers to send
+            # "agent:<id>". That produced a memory no one could read, including
+            # the agent it was scoped to: a write-only hole with no error.
+            #
+            # It failed CLOSED, so nothing leaked. It just meant the feature
+            # silently did not work through the public API.
+            if viewer_agent is None:
+                return False
+            bare = viewer_agent[6:] if viewer_agent.startswith("agent:") else viewer_agent
+            return scope == f"agent:{bare}" or scope == f"agent:agent:{bare}"
         if scope.startswith("team:"):
             return scope.split(":", 1)[1] in viewer_teams
         if scope.startswith("user:"):
