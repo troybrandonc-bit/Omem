@@ -215,14 +215,19 @@ print("== the audit chain is anchored in the same file ==")
 # It rides in the same file as the state digests on purpose. Two anchors kept
 # in two places is two habits, and the one you skip is the one that mattered.
 check("the anchor file carries audit heads", bool(blob.get("audit")), str(blob)[:200])
-_org = next(iter(blob.get("audit", {})), None)
-check("with a head hash for the org", bool((blob["audit"].get(_org) or {}).get("head")),
-      str(blob.get("audit"))[:200])
+# THIS project's org, not whichever one comes out of the dict first. On
+# PostgreSQL the suites share a database, so an arbitrary key is usually
+# another suite's org, and the tamper below would then rewrite their chain and
+# leave ours matching -- the same wrong-row mistake the ops tamper above made.
+_org = api.STORE.project(PID)["org_id"]
+check("with a head hash for this org", bool((blob.get("audit", {}).get(_org) or {}).get("head")),
+      "org=%s heads=%s" % (_org, str(blob.get("audit"))[:160]))
 
 # Deleting a row is the classic rewrite: the sequence jumps and every hash
-# after it is wrong.
+# after it is wrong. Scoped to this org for the same reason.
 _r = api.STORE.db.execute(
-    "SELECT id, seq FROM audit_events WHERE seq IS NOT NULL ORDER BY seq DESC LIMIT 1").fetchone()
+    "SELECT id, seq FROM audit_events WHERE COALESCE(org_id,'')=? AND seq IS NOT NULL "
+    "ORDER BY seq DESC LIMIT 1", (_org,)).fetchone()
 if _r:
     api.STORE.db.execute("DELETE FROM audit_events WHERE id=?", (_r["id"],))
     api.STORE.db.commit()
