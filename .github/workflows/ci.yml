@@ -181,6 +181,21 @@ jobs:
 
       - name: Install it clean
         run: pip install sdk/python/dist/*.whl
+      - name: The state must be reproducible from the log
+        # Not a unit test: this runs the shipped console command against the
+        # database the quickstart just created, which is the only way to know
+        # the wrapper resolves _server/ and finds OMEM_DB the same way
+        # omem-server writes it.
+        run: |
+          cd "$(mktemp -d)"
+          OMEM_DB=/tmp/verify-ci.db timeout 60 omem-server 8790 >/dev/null 2>&1 &
+          for i in $(seq 1 40); do curl -sf http://127.0.0.1:8790/v1/health >/dev/null && break; sleep 1; done
+          curl -sf -X POST http://127.0.0.1:8790/v1/signup -H 'Content-Type: application/json'                -d '{"email":"ci@x.com"}' >/dev/null
+          sleep 1; pkill -f "omem-server 8790" || true; sleep 1
+          OMEM_DB=/tmp/verify-ci.db omem-verify
+          OMEM_DB=/tmp/verify-ci.db omem-verify --record
+          OMEM_DB=/tmp/verify-ci.db omem-verify --anchor .omem-state.json
+
       - name: Run QUICKSTART.md, exactly as written
         # A script rather than an inline heredoc: an indented heredoc body
         # reaches python with its leading spaces intact and dies on

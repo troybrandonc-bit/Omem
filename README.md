@@ -211,6 +211,45 @@ than falling back to the stdlib keystream used for OAuth tokens.
 **Lose the key and the data is gone**: there is no recovery path, and no
 rotation tooling yet.
 
+## Proving the state follows from the log
+
+Memory is rebuilt by replaying an append-only log. That is easy to claim and
+was not checkable from outside, which is a weak place for a project whose whole
+argument is that you can reconstruct what an agent believed and why.
+
+```bash
+omem-verify
+```
+
+```
+proj_a14ce3f94fab  My first project
+  replayed 4 operations -> 2 assertions, 2 propositions
+  state digest  cd95d761079a2388...
+  deterministic yes
+```
+
+It replays the log into two independent fresh engines and compares the
+resulting state. A difference would mean replay depends on something outside
+the log, and that the same question does not give the same answer.
+
+That check cannot detect tampering, because a rewritten log replays perfectly
+consistently with itself. For that, record a digest and keep it somewhere OMEM
+cannot write:
+
+```bash
+omem-verify --record          # writes .omem-state.json
+omem-verify --anchor kept-elsewhere.json
+```
+
+```
+  anchor        DOES NOT MATCH cd95d761079a2388... the log has changed
+```
+
+Same reasoning as the audit chain's head hash, applied to the op log. It proves
+the state follows from the log, and that the log has not changed since the
+anchor. It does not prove the beliefs are correct, or that nothing was removed
+before the first anchor was taken.
+
 ## Refusing ungrounded writes
 
 Every belief carries a grounding verdict: `GROUNDED` if its provenance reaches a
