@@ -33,6 +33,14 @@ jobs:
         working-directory: server
         run: python run_tests.py
 
+      - name: The refusals in the demo must still happen
+        # scripts/demo_refusal.py is shown to people deciding whether to rely on
+        # this. It asserts every refusal it demonstrates and exits non-zero if
+        # one stops happening, so it runs here: a demo that can quietly become
+        # untrue is worse than no demo.
+        env: { NO_COLOR: "1" }
+        run: python scripts/demo_refusal.py
+
   server-postgres:
     name: server / postgres
     runs-on: ubuntu-latest

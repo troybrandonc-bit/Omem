@@ -211,6 +211,30 @@ than falling back to the stdlib keystream used for OAuth tokens.
 **Lose the key and the data is gone**: there is no recovery path, and no
 rotation tooling yet.
 
+## Seeing what it refuses
+
+The self-healing boundary is the part that is hard to believe from a
+description, so it is a script rather than a paragraph:
+
+```bash
+python3 scripts/demo_refusal.py
+```
+
+It drives a real server through the two ways a repair plan actually goes wrong.
+A model proposes `reload_config` (registered) alongside `exec_shell` (not
+registered anywhere): the first is permitted on its merits, the second is
+refused by name, and the plan as a whole is denied. A plan that claims its own
+risk class gets it ignored, because risk comes from the registry. An
+instruction embedded in the error message the model read executes nothing.
+Every verdict is kept and readable afterwards, and a secret in the error
+context is not in storage.
+
+Registration happens in code. There is no API that adds an executable action
+type, so no plan and no prompt widens what is permitted.
+
+Every refusal in it is asserted and it exits non-zero if one stops happening,
+so it runs in CI. A demo that can quietly become untrue is worse than none.
+
 ## Proving the state follows from the log
 
 Memory is rebuilt by replaying an append-only log. That is easy to claim and
@@ -290,9 +314,9 @@ callers should not break on upgrade.
   memory decisions.
 - `sdk/python/` is the Python SDK and the `omem-server` / `omem-mcp` commands.
   It is the one that is published: `pip install omem-infrastructure`.
-- `sdk/typescript/` is the TypeScript SDK. **It is not on npm yet** — it is used
-  from source, and it lags the Python SDK. It builds and tests itself against a
-  real server:
+- `sdk/typescript/` is the TypeScript SDK, published as
+  **`npm install @omem/sdk`**. It lags the Python SDK, and it builds and tests
+  itself against a real server:
 
   ```bash
   cd sdk/typescript
