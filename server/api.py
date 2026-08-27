@@ -2674,6 +2674,14 @@ class Handler(BaseHTTPRequestHandler):
                 "contradictions": contradictory,
                 "subjects": [shape_entity(p, s) for s in a.subjects],
                 "agent": shape_agent(p, a.agent),
+                # Provenance answers where the belief came from. This answers
+                # why THIS caller was allowed to read it, which was already
+                # decided a few lines above and never returned. Both questions
+                # get asked after an incident; only one of them had an answer.
+                "visibility": SCOPES.explain_visibility(
+                    SCOPES.of(p.id, aid), _v,
+                    SCOPES.teams_of(p.id, _v) if _v else set(),
+                    qs.get("user", [None])[0]),
             })
 
         # /v1/assertions/{id}/provenance

@@ -7,6 +7,33 @@ Release notes for people using OMEM. Engineering history lives in
 
 ### Added
 
+- **`why` now says why the caller was allowed to read it.** It has always
+  answered where a belief came from and never why this particular caller could
+  retrieve it, even though the authorisation decision was made a few lines
+  earlier and thrown away. The response carries a `visibility` block naming the
+  scope, the viewer, the acting user and the rule that applied. A refusal is
+  still a 404 rather than an explained denial, because saying "you may not see
+  this" confirms it exists.
+
+  The verdict comes from the same `visible()` the read paths use, not a second
+  implementation, so the explanation cannot drift from the rule it describes.
+
+- **`omem-verify` anchors the audit chain too.** The chain has always been
+  tamper-evidence rather than tamper-proofing: someone with write access can
+  rewrite it from the edit forward and it stays internally consistent, and
+  detecting that needs the head hash kept where OMEM cannot reach.
+  `GET /v1/audit/verify` always returned that head; nothing recorded it, so
+  anchoring was an instruction rather than a command. It now rides in the same
+  file as the state digests, because two anchors kept in two places is two
+  habits and the one you skip is the one that mattered.
+
+- **A CycloneDX SBOM, and a check that keeps it honest.**
+  `scripts/gen_sbom.py` emits the bill of materials; `--check` fails if a
+  runtime dependency ever appears and runs in CI. The server and SDK depend on
+  nothing outside the standard library, so the SBOM is one component. The
+  optional extras are listed and marked optional, because "no dependencies"
+  would otherwise be a half-truth.
+
 - **`omem-verify` proves the state follows from the log.** The README has always
   said memory is rebuilt by replaying an append-only log and that identical
   inputs give identical state. Both were true and neither was checkable without

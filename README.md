@@ -267,12 +267,31 @@ omem-verify --anchor kept-elsewhere.json
 
 ```
   anchor        DOES NOT MATCH cd95d761079a2388... the log has changed
+  audit chain  org_f4f3bdfa7a82  MISMATCH
 ```
 
-Same reasoning as the audit chain's head hash, applied to the op log. It proves
-the state follows from the log, and that the log has not changed since the
-anchor. It does not prove the beliefs are correct, or that nothing was removed
-before the first anchor was taken.
+The same file anchors the **audit chain head**, for the same reason. That chain
+is tamper-evidence rather than tamper-proofing: someone with write access can
+rewrite it from the edit forward and it stays internally consistent. Only a head
+hash kept where OMEM cannot reach it detects that. Two anchors in two places is
+two habits, and the one you skip is the one that mattered.
+
+It proves the state follows from the log, and that neither the log nor the audit
+chain has changed since the anchor. It does not prove the beliefs are correct,
+or that nothing was removed before the first anchor was taken.
+
+### The bill of materials
+
+```bash
+python3 scripts/gen_sbom.py > sbom.json     # CycloneDX
+python3 scripts/gen_sbom.py --check         # fails if a runtime dep appears
+```
+
+The server and the SDK have **no runtime dependencies**, so the SBOM is one
+component and the transitive surface is the standard library. The optional
+extras are listed and marked optional, because "no dependencies" would
+otherwise be a half-truth. `--check` runs in CI so the claim cannot quietly
+stop being true.
 
 ## Refusing ungrounded writes
 

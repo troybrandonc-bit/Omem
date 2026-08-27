@@ -123,6 +123,45 @@ class ScopeStore:
         return False
 
 
+    def explain_visibility(self, scope: str, viewer_agent, viewer_teams,
+                           acting_user) -> dict:
+        """Why this caller may or may not read a memory with this scope.
+
+        `why` has always answered where a belief came from and never why the
+        caller was allowed to retrieve it. Both were computed; only one was
+        returned. For a system whose argument is that every access can be
+        reviewed, "who was permitted, and under which rule" belongs in the same
+        place as provenance.
+
+        The verdict comes from visible() rather than being recomputed here. An
+        explanation that derives its own answer can disagree with the rule it
+        claims to describe, and then there are two behaviours and no way to
+        know from the outside which one actually ran. This function only
+        supplies the sentence.
+        """
+        verdict = self.visible(scope, viewer_agent, viewer_teams, acting_user)
+        if scope == "org":
+            rule = "organisation scope: readable by every agent in the project"
+        elif scope.startswith("agent:"):
+            rule = ("agent scope: the viewer is the agent it belongs to"
+                    if verdict else
+                    "agent scope: private to another agent" if viewer_agent
+                    else "agent scope: no viewer identity was resolved, so nothing agent-scoped is readable")
+        elif scope.startswith("team:"):
+            rule = ("team scope: the viewer is a member of that team" if verdict
+                    else "team scope: the viewer is not a member of that team")
+        elif scope.startswith("user:"):
+            rule = ("user scope: the acting user matches" if verdict else
+                    "user scope: acting for a different user" if acting_user
+                    else "user scope: no acting user was supplied, so nothing user-scoped is readable")
+        else:
+            rule = "unrecognised scope form, treated as invisible"
+        return {"scope": scope, "viewer": viewer_agent,
+                "acting_user": acting_user,
+                "viewer_teams": sorted(viewer_teams or []),
+                "visible": verdict, "rule": rule}
+
+
 # ── context understanding (deterministic; no model required) ────────────────
 _WORD = re.compile(r"[a-z0-9][a-z0-9_@.-]{2,}")
 
