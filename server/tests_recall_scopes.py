@@ -281,5 +281,49 @@ check("and the doubled form is still not visible to others",
 check("no viewer sees no agent-scoped memory",
       api.SCOPES.visible("agent:bob", None, set(), None) is False)
 
+print("== why explains authorisation, not only provenance ==")
+# `why` answered where a belief came from and never why the caller was allowed
+# to read it. Both were computed; only one was returned. A refusal stays a 404
+# so a private memory's existence is not leaked, which means the block only
+# appears on a permitted read -- and "under which rule was I permitted" is the
+# question asked after an incident.
+_ex = api.SCOPES.explain_visibility
+check("org scope is explained",
+      _ex("org", "agent:bob", set(), None)["rule"].startswith("organisation scope"),
+      str(_ex("org", "agent:bob", set(), None)))
+check("agent scope, the owning agent",
+      _ex("agent:bob", "agent:bob", set(), None)["visible"] is True)
+check("agent scope, another agent",
+      _ex("agent:bob", "agent:eve", set(), None)["visible"] is False)
+check("and it says why, not just no",
+      "another agent" in _ex("agent:bob", "agent:eve", set(), None)["rule"],
+      str(_ex("agent:bob", "agent:eve", set(), None)))
+check("agent scope with no viewer names the missing identity",
+      "no viewer identity" in _ex("agent:bob", None, set(), None)["rule"],
+      str(_ex("agent:bob", None, set(), None)))
+check("team scope, a member", _ex("team:ops", "agent:bob", {"ops"}, None)["visible"] is True)
+check("team scope, not a member", _ex("team:ops", "agent:bob", set(), None)["visible"] is False)
+check("user scope, matching acting user",
+      _ex("user:alice", "agent:bob", set(), "alice")["visible"] is True)
+check("user scope, no acting user supplied",
+      "no acting user" in _ex("user:alice", "agent:bob", set(), None)["rule"],
+      str(_ex("user:alice", "agent:bob", set(), None)))
+check("an unrecognised scope form is invisible and says so",
+      _ex("nonsense", "agent:bob", set(), None)["visible"] is False
+      and "unrecognised" in _ex("nonsense", "agent:bob", set(), None)["rule"])
+
+# The verdict must come from visible(), not a second implementation. If these
+# ever disagree there are two behaviours and no way to tell which one ran.
+for _sc, _vw, _tm, _us in (("org", "agent:bob", set(), None),
+                           ("agent:bob", "agent:bob", set(), None),
+                           ("agent:bob", "agent:eve", set(), None),
+                           ("team:ops", "agent:bob", {"ops"}, None),
+                           ("user:alice", "agent:bob", set(), "alice"),
+                           ("user:alice", "agent:bob", set(), "eve"),
+                           ("nonsense", None, set(), None)):
+    check("explanation agrees with the rule it describes (%s/%s)" % (_sc, _vw),
+          _ex(_sc, _vw, _tm, _us)["visible"] == api.SCOPES.visible(_sc, _vw, _tm, _us))
+
+
 print(f"\n{PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)

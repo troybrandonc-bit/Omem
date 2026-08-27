@@ -33,6 +33,13 @@ jobs:
         working-directory: server
         run: python run_tests.py
 
+      - name: The no-dependencies claim must still be true
+        # CONTRIBUTING.md rule 3 and half the reason this is easy to deploy in a
+        # restricted environment. --check exits non-zero the moment a runtime
+        # dependency appears, so the claim cannot quietly stop being true and
+        # then get repeated in a README.
+        run: python scripts/gen_sbom.py --check
+
       - name: The refusals in the demo must still happen
         # scripts/demo_refusal.py is shown to people deciding whether to rely on
         # this. It asserts every refusal it demonstrates and exits non-zero if

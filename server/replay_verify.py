@@ -120,6 +120,33 @@ def replay(api, row, ops) -> object:
     return p
 
 
+def audit_heads(api) -> dict:
+    """The audit chain head hash per organisation, and whether it verifies.
+
+    enterprise.py already says the honest thing about this chain: it is
+    tamper-EVIDENCE, not tamper-proofing, and someone with write access can
+    rewrite it from the edit forward. Detecting that needs the head hash kept
+    somewhere OMEM does not control. GET /v1/audit/verify has always returned
+    the head; nothing recorded it, so "anchor it off-system" was an instruction
+    rather than a command.
+
+    It rides in the same file as the state digests deliberately. Two anchors
+    kept in two places is two habits, and the one you skip is the one that
+    mattered.
+    """
+    orgs = sorted({r["org_id"] for r in api.STORE.projects_all() if r["org_id"]})
+    out = {}
+    for oid in orgs:
+        try:
+            res = api.ENT.verify_audit_chain(oid)
+        except Exception as e:                       # never fail the state check
+            out[oid] = {"error": "%s: %s" % (type(e).__name__, e)}
+            continue
+        out[oid] = {"head": res.get("head"), "internally_consistent": res.get("ok"),
+                    "rows_checked": res.get("checked")}
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Verify OMEM state is reproducible from its log.")
     ap.add_argument("--project", help="only this project id")
@@ -146,6 +173,7 @@ def main() -> int:
             return 2
         anchored = json.load(open(args.anchor, encoding="utf-8")).get("projects", {})
 
+    heads = audit_heads(api)
     results, failed = {}, 0
     for row in rows:
         pid = row["id"]
@@ -189,9 +217,11 @@ def main() -> int:
             print()
 
     if args.record:
-        out = {"version": 1, "projects": {k: {"digest": v["digest"],
-                                              "operations": v["operations"]}
-                                          for k, v in results.items()}}
+        out = {"version": 1,
+               "projects": {k: {"digest": v["digest"],
+                                "operations": v["operations"]}
+                            for k, v in results.items()},
+               "audit": {k: {"head": v.get("head")} for k, v in heads.items()}}
         with open(DIGEST_FILE, "w", encoding="utf-8") as fh:
             json.dump(out, fh, indent=2, sort_keys=True)
             fh.write("\n")
@@ -200,8 +230,36 @@ def main() -> int:
             print("Keep a copy somewhere OMEM cannot write. A digest stored only")
             print("next to the database proves nothing against someone who can edit both.")
 
+    anchored_audit = {}
+    if args.anchor:
+        anchored_audit = json.load(open(args.anchor, encoding="utf-8")).get("audit", {})
+    audit_report = {}
+    for oid, h in heads.items():
+        entry = dict(h)
+        if h.get("internally_consistent") is False:
+            entry["state"] = "BROKEN"
+            failed += 1
+        elif args.anchor:
+            want = (anchored_audit.get(oid) or {}).get("head")
+            if want is None:
+                entry["state"] = "no head recorded"
+            elif want == h.get("head"):
+                entry["state"] = "matches the recorded head"
+            else:
+                entry["state"] = "MISMATCH"
+                entry["expected"] = want
+                failed += 1
+        else:
+            entry["state"] = "internally consistent"
+        audit_report[oid] = entry
+        if not args.json:
+            print("audit chain  %s  %s" % (oid, entry["state"]))
+    if audit_report and not args.json:
+        print()
+
     if args.json:
-        print(json.dumps({"ok": failed == 0, "projects": results}, indent=2, sort_keys=True))
+        print(json.dumps({"ok": failed == 0, "projects": results,
+                          "audit": audit_report}, indent=2, sort_keys=True))
     elif failed:
         print(f"{failed} project(s) FAILED verification")
     else:

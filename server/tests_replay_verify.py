@@ -205,6 +205,38 @@ check("and it names the digest it expected",
       entry.get("anchor_expected", "").startswith(blob["projects"][PID]["digest"][:8]),
       str(entry)[:200])
 
+print("== the audit chain is anchored in the same file ==")
+# enterprise.py has always been honest that the chain is tamper-EVIDENCE, not
+# tamper-proofing: someone with write access rewrites it from the edit forward
+# and it stays internally consistent. Detecting that needs the head hash kept
+# where OMEM cannot reach. GET /v1/audit/verify always returned the head;
+# nothing recorded it, so anchoring was an instruction rather than a command.
+#
+# It rides in the same file as the state digests on purpose. Two anchors kept
+# in two places is two habits, and the one you skip is the one that mattered.
+check("the anchor file carries audit heads", bool(blob.get("audit")), str(blob)[:200])
+_org = next(iter(blob.get("audit", {})), None)
+check("with a head hash for the org", bool((blob["audit"].get(_org) or {}).get("head")),
+      str(blob.get("audit"))[:200])
+
+# Deleting a row is the classic rewrite: the sequence jumps and every hash
+# after it is wrong.
+_r = api.STORE.db.execute(
+    "SELECT id, seq FROM audit_events WHERE seq IS NOT NULL ORDER BY seq DESC LIMIT 1").fetchone()
+if _r:
+    api.STORE.db.execute("DELETE FROM audit_events WHERE id=?", (_r["id"],))
+    api.STORE.db.commit()
+    r = subprocess.run([sys.executable, "replay_verify.py", "--json", "--anchor", ANCHOR],
+                       cwd=HERE, capture_output=True, text=True,
+                       env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    out = json.loads(r.stdout) if r.stdout.strip().startswith("{") else {}
+    aud = (out.get("audit") or {}).get(_org, {})
+    check("deleting an audit row is detected",
+          aud.get("state") in ("BROKEN", "MISMATCH"), str(aud)[:200])
+    check("and it exits non-zero", r.returncode == 1, "exit " + str(r.returncode))
+else:
+    check("audit rows exist to tamper with", False, "no hashed audit rows")
+
 print("== a missing anchor file is an error, not a pass ==")
 r = subprocess.run([sys.executable, "replay_verify.py", "--anchor", ANCHOR + ".nope"],
                    cwd=HERE, capture_output=True, text=True,
