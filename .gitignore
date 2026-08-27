@@ -50,3 +50,8 @@ sdk/python/omem/_dashboard/
 
 # A build artifact: it changes on every typecheck and belongs to nobody.
 web/tsconfig.tsbuildinfo
+
+# Written by `omem-verify --record`. It is a digest of YOUR data at a moment
+# in time, and anchoring it next to the database proves nothing against
+# someone who can edit both. Keep the copy that matters somewhere else.
+.omem-state.json

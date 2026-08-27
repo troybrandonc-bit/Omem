@@ -7,6 +7,21 @@ Release notes for people using OMEM. Engineering history lives in
 
 ### Added
 
+- **`omem-verify` proves the state follows from the log.** The README has always
+  said memory is rebuilt by replaying an append-only log and that identical
+  inputs give identical state. Both were true and neither was checkable without
+  reading the source, which is a weak spot for a project whose argument is that
+  you can reconstruct what an agent believed.
+
+  It replays the log into two independent engines and compares the resulting
+  state, so a replay that depends on anything outside the log fails. With
+  `--record` and `--anchor` it compares against a digest taken earlier and kept
+  elsewhere, which is what detects a rewritten log: tampering leaves a log that
+  still replays consistently with itself and no longer matches what you wrote
+  down. Same reasoning as the audit chain's head hash, applied to the op log.
+
+  Exits non-zero on failure, so it works in a cron job or a pipeline.
+
 - **OMEM works as a LangGraph store, so LangChain agents can use it.**
   `omem.integrations.langgraph_store.OmemStore` implements LangGraph's
   `BaseStore`, the interface LangChain agents use for long-term memory. Install
