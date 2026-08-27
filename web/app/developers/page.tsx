@@ -137,7 +137,7 @@ export default function Developers() {
           {[
             { k: "Base URL", v: "http://127.0.0.1:8787" },
             { k: "Python", v: "pip install omem-infrastructure" },
-            { k: "TypeScript", v: "sdk/typescript/ (not on npm yet)" },
+            { k: "TypeScript", v: "npm install @omem/sdk (lags the Python surface)" },
             { k: "Engine", v: "omem_engine 1.0.0 (frozen, hash-checked)" },
           ].map(row => (
             <div key={row.k} className="flex items-center gap-4 py-2.5">

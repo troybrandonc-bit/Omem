@@ -48,10 +48,12 @@ export default function DocsIntro() {
         { label: "Python", code: "pip install omem-infrastructure" },
       ]} />
       <p className="mt-3 text-note text-muted">
-        The TypeScript SDK is not on npm yet. It lives in{" "}
-        <code className="mono text-fg">sdk/typescript/</code> in the repository
-        and is used from source; parity with the Python SDK is tracked in{" "}
-        <code className="mono text-fg">CONTRIBUTING.md</code>.
+        There is also a TypeScript SDK,{" "}
+        <code className="mono text-fg">npm install @omem/sdk</code>, and a
+        LangGraph store adapter for LangChain agents,{" "}
+        <code className="mono text-fg">pip install &quot;omem-infrastructure[langgraph]&quot;</code>.
+        The TypeScript SDK does not yet cover the whole Python surface; the gap
+        is tracked in <code className="mono text-fg">CONTRIBUTING.md</code>.
       </p>
 
       <h2>What you get</h2>
