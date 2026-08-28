@@ -3,7 +3,11 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
-## Unreleased
+## 0.2.9 - 28 Aug 2026
+
+**If you use OMEM from an MCP client, this is the release that makes setup one
+line.**
+
 
 ### Changed
 
