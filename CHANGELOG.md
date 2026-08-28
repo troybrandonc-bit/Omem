@@ -3,6 +3,33 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## Unreleased
+
+### Added
+
+- **`omem_remember`: record a fact you already know.** MCP clients could only
+  `observe`, which runs text through a deterministic extractor with a fixed
+  vocabulary aimed at decisions and commitments about contracts. That is the
+  right tool for a transcript and the wrong one when the caller already knows
+  the fact: anything outside the vocabulary was silently dropped, so
+  "prefers dark mode" or "owns the billing integration" recorded nothing at
+  all. The Python SDK has had `remember()` since the beginning; MCP never
+  exposed it.
+
+  ```json
+  {"about": "customer:acme", "claim": "prefers_dark_mode",
+   "because": "said on the 3 Nov call"}
+  ```
+
+  A model naming a claim is not a model deciding what is true. Turning language
+  into a subject and a proposition is a language task; OMEM still owns belief
+  state, contradiction, provenance and the grounding gate. It is the same
+  division as the healing subsystem, where a model may propose and OMEM decides
+  what is permitted.
+
+  `agent` is not a tool argument here either, so the identity pinning is
+  unchanged: the model cannot say whose memory it is writing.
+
 ## 0.2.10 - 28 Aug 2026
 
 **If you tried OMEM and it recorded nothing, this is the release that explains

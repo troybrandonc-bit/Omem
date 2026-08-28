@@ -399,6 +399,22 @@ No key, no URL, no separate server to start. On first run it starts the bundled
 server itself, creates a project, and remembers it in `~/.omem`. Restarting the
 client reuses the same memory.
 
+Four tools: `omem_recall`, `omem_observe`, `omem_remember` and `omem_why`.
+
+`observe` hands OMEM raw conversation and lets it decide what is durable, which
+is what you want over a transcript. `remember` records a fact you have already
+identified:
+
+```json
+{"about": "customer:acme", "claim": "prefers_dark_mode",
+ "because": "said on the 3 Nov call"}
+```
+
+Use `remember` when you know the fact. Extraction runs a deterministic
+vocabulary aimed at decisions and commitments, so a claim outside it records
+nothing at all, and a model naming a claim is not a model deciding what is
+true: OMEM still owns belief state, contradiction and provenance.
+
 Identity is fixed by the environment, never by a tool argument, on both axes
 that scope memory: `OMEM_AGENT` is the agent whose memory this is, and
 `OMEM_USER` is the end user it is acting for. A model speaking MCP cannot name
