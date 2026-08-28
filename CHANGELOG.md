@@ -3,6 +3,28 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## Unreleased
+
+### Fixed
+
+- **A first `observe` often returned nothing, and did not say why.** The reply
+  was "nothing in this interaction met the bar for durable memory", which reads
+  as broken rather than as strict. Someone installs OMEM, types one sentence,
+  gets an empty list, and closes the tab. They do not file anything, because
+  from where they are standing there is nothing to report.
+
+  The most common cause was a missing `speaker`. Extraction resolves the party
+  a claim is about from it, so a call without one records nothing, every time
+  -- and the MCP tool schema listed `speaker` as **optional**, so a model would
+  routinely omit it. It is required now, its description says what it is for,
+  and the tool carries an example that actually stores a memory.
+
+  The empty reply now distinguishes the two cases: no speaker (say who spoke),
+  versus a speaker but no durable claim (decisions and commitments are kept;
+  questions, preferences and pleasantries are not, and the first person works
+  best). Refusing remains the correct behaviour. Refusing without explaining
+  was the defect.
+
 ## 0.2.9 - 28 Aug 2026
 
 **If you use OMEM from an MCP client, this is the release that makes setup one

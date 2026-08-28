@@ -55,17 +55,35 @@ TOOLS = [
     },
     {
         "name": "omem_observe",
-        "description": ("Feed an interaction to memory. OMEM decides what (if "
-                        "anything) is durable; the deterministic engine decides "
-                        "belief state. Transient chatter produces no memory."),
+        # The description carries a worked example on purpose. Extraction
+        # resolves the party from `speaker`, so a call without one returns
+        # nothing every time -- and a model that reads "speaker: optional"
+        # will often omit it, which made an empty first result the common
+        # case rather than the rare one.
+        "description": (
+            "Feed an interaction to memory. OMEM decides what (if anything) is "
+            "durable; the deterministic engine decides belief state. "
+            "ALWAYS pass `speaker`: the party a claim is about is resolved from "
+            "it, so a call without one records nothing. "
+            "Decisions and commitments are remembered; questions, preferences "
+            "and pleasantries are not, and stating it in the first person works "
+            "best. An example that records a memory: "
+            '{"text": "We have decided to renew the annual contract.", '
+            '"speaker": "pat@acme.com"}. '
+            "Returns the memories created, or an empty list and a note saying "
+            "why nothing was."),
         "inputSchema": {
             "type": "object",
             "properties": {
-                "text": {"type": "string"},
-                "speaker": {"type": "string"},
+                "text": {"type": "string",
+                         "description": "What was said or written."},
+                "speaker": {"type": "string",
+                            "description": "Who said it: an email or a name. "
+                                           "Required in practice -- without it "
+                                           "nothing is recorded."},
                 "topic": {"type": "string"},
             },
-            "required": ["text"],
+            "required": ["text", "speaker"],
         },
     },
     {

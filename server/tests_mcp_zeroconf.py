@@ -104,6 +104,47 @@ finally:
     p.kill()               # hard, exactly as an MCP client may
     p.wait(timeout=10)
 
+print("== an empty result says what would have worked ==")
+# An empty observe is usually correct: most of what is said is not worth
+# remembering. But it is also what a first-time caller sees, and "nothing met
+# the bar" reads as broken rather than strict. They close the tab without
+# filing anything, because from where they stand there is nothing to report.
+#
+# By far the most common cause is a missing speaker -- extraction resolves the
+# party from it -- and the MCP schema used to list speaker as optional, so a
+# model would omit it and get nothing every time.
+p_e = spawn()
+try:
+    rpc(p_e, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
+    tl = rpc(p_e, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
+    obs = [t for t in tl["result"]["tools"] if t["name"] == "omem_observe"][0]
+    check("speaker is declared required, not optional",
+          "speaker" in obs["inputSchema"].get("required", []),
+          str(obs["inputSchema"].get("required")))
+    check("the description tells the caller to pass it",
+          "speaker" in obs["description"] and "records nothing" in obs["description"],
+          obs["description"][:160])
+    check("and carries an example that actually works",
+          "We have decided to renew" in obs["description"], obs["description"][:160])
+
+    r = rpc(p_e, {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {
+        "name": "omem_observe", "arguments": {"text": "We have decided to renew."}}})
+    note = json.loads(r["result"]["content"][0]["text"]).get("note", "")
+    check("omitting speaker names that as the reason", "speaker" in note, note[:140])
+
+    r = rpc(p_e, {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {
+        "name": "omem_observe", "arguments": {
+            "text": "Should we renew annually?", "speaker": "pat@acme.com"}}})
+    note = json.loads(r["result"]["content"][0]["text"]).get("note", "")
+    check("a non-claim gets the other reason, not the speaker one",
+          "speaker" not in note and "durable claim" in note, note[:140])
+    check("and that note says what IS remembered",
+          "decided" in note.lower() or "commitment" in note.lower(), note[:140])
+finally:
+    p_e.stdin.close()
+    p_e.terminate()
+    p_e.wait(timeout=10)
+
 print("== a project was created and remembered ==")
 creds = os.path.join(DATA, "mcp-credentials.json")
 check("credentials were stored", os.path.exists(creds), creds)
