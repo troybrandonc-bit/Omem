@@ -3,7 +3,7 @@
   "name": "io.github.troybrandonc-bit/omem",
   "title": "OMEM",
   "description": "Memory for AI agents that tracks beliefs over time and surfaces contradictions",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "websiteUrl": "https://infrastructure.omem-cloud.com",
   "repository": {
     "url": "https://github.com/troybrandonc-bit/Omem",
@@ -13,7 +13,7 @@
     {
       "registryType": "pypi",
       "identifier": "omem-infrastructure",
-      "version": "0.2.9",
+      "version": "0.2.10",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         {

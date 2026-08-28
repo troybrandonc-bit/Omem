@@ -3,7 +3,11 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
-## Unreleased
+## 0.2.10 - 28 Aug 2026
+
+**If you tried OMEM and it recorded nothing, this is the release that explains
+why.**
+
 
 ### Fixed
 
