@@ -97,6 +97,72 @@ class WriterLock:
         r = self.db.execute("SELECT * FROM writer_lock WHERE id=1").fetchone()
         return dict(r) if r else None
 
+    @staticmethod
+    def _pid_alive(pid: int) -> bool:
+        """Is this pid running on THIS machine?
+
+        Wrong in the safe direction on purpose: anything uncertain reports
+        True, so the caller falls back to the staleness timeout rather than
+        taking a lock from a process that might still be holding an engine.
+
+        os.kill(pid, 0) is the POSIX idiom and is NOT portable here: on Windows
+        os.kill ignores the signal number and calls TerminateProcess, so the
+        "check" would kill the very process it is asking about. Windows gets
+        OpenProcess + GetExitCodeProcess instead, through ctypes, so this stays
+        dependency-free.
+        """
+        if os.name == "nt":
+            try:
+                import ctypes
+                from ctypes import wintypes
+                k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+                PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+                STILL_ACTIVE = 259
+                ERROR_INVALID_PARAMETER = 87
+                h = k32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+                if not h:
+                    # 87 means no such process. Anything else (access denied,
+                    # for instance) means we cannot tell, so assume alive.
+                    return ctypes.get_last_error() != ERROR_INVALID_PARAMETER
+                try:
+                    code = wintypes.DWORD()
+                    if not k32.GetExitCodeProcess(h, ctypes.byref(code)):
+                        return True
+                    return code.value == STILL_ACTIVE
+                finally:
+                    k32.CloseHandle(h)
+            except Exception:
+                return True
+        try:
+            os.kill(pid, 0)
+            return True
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True          # exists, owned by someone else
+        except Exception:
+            return True
+
+    def _owner_is_gone(self, owner: str) -> bool:
+        """True only when the holder can be PROVEN dead: same host, no such pid.
+
+        Without this, a hard-killed process holds the database for STALE_AFTER
+        (90s). That is fine for a server someone restarts by hand and wrong for
+        an MCP server, which its client starts and kills constantly -- a restart
+        inside 90 seconds was refused, which is the normal workflow.
+
+        A recycled pid reads as alive and falls back to the timeout. A holder on
+        another host is never judged, because we cannot see its processes.
+        """
+        try:
+            host, pid = owner.rsplit(":", 1)
+            pid = int(pid)
+        except (AttributeError, ValueError):
+            return False
+        if host != socket.gethostname() or pid == os.getpid():
+            return False
+        return not self._pid_alive(pid)
+
     def acquire(self) -> None:
         if os.environ.get("OMEM_ALLOW_MULTIPLE_WRITERS"):
             # Deliberately not a silent option: whoever sets this is choosing the
@@ -118,7 +184,7 @@ class WriterLock:
             self.held = True
             return
         age = now - held["heartbeat"]
-        if age < self.STALE_AFTER:
+        if age < self.STALE_AFTER and not self._owner_is_gone(held["owner"]):
             raise SystemExit(
                 f"OMEM refuses to start: {held['owner']} is already serving this "
                 f"database (last seen {age:.0f}s ago).\n"
@@ -138,7 +204,7 @@ class WriterLock:
                 "OMEM refuses to start: another process claimed this database "
                 "while we were taking over a stale lock. Retry.")
         print(f"  writer lock: took over from {held['owner']} "
-              f"(stale for {age:.0f}s)")
+              f"({'process is gone' if age < self.STALE_AFTER else f'stale for {age:.0f}s'})")
         self.held = True
 
     def beat(self) -> None:
