@@ -22,6 +22,14 @@ pip install omem-infrastructure && omem-server
 Docs: **[infrastructure.omem-cloud.com](https://infrastructure.omem-cloud.com)**
 · [Quickstart](QUICKSTART.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
+<p align="center">
+  <img src=".github/demo-reasoning.svg" width="720"
+       alt="Replay of scripts/demo_reasoning.py: two records merge into one person, a declared rule concludes, the premise is retracted and the conclusion is withdrawn in the same request, and a split is final for the machine.">
+</p>
+
+<p align="center"><sub>That is <code>scripts/demo_reasoning.py</code>, abridged. Every line is an
+asserted behaviour that runs in CI, so this picture cannot quietly stop being true.</sub></p>
+
 ## What makes it different
 
 Most agent memory is a list of facts. When two facts conflict, one silently

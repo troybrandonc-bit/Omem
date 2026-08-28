@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480" width="720" height="480" role="img" aria-label="Terminal replay of scripts/demo_reasoning.py: identity resolution merges one person's two records, a declared rule concludes, the premise is retracted and the conclusion is withdrawn in the same request, and a split is final for the machine.">
+  <!-- A replay of the real output of scripts/demo_reasoning.py, abridged.
+       Every line below appears verbatim in the demo, which is an asserted
+       test run in CI, so this picture cannot quietly drift from the truth
+       without a red build pointing at it. -->
+  <style>
+    .card { fill: #0d1117; stroke: #30363d; }
+    .bar  { fill: #161b22; }
+    .dot  { fill: #30363d; }
+    text  { font-family: ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Consolas, Menlo, monospace; font-size: 12.5px; fill: #c9d1d9; white-space: pre; }
+    .t    { fill: #8b949e; font-size: 11.5px; }
+    .head { fill: #e6edf3; font-weight: 600; }
+    .dim  { fill: #8b949e; }
+    .acc  { fill: #58a6ff; }
+    .ok   { fill: #3fb950; }
+    .warn { fill: #d29922; }
+    .line { opacity: 0; animation: reveal 0.01s linear forwards; }
+    .cur  { opacity: 0; animation: reveal 0.01s linear 15.2s forwards; }
+    .blink { animation: blink 1.1s step-end 15.2s infinite; }
+    @keyframes reveal { to { opacity: 1; } }
+    @keyframes blink { 50% { opacity: 0.15; } }
+    @media (prefers-reduced-motion: reduce) {
+      .line, .cur { animation: none; opacity: 1; }
+      .blink { animation: none; }
+    }
+  </style>
+
+  <rect class="card" x="0.5" y="0.5" width="719" height="479" rx="10"/>
+  <rect class="bar" x="1" y="1" width="718" height="35" rx="9"/>
+  <rect class="bar" x="1" y="20" width="718" height="16"/>
+  <circle class="dot" cx="20" cy="18" r="5"/>
+  <circle class="dot" cx="38" cy="18" r="5"/>
+  <circle class="dot" cx="56" cy="18" r="5"/>
+  <text class="t" x="76" y="22.5">omem ~ scripts/demo_reasoning.py</text>
+
+  <text class="line" style="animation-delay:0.4s" x="24" y="68"><tspan class="acc">$</tspan> python3 scripts/demo_reasoning.py</text>
+  <text class="line head" style="animation-delay:1.1s" x="24" y="92">OMEM: reasoning with receipts</text>
+
+  <text class="line head" style="animation-delay:2.2s" x="24" y="126">1. One person arrived twice. OMEM notices, and knows when not to.</text>
+  <text class="line" style="animation-delay:3.0s" x="24" y="148">   before: the alias knows nothing        -&gt; <tspan class="warn">UNKNOWN</tspan></text>
+  <text class="line" style="animation-delay:3.8s" x="24" y="170">   after one resolution pass              -&gt; <tspan class="ok">BELIEVED_TRUE</tspan></text>
+  <text class="line dim" style="animation-delay:4.6s" x="24" y="192">   Sarah Chen at globex was refused: a shared name is not a shared identity</text>
+  <text class="line dim" style="animation-delay:5.3s" x="24" y="214">   Dana against Dana Kim was only PROPOSED, because a given name is a guess</text>
+
+  <text class="line head" style="animation-delay:6.6s" x="24" y="248">2. A declared rule concludes. Only what was declared, with its premises.</text>
+  <text class="line" style="animation-delay:7.4s" x="24" y="270">   derived: <tspan class="acc">rel_involves_marco</tspan></text>
+  <text class="line dim" style="animation-delay:8.2s" x="24" y="292">   /why walks from the conclusion to BOTH premises it used</text>
+
+  <text class="line head" style="animation-delay:9.5s" x="24" y="326">3. The take-back. Retract the premise; the conclusion falls with it.</text>
+  <text class="line" style="animation-delay:10.3s" x="24" y="348">   rel_involves_marco after the retraction -&gt; <tspan class="warn">UNKNOWN</tspan></text>
+  <text class="line" style="animation-delay:11.1s" x="24" y="370">   the conclusion was withdrawn IN THE SAME REQUEST, no pass needed</text>
+
+  <text class="line head" style="animation-delay:12.4s" x="24" y="404">4. A split is final for the machine.</text>
+  <text class="line dim" style="animation-delay:13.2s" x="24" y="426">   and the next pass refuses to re-merge them</text>
+
+  <text class="line ok" style="animation-delay:14.5s" x="24" y="458">all behaviours asserted and held</text>
+  <text class="cur blink acc" x="276" y="458">▍</text>
+</svg>
