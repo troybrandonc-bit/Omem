@@ -227,10 +227,16 @@ st.writer_lock.release()
 # ── TLS ─────────────────────────────────────────────────────────────────────
 print("== TLS ==")
 CRT, KEY = os.path.join(DATA, "p11.crt"), os.path.join(DATA, "p11.key")
-have_openssl = subprocess.run(
-    ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", KEY,
-     "-out", CRT, "-days", "1", "-subj", "/CN=localhost"],
-    capture_output=True).returncode == 0
+# A missing binary raises FileNotFoundError rather than returning non-zero,
+# so on a machine with no openssl at all (a stock Windows box) the guard
+# below never got to say "skipped" -- the whole suite crashed instead.
+try:
+    have_openssl = subprocess.run(
+        ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", KEY,
+         "-out", CRT, "-days", "1", "-subj", "/CN=localhost"],
+        capture_output=True).returncode == 0
+except FileNotFoundError:
+    have_openssl = False
 
 if not have_openssl:
     print("  skipped (no openssl available to make a test certificate)")

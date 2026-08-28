@@ -3,6 +3,37 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## Unreleased
+
+### Added
+
+- **The reasoning shipped in 0.2.11 is now reachable without curl.** The
+  Python SDK grows the whole surface: `resolve()`, `merge_proposals()`,
+  `approve_merge()` / `reject_merge()`, `corefer()` / `split()`,
+  `declare_rule()`, `rules()`, `deactivate_rule()`, `infer()`, and a
+  `retract()` that was oddly never there. The dashboard gains a **Proposals**
+  screen -- the identity queue, where approving records the merge under your
+  name and rejecting is permanent for the machine.
+
+- **`scripts/demo_reasoning.py`.** The reasoning demo, same contract as the
+  refusal demo: it drives identity merges, a declared rule's conclusion, the
+  same-request take-back, and split finality through the SDK against a real
+  server, asserts every behaviour, and runs in CI so it cannot quietly stop
+  being true.
+
+### Fixed
+
+- **A relation written through the SDK pointed backwards.** `remember(agent,
+  ["person:sarah", "company:acme"], "rel_works_at_acme")` fell back to sorted
+  subject order for edge direction, and `company:` sorts before `person:`, so
+  every SDK-written works_at pointed at the person. The proposition token has
+  always named the target -- formation spells relations `rel_<rel>_<target>`
+  -- so direction is now DERIVED from it: the write orients itself, and a
+  rebuild verifies stored rows against it, which means a reversed edge is now
+  caught and repaired instead of surviving on trust. Bare tokens
+  (`rel_works_at` with no target) keep the old formation-on-trust behaviour,
+  and the projection-invariant suite asserts both halves.
+
 ## 0.2.11 - 28 Aug 2026
 
 **This is the release where OMEM starts reasoning: it notices one person

@@ -48,6 +48,13 @@ jobs:
         env: { NO_COLOR: "1" }
         run: python scripts/demo_refusal.py
 
+      - name: The reasoning in the demo must still hold
+        # Same contract for the reasoning demo: identity merges, rule
+        # conclusions, the same-request take-back, and split finality are all
+        # asserted through the Python SDK against a real server.
+        env: { NO_COLOR: "1" }
+        run: python scripts/demo_reasoning.py
+
   server-postgres:
     name: server / postgres
     runs-on: ubuntu-latest

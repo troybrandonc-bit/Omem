@@ -282,6 +282,33 @@ export interface HealDiagnosis {
   actions: HealAction[]; decisions: HealDecision[]; ts: number;
 }
 
+/** One machine suggestion that two entities are one person. Nothing reaches
+ *  the engine until a person decides; approve records the coreference under
+ *  the approver's name. */
+export interface MergeProposal {
+  id: string; entity_a: string; entity_b: string;
+  confidence: number; evidence: string; support: string[];
+  status: "open" | "approved" | "rejected" | string;
+  created: number; decided: number | null; decided_by: string | null;
+  coreference_id: string | null;
+}
+export interface ResolveReport {
+  examined: number; already_merged: number; dry_run: boolean;
+  merged: { pair: [string, string]; evidence: string; coreference?: string }[];
+  proposed: { proposal: string; pair: [string, string]; evidence?: string; existing?: boolean }[];
+  refused: { pair: [string, string]; reason: string }[];
+}
+export interface InferenceRule {
+  id: string; when_a: string; dir_a: string; when_b: string; dir_b: string;
+  then_rel: string; then_dir: string; active: boolean;
+  created: number; created_by: string | null;
+}
+export interface InferReport {
+  rules: number; skipped_existing: number; skipped_spent: number;
+  derived: { assertion: string; rule: string; proposition: string; pair: [string, string] }[];
+  retracted: { assertion: string; proposition: string; reason?: string }[];
+}
+
 export type AuthMode = "local" | "password";
 export interface SignupResult { token: string; email: string; existing: boolean; org?: { id: string; name: string }; project?: { id: string; name: string; env: string }; api_key?: ApiKey; }
 
@@ -437,6 +464,20 @@ export const api = {
   reviewDecide: (p: string, id: string, decision: "approve" | "reject") =>
     req<{ id: string; decision: string; assertion_id: string }>(
       "POST", `/v1/memory/review-queue/${enc(id)}/decide?project=${enc(p)}`, { decision }),
+
+  // identity resolution + declared inference rules
+  runResolve: (p: string, apply = true) =>
+    req<ResolveReport>("POST", `/v1/memory/resolve?project=${enc(p)}`, { apply }),
+  mergeProposals: (p: string, status?: string) =>
+    req<{ data: MergeProposal[]; count: number }>(
+      "GET", `/v1/memory/merge-proposals?project=${enc(p)}${status ? `&status=${enc(status)}` : ""}`),
+  mergeDecide: (p: string, id: string, decision: "approve" | "reject") =>
+    req<{ proposal: string; status: string; coreference?: string; note?: string }>(
+      "POST", `/v1/memory/merge-proposals/${enc(id)}/${decision}?project=${enc(p)}`, {}),
+  inferenceRules: (p: string) =>
+    req<{ data: InferenceRule[]; count: number }>("GET", `/v1/rules?project=${enc(p)}`),
+  runInfer: (p: string) =>
+    req<InferReport>("POST", `/v1/memory/infer?project=${enc(p)}`, {}),
   gmailRescan: (p: string, opts?: { connector_id?: string; window_days?: 7 | 30 | 90 | 365 }) =>
     req<GmailRescanResult>("POST", `/v1/memory/gmail-rescan?project=${enc(p)}`, opts ?? {}),
   memoryQuality: (p: string) => req<MemoryQuality>("GET", `/v1/memory/quality?project=${enc(p)}`),

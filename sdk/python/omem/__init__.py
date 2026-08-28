@@ -161,6 +161,14 @@ class Memory:
     def why(self, assertion_id):
         return self._req("GET", f"/v1/assertions/{assertion_id}/why")
 
+    def retract(self, assertion_id, agent=None):
+        """Withdraw a belief through the engine's append-only retract: its
+        state becomes UNKNOWN (withdrawn, not negated), history stays
+        reconstructable, and any rule conclusions resting on it are withdrawn
+        in the same request."""
+        return self._req("POST", f"/v1/assertions/{assertion_id}/retract",
+                         {"agent": agent})
+
     # -- managed agent DX: ingestion proposes, the engine decides --
     def observe(self, agent, interaction, source=None, scope=None):
         """Feed a raw interaction; OMEM decides what becomes memory.
@@ -259,6 +267,82 @@ class Memory:
 
     def set_team(self, team_id, agents):
         return self._req("POST", "/v1/teams", {"team_id": team_id, "agents": agents})
+
+    # -- reasoning: identity resolution + declared inference rules --
+    def resolve(self, apply=True):
+        """One identity-resolution pass over person entities. Decisive evidence
+        (same full name, same organisation) merges as a recorded, derivable
+        coreference; suggestive evidence becomes a proposal that changes
+        nothing until someone approves it; everything else is refused with a
+        reason. apply=False is a dry run that records nothing anywhere."""
+        return self._req("POST", "/v1/memory/resolve", {"apply": apply})
+
+    def merge_proposals(self, status=None):
+        """The machine's open merge suggestions (and, with status=, what was
+        decided about past ones). Each carries the pair, the evidence, and the
+        supporting assertion ids."""
+        q = f"?status={status}" if status else ""
+        return self._req("GET", f"/v1/memory/merge-proposals{q}").get("data", [])
+
+    def approve_merge(self, proposal_id, agent):
+        """Turn one proposal into a real merge, recorded under the APPROVING
+        agent's name -- the judgment is theirs, not the machine's. Refused if a
+        split has separated the pair since: the machine's queue does not
+        relitigate splits; corefer() is the explicit human override."""
+        return self._req("POST", f"/v1/memory/merge-proposals/{proposal_id}/approve",
+                         {"agent": agent})
+
+    def reject_merge(self, proposal_id, agent):
+        """Reject a proposal, permanently for the machine: the pair is never
+        proposed again."""
+        return self._req("POST", f"/v1/memory/merge-proposals/{proposal_id}/reject",
+                         {"agent": agent})
+
+    def corefer(self, entity_a, entity_b, agent):
+        """Declare two entities one referent, as an ordinary belief with an
+        interval: queries reduce through it while it is open, and split()
+        closes it without editing history."""
+        return self._req("POST", "/v1/coreference",
+                         {"entity_a": entity_a, "entity_b": entity_b, "agent": agent})
+
+    def split(self, coreference_id, agent):
+        """Close a coreference: the referents separate again, and the identity
+        machinery will never re-merge a pair a split separated."""
+        return self._req("POST", "/v1/coreference/split",
+                         {"coreference_id": coreference_id, "agent": agent})
+
+    def declare_rule(self, when, then, agent=None):
+        """Declare one inference rule: two directed premises composing into a
+        conclusion, all three relations from the graph vocabulary.
+
+            mem.declare_rule(when=[("works_at", "fwd"), ("owns", "rev")],
+                             then=("involves", "rev"))
+
+        reads: A --works_at--> B, and C --owns--> B, therefore C
+        --involves--> A. A rule is data, never a judgment the machine invents;
+        infer() applies exactly what was declared and nothing else. Dicts
+        ({"rel": ..., "dir": ...}) are accepted in place of tuples."""
+        def _spec(s):
+            return s if isinstance(s, dict) else {"rel": s[0], "dir": s[1]}
+        return self._req("POST", "/v1/rules",
+                         {"when": [_spec(w) for w in when], "then": _spec(then),
+                          "agent": agent})
+
+    def rules(self):
+        """Every declared rule, active and deactivated alike."""
+        return self._req("GET", "/v1/rules").get("data", [])
+
+    def deactivate_rule(self, rule_id):
+        """Turn a rule off. Its conclusions are withdrawn on the next
+        inference pass -- a rule taken back takes its conclusions with it."""
+        return self._req("POST", f"/v1/rules/{rule_id}/deactivate", {})
+
+    def infer(self):
+        """One deterministic inference pass: withdraw conclusions whose
+        premises are no longer believed (truth maintenance), then derive what
+        the active rules imply from live relations, each conclusion an
+        ordinary assertion derived from the exact premises it used."""
+        return self._req("POST", "/v1/memory/infer", {})
 
     def _recall_legacy(self, about):
         """Return real memories about a subject. State comes from the engine."""

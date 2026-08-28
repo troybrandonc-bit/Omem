@@ -235,7 +235,9 @@ machine's.
 The refusals are the feature: never across organisations, never without one,
 never on conflicting surnames or role vocabulary, never when ambiguous, and
 never re-merging what a split separated. Pass `{"apply": false}` for a dry
-run that records nothing.
+run that records nothing. From the SDK it is `mem.resolve()`,
+`mem.merge_proposals()`, and `mem.approve_merge(id, agent=...)`; the
+dashboard's **Proposals** screen is the same queue with buttons.
 
 ## Rules that conclude, and take it back
 
@@ -262,6 +264,14 @@ resting on that conclusion falls after it. Every withdrawal is an ordinary
 retraction in the op log. Evidence is spent once -- a conclusion you close is
 never re-litigated from the same premises -- and a deactivated rule's
 conclusions are withdrawn on the next pass.
+
+All of it is a script rather than a paragraph, same contract as the refusal
+demo below -- every behaviour asserted, non-zero exit if one stops holding,
+run in CI:
+
+```bash
+python3 scripts/demo_reasoning.py
+```
 
 ## Seeing what it refuses
 
