@@ -311,6 +311,12 @@ class Memory:
         return self._req("POST", "/v1/coreference/split",
                          {"coreference_id": coreference_id, "agent": agent})
 
+    def relations(self):
+        """The relation vocabulary the graph accepts, with how each directed
+        edge reads. Rules and constraints validate against exactly this
+        list, so a name not in it cannot be declared."""
+        return self._req("GET", "/v1/relations").get("data", [])
+
     def declare_rule(self, when, then, agent=None):
         """Declare one inference rule: two directed premises composing into a
         conclusion, all three relations from the graph vocabulary.

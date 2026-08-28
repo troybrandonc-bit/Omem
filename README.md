@@ -40,7 +40,9 @@ vector store does not:
 - **Cross-agent memory.** Memory is private to an agent by default; you choose
   what to share with a team or the whole project.
 - **Semantic recall.** Finds relevant memories even when the wording differs
-  from how they were stored.
+  from how they were stored. Works offline with a dependency-free embedding;
+  set `OMEM_EMBED_MODEL` to use your provider's real embedding model, with
+  cached vectors and automatic fallback if the provider is down.
 - **A learning loop.** Memories that prove useful rank higher over time.
 - **Self-healing that refuses.** OMEM records failures and runs repairs under
   policy, and will not run a repair nobody authorised. A model can propose a

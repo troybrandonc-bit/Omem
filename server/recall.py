@@ -418,6 +418,27 @@ def build_memory_pack(p, db, scope_store: ScopeStore, *,
     except Exception:
         _utility = {}
 
+    # Effective confidence per candidate: the stated number plus independent
+    # corroboration (confidence.py owns the arithmetic), computed once for
+    # the whole candidate set. The FIELDS always ship in the pack; the RANK
+    # effect sits behind a flag like utility, and both fail open -- a missing
+    # score removes nuance, never memories.
+    _conf_cache: dict = {}
+    try:
+        import confidence as _confmod
+        _csupport = (_confmod.bulk_support(db, p.id, list(candidates))
+                     if db is not None else {})
+        for _caid in candidates:
+            _ca = p.engine.store.assertion(_caid)
+            if _ca is None:
+                continue
+            _cs, _cr = _confmod.effective(_ca.confidence, _csupport.get(_caid, 0))
+            _conf_cache[_caid] = (_cs, _cr, _confmod.bucket(_cs))
+    except Exception:
+        _conf_cache = {}
+    import os as _os3
+    _conf_rank = _os3.environ.get("OMEM_CONFIDENCE_RANKING", "1") == "1"
+
     def _tier(aid, tags):
         a = p.engine.store.assertion(aid)
         if a is None:
@@ -447,7 +468,12 @@ def build_memory_pack(p, db, scope_store: ScopeStore, *,
         _d = [0 if s in ents else rel_hops[s]
               for s in a.subjects if s in ents or s in rel_hops]
         hop = min(_d) if _d else 0
-        return (t, u, "entity" not in tags, hop, -a.assertion_time, aid)
+        # Better-supported memories outrank equally-placed ones, BEFORE
+        # recency: a corroborated older fact beats an unsupported newer one.
+        # Bucketed (confidence.bucket), so a hundredth of a point cannot
+        # reorder anything and the sort stays reproducible.
+        cb = _conf_cache.get(aid, (0, None, 0))[2] if _conf_rank else 0
+        return (t, u, "entity" not in tags, hop, -cb, -a.assertion_time, aid)
 
     ordered = sorted(candidates.items(), key=lambda kv: _tier(kv[0], kv[1]))
     for aid, tags in ordered:
@@ -531,10 +557,13 @@ def build_memory_pack(p, db, scope_store: ScopeStore, *,
                 or any(s.startswith("cohort:") for s in a.subjects)
                 else "CONFLICTING_FACT" if conf else "SPECIFIC_FACT")
         src = source_lookup(aid) if source_lookup else None
+        _c = _conf_cache.get(aid)
         included.append({
             "kind": kind,
             "conflict_analysis": conflict_analysis,
             "id": aid,
+            "confidence": _c[0] if _c else None,
+            "confidence_because": _c[1] if _c else None,
             "subjects": sorted(a.subjects),
             "proposition": a.proposition,
             "content": ((lambda L: L.get("label") if isinstance(L, dict) else L)(
