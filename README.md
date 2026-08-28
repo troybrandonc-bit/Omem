@@ -211,6 +211,58 @@ than falling back to the stdlib keystream used for OAuth tokens.
 **Lose the key and the data is gone**: there is no recovery path, and no
 rotation tooling yet.
 
+## When two entities are one person
+
+Formation mints entity ids from what it can see, so one human can arrive
+twice: `person:sarah_chen` from a sentence in a message body,
+`person:sarah_chen@acme` from writing the mail. Each id holds half the beliefs
+about one person, and they can neither corroborate nor contradict each other.
+
+```bash
+curl -X POST "$OMEM/v1/memory/resolve?project=$PROJECT" \
+  -H "Authorization: Bearer $KEY" -d '{}'
+```
+
+Decisive evidence merges: the same full name in the same organisation, which
+is the rule formation itself already applies within one path. The merge is a
+recorded coreference by `agent:omem-resolution` with a derivation to its
+anchors, so `/why` explains it and a split undoes it. Suggestive evidence
+("Sarah" against "Sarah Chen" at acme) becomes a proposal in
+`GET /v1/memory/merge-proposals` that changes nothing until a person approves
+it -- and the approval is recorded under the approver's name, not the
+machine's.
+
+The refusals are the feature: never across organisations, never without one,
+never on conflicting surnames or role vocabulary, never when ambiguous, and
+never re-merging what a split separated. Pass `{"apply": false}` for a dry
+run that records nothing.
+
+## Rules that conclude, and take it back
+
+Contradiction is declared, never inferred from text. Inference works the same
+way: a rule is data you declare, and the machine composes exactly what you
+said and nothing else.
+
+```bash
+curl -X POST "$OMEM/v1/rules?project=$PROJECT" -H "Authorization: Bearer $KEY" \
+  -d '{"when": [{"rel": "works_at", "dir": "fwd"}, {"rel": "owns", "dir": "rev"}],
+       "then": {"rel": "involves", "dir": "rev"}}'
+curl -X POST "$OMEM/v1/memory/infer?project=$PROJECT" \
+  -H "Authorization: Bearer $KEY" -d '{}'
+```
+
+Sarah works at Beta; Acme owns Beta; OMEM concludes Acme's orbit involves
+Sarah -- as an ordinary assertion derived from the exact premises it used, so
+`/why` walks from the conclusion to the evidence, and as a real graph edge, so
+recall reaches it in one hop.
+
+The reason to want this is what happens on the way down. Retract the
+ownership and the conclusion is withdrawn in the same request; a conclusion
+resting on that conclusion falls after it. Every withdrawal is an ordinary
+retraction in the op log. Evidence is spent once -- a conclusion you close is
+never re-litigated from the same premises -- and a deactivated rule's
+conclusions are withdrawn on the next pass.
+
 ## Seeing what it refuses
 
 The self-healing boundary is the part that is hard to believe from a
