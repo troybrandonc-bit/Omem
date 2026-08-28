@@ -3,7 +3,11 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
-## Unreleased
+## 0.2.13 - 28 Aug 2026
+
+**Sharper instruments: one relation vocabulary that cannot drift, a
+confidence number that finally ranks and explains, and semantic recall with
+real embeddings, cached, over text that carries its context.**
 
 ### Added
 
