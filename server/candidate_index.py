@@ -91,9 +91,31 @@ def newest(db, project_id: str, limit: int) -> list[str]:
     return [r["assertion_id"] for r in rows]
 
 
+def _snapshot(db, project_id: str) -> set:
+    """Every projection row, as comparable tuples."""
+    rows = set()
+    for t in ("candidate_subjects", "candidate_tokens"):
+        key = "subject" if t == "candidate_subjects" else "token"
+        for r in db.execute(
+                f"SELECT {key} k, assertion_id, assertion_time FROM {t} "
+                "WHERE project_id=?", (project_id,)):
+            rows.add((t, r["k"], r["assertion_id"], int(r["assertion_time"])))
+    return rows
+
+
 def rebuild(db, p) -> dict:
     """Rebuild both projections from the engine. Restart/repair path; the
-    index is disposable and always reconstructable from engine truth."""
+    index is disposable and always reconstructable from engine truth.
+
+    Returns a DIFF, not just a count. The caller reports projection drift, and
+    it used to infer that from row counts before and after -- which can only
+    notice rows appearing or vanishing. A row that survived with the wrong
+    content (a token attached to the wrong assertion, a stale assertion_time)
+    kept the count identical and was reported as no drift at all. Comparing
+    the actual rows costs one extra pass over a table that is already being
+    rewritten.
+    """
+    before = _snapshot(db, p.id)
     db.execute("DELETE FROM candidate_subjects WHERE project_id=?", (p.id,))
     db.execute("DELETE FROM candidate_tokens WHERE project_id=?", (p.id,))
     n = 0
@@ -101,4 +123,7 @@ def rebuild(db, p) -> dict:
         index_assertion(db, p.id, a.id, a.subjects, a.proposition, a.assertion_time)
         n += 1
     db.commit()
-    return {"indexed_assertions": n}
+    after = _snapshot(db, p.id)
+    return {"indexed_assertions": n,
+            "reconciled": len(after - before),      # missing or wrong before
+            "dropped_dangling": len(before - after)}  # rows engine state cannot justify

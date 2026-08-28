@@ -402,18 +402,31 @@ def _reconcile_projections(p):
             return None
     before = {"candidate_subjects": _count("candidate_subjects"),
               "memory_edges": _count("memory_edges")}
+    # Both rebuilds report what they actually changed. Row counts alone cannot
+    # see a row that survived with the WRONG CONTENT -- an edge whose direction
+    # or relation is wrong, a token attached to the wrong assertion -- and that
+    # is precisely the drift worth knowing about, because it changes answers
+    # while looking healthy. Counts are still reported alongside, since an
+    # operator reading a warning wants the size of the thing.
+    diffs = {}
     try:
-        _cand_index.rebuild(STORE.db, p)
+        diffs["candidate_index"] = _cand_index.rebuild(STORE.db, p)
     except Exception:
         pass
     try:
-        _graph.rebuild_projection(STORE.db, p)
+        diffs["memory_graph"] = _graph.rebuild_projection(STORE.db, p)
     except Exception:
         pass
     after = {"candidate_subjects": _count("candidate_subjects"),
              "memory_edges": _count("memory_edges")}
     repaired = {k: {"before": before[k], "after": after[k]}
                 for k in after if before.get(k) != after.get(k)}
+    for name, d in diffs.items():
+        changed = int(d.get("reconciled") or 0) + int(d.get("dropped_dangling") or 0)
+        if changed:
+            repaired.setdefault(name, {}).update(
+                {"reconciled": d.get("reconciled"),
+                 "dropped_dangling": d.get("dropped_dangling")})
     if repaired:
         PROJECTION_DRIFT[p.id] = {"repaired": repaired, "at": time.time()}
         try:

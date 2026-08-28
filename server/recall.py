@@ -293,6 +293,43 @@ class CandidateRetriever:
         return out
 
 
+# How far recall follows relations. The graph has supported two hops since it
+# was written (MAX_DEPTH), the traversal endpoint honoured it, and recall asked
+# for one -- so "Sarah works at Acme, Acme supplies Globex" never reached
+# Globex from Sarah. Two hops is where a memory graph starts being worth
+# having; it is also where precision starts to cost something, which is why
+# nearer entities outrank further ones in _tier() below and every included
+# memory states the path it was reached by.
+RECALL_DEPTH = 2
+
+
+def _render_path(path: list) -> str:
+    """The whole chain, in the order it was walked, e.g.
+
+        person:sarah works_at→ company:acme then company:acme supplies→ company:globex
+
+    Two things this gets right that the previous single-edge rendering did not.
+
+    It reads from what the caller ASKED about, outward. Traversal is
+    undirected, so a chain can walk against an edge; rendering edges in their
+    stored direction produced a path that began at a node nobody mentioned and
+    ran backwards.
+
+    The arrow still points along the edge as it was ASSERTED, so walking
+    against one renders "company:acme ←works_at person:sarah" rather than
+    silently reversing the claim. Reading order follows the walk; the arrow
+    keeps telling the truth about the relation.
+    """
+    if not path:
+        return ""
+    parts = []
+    for e in path:
+        frm, to = e.get("from", e["src"]), e.get("to", e["dst"])
+        parts.append(f"{frm} {e['relation']}→ {to}" if frm == e["src"]
+                     else f"{frm} ←{e['relation']} {to}")
+    return " then ".join(parts)
+
+
 # ── decision layer: explainable, deterministic ──────────────────────────────
 def build_memory_pack(p, db, scope_store: ScopeStore, *,
                       agent: str | None, context: str = "", task: str = "",
@@ -308,19 +345,21 @@ def build_memory_pack(p, db, scope_store: ScopeStore, *,
 
     related: list[str] = []
     rel_paths: dict[str, str] = {}
+    rel_hops: dict[str, int] = {}
     if ents:
         try:
             import graph as _g
-            hops = _g.neighbors(db, p, ents, depth=1, T=T,
+            hops = _g.neighbors(db, p, ents, depth=RECALL_DEPTH, T=T,
                                 scopes=scope_store, viewer=agent,
                                 teams=scope_store.teams_of(p.id, agent) if agent else set(),
                                 user=user)
             for e, info in sorted(hops.items()):
                 related.append(e)
-                v = info["via"]
-                rel_paths[e] = f"{v['src']}, {v['relation']}→ {v['dst']}"
+                rel_hops[e] = info.get("hops", 1)
+                rel_paths[e] = _render_path(info.get("path") or [info["via"]])
         except Exception:
             related = []
+            rel_hops = {}
     t1 = time.perf_counter()
     candidates = CandidateRetriever(p, db=db).retrieve(ents + related, toks)
     # Semantic candidate source (opt-in via OMEM_SEMANTIC_RECALL, default on):
@@ -397,7 +436,18 @@ def build_memory_pack(p, db, scope_store: ScopeStore, *,
             u = _learn2.utility_rank_key(_utility.get(aid, 0.0))
         except Exception:
             u = 0
-        return (t, u, "entity" not in tags, -a.assertion_time, aid)
+        # Distance from what was actually asked about. A memory whose subject is
+        # named in the context is hop 0; one reached through a relation is 1 or
+        # 2. Without this every entity-tagged memory ranked the same, so raising
+        # traversal to two hops would let a fact about a supplier's supplier
+        # displace a fact about the customer in front of you.
+        # Only subjects we actually matched count. Defaulting an unmatched
+        # subject to 0 would make an assertion about [hop-2 entity, someone
+        # unrelated] rank as though it were direct.
+        _d = [0 if s in ents else rel_hops[s]
+              for s in a.subjects if s in ents or s in rel_hops]
+        hop = min(_d) if _d else 0
+        return (t, u, "entity" not in tags, hop, -a.assertion_time, aid)
 
     ordered = sorted(candidates.items(), key=lambda kv: _tier(kv[0], kv[1]))
     for aid, tags in ordered:
@@ -454,7 +504,12 @@ def build_memory_pack(p, db, scope_store: ScopeStore, *,
             if direct:
                 why.append(f"directly concerns {', '.join(direct)}")
             else:
-                via = sorted(set(a.subjects) & set(related))
+                # The NEAREST related subject, not the alphabetically first.
+                # With two-hop traversal an assertion can touch entities at
+                # different distances, and explaining it by the further one
+                # contradicts the ranking that put it here.
+                via = sorted(set(a.subjects) & set(related),
+                             key=lambda r: (rel_hops.get(r, 9), r))
                 for r in via[:1]:
                     why.append(f"reached through the memory graph: {rel_paths.get(r, r)}")
         if "lexical" in tags:
@@ -492,7 +547,9 @@ def build_memory_pack(p, db, scope_store: ScopeStore, *,
             "source": src,
             "grounded": grounded == "GROUNDED" or grounded is True,
             "provenance_count": len(prov_ids),
-            "path": next((rel_paths[r] for r in sorted(set(a.subjects) & set(related))
+            "path": next((rel_paths[r] for r in
+                          sorted(set(a.subjects) & set(related),
+                                 key=lambda r: (rel_hops.get(r, 9), r))
                           if r in rel_paths), None),
             "learned_at": a.assertion_time,
             "event_time": getattr(a, "event_time", None),
