@@ -20,7 +20,9 @@ in the job that supplies a real Postgres.
 from __future__ import annotations
 
 import argparse
+import ast
 import glob
+import io
 import os
 import re
 import subprocess
@@ -41,6 +43,64 @@ def suites(pattern: str | None) -> list[str]:
     if os.path.exists(os.path.join(HERE, "tests.py")):
         found.insert(0, "tests.py")
     return [f for f in found if not pattern or pattern in f]
+
+
+def _signup_addresses(text: str) -> set:
+    """Every address a suite signs up with, literal or via a module constant.
+
+    Parsed rather than grepped because the collision that motivated this was
+    between a literal in one suite and `{"email": OWNER}` in another, and a
+    regex over the call site sees only the first. A guard that misses the bug
+    it exists for is worse than no guard.
+    """
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return set()
+    consts = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant)                 and isinstance(node.value.value, str):
+            for t in node.targets:
+                if isinstance(t, ast.Name):
+                    consts[t.id] = node.value.value
+    found = set()
+    for call in ast.walk(tree):
+        if not isinstance(call, ast.Call):
+            continue
+        if not any(isinstance(a, ast.Constant) and isinstance(a.value, str)
+                   and "/v1/signup" in a.value for a in call.args):
+            continue
+        for d in ast.walk(call):
+            if not isinstance(d, ast.Dict):
+                continue
+            for k, v in zip(d.keys, d.values):
+                if not (isinstance(k, ast.Constant) and k.value == "email"):
+                    continue
+                if isinstance(v, ast.Constant) and isinstance(v.value, str):
+                    found.add(v.value.lower())
+                elif isinstance(v, ast.Name) and v.id in consts:
+                    found.add(consts[v.id].lower())
+    return found
+
+
+def duplicate_signup_emails(names: list) -> dict:
+    """Suites signing up with an address another suite already uses.
+
+    Under SQLite each suite gets its own database file, so a shared address is
+    invisible. Under PostgreSQL they share one, the second signup returns 409
+    "That email already has an account", and the suite dies on KeyError:
+    'api_key' -- naming the symptom rather than the cause, in whichever suite
+    happens to sort second rather than the one at fault.
+    """
+    owners = {}
+    for n in names:
+        try:
+            text = io.open(os.path.join(HERE, n), encoding="utf-8").read()
+        except OSError:
+            continue
+        for addr in _signup_addresses(text):
+            owners.setdefault(addr, []).append(n)
+    return {a: v for a, v in sorted(owners.items()) if len(v) > 1}
 
 
 def run(name: str) -> dict:
@@ -89,6 +149,20 @@ def main() -> int:
     names = suites(args.pattern)
     if not names:
         print("no suites matched")
+        return 1
+
+    # Before anything runs: two suites sharing a signup address pass on SQLite
+    # and fail on PostgreSQL, in whichever one sorts second. Say so here, where
+    # the message can name both files, rather than letting CI report a KeyError
+    # in a suite that did nothing wrong.
+    dupes = duplicate_signup_emails(names)
+    if dupes:
+        print("signup addresses are shared between suites:\n")
+        for addr, who in dupes.items():
+            print(f"  {addr}  <- {', '.join(who)}")
+        print("\nEach suite needs its own. Under PostgreSQL every suite shares "
+              "one database,\nso the second signup gets 409 and that suite dies "
+              "on KeyError: 'api_key'.")
         return 1
 
     print(f"running {len(names)} suites\n")

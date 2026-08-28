@@ -89,7 +89,11 @@ def call(m, path, body=None, key=None):
         return e.code, json.loads(e.read() or b"{}")
 
 
-acct = call("POST", "/v1/signup", {"email": "troy@kronos.com"})[1]
+# A signup address no other suite claims. Under PostgreSQL every suite shares
+# one database, so a duplicate address gets 409 "That email already has an
+# account" and the suite that runs second dies on KeyError: 'api_key'.
+# tests_p5_graph.py owns troy@kronos.com, and this file sorts before it.
+acct = call("POST", "/v1/signup", {"email": "graph-live@kronos.com"})[1]
 KEY, PID = acct["api_key"]["secret"], acct["project"]["id"]
 mem = omem.Memory(KEY, base_url=BASE, project=PID)
 P = api.PROJECTS[PID]
