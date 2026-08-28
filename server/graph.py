@@ -135,10 +135,19 @@ def edges_of(db, p, entity: str, *, T=None, scopes=None, viewer=None,
 
 def neighbors(db, p, entities: list[str], *, depth: int = 1, T=None,
               scopes=None, viewer=None, teams=None, user=None) -> dict[str, dict]:
-    """Bounded BFS. Returns {entity: {"via": edge, "hops": n}} for entities
-    reached FROM the seed set (seeds excluded). Deterministic."""
+    """Bounded BFS. Returns {entity: {"via": edge, "path": [edge...], "hops": n}}
+    for entities reached FROM the seed set (seeds excluded). Deterministic.
+
+    `path` is the WHOLE chain from a seed, not just the edge that arrived. Only
+    the arriving edge used to be kept, which is enough to say an entity is
+    related and not enough to say why: a two-hop entity would be explained as
+    though it were one hop away, naming a relation the reader cannot connect to
+    anything they asked about. `via` stays as the last edge because subgraph()
+    and older callers expect it.
+    """
     depth = max(1, min(MAX_DEPTH, int(depth)))
     seen = {e: {"hops": 0} for e in entities}
+    paths: dict[str, list] = {e: [] for e in entities}
     frontier = sorted(entities)
     found: dict[str, dict] = {}
     for hop in range(1, depth + 1):
@@ -150,7 +159,16 @@ def neighbors(db, p, entities: list[str], *, depth: int = 1, T=None,
                 if other in seen or len(seen) >= MAX_NODES:
                     continue
                 seen[other] = {"hops": hop}
-                found[other] = {"via": edge, "hops": hop}
+                # BFS, so the first arrival is the shortest path. Sorted
+                # expansion keeps which one that is deterministic.
+                #
+                # `from`/`to` record the direction of TRAVEL, which is not the
+                # direction of the edge: traversal is undirected, so a chain can
+                # walk against an edge. Without this a path renders in edge
+                # order and reads backwards from whatever was asked about,
+                # starting at a node the caller never mentioned.
+                paths[other] = paths[e] + [dict(edge, **{"from": e, "to": other})]
+                found[other] = {"via": edge, "path": paths[other], "hops": hop}
                 nxt.append(other)
         frontier = sorted(nxt)
         if not frontier:
@@ -166,7 +184,21 @@ def rebuild_projection(db, p) -> dict:
     An edge is (re)created for every assertion whose proposition starts 'rel_'
     (or 'works_at'/'uses'/... after canonicalisation) and has >=2 subjects.
     Rows with no backing assertion are dropped (dangling-reference cleanup).
-    Idempotent: running twice yields identical rows."""
+    Idempotent: running twice yields identical rows.
+
+    ONE FIELD IS NOT DERIVED, AND CANNOT BE. The engine holds subjects as a set
+    -- primitives.py: "order not observable", and trust.py compares them with
+    frozenset -- so which end of a relation is the source is information the
+    engine does not have. Direction comes from FORMATION (the ingest path knows
+    it and passes it to record_edge) and is preserved here whenever the stored
+    row still spans the same two subjects; sorted order is only the fallback
+    for an assertion written without one, such as remember([a, b], "rel_x").
+
+    So a rebuild verifies existence and relation against engine truth, and
+    takes direction on trust. A row whose direction was corrupted survives, and
+    reconcile reports the system clean, because there is nothing to check it
+    against. Recording direction as engine state would mean giving subjects an
+    observable order, which is an engine invariant, not a projection detail."""
     existing = {r["assertion_id"]: (r["src"], r["relation"], r["dst"])
                 for r in db.execute("SELECT * FROM memory_edges WHERE project_id=?", (p.id,))}
     rebuilt: dict[str, tuple] = {}
