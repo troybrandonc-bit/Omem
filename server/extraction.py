@@ -70,6 +70,150 @@ def _slug(v: str) -> str:
     return re.sub(r"_+", "_", s)[:40]
 
 
+# A free-mail address names a person, never an organisation. Deciding this in
+# one place because three separate copies of the list is how they stop agreeing.
+FREE_MAIL = frozenset({
+    "gmail.com", "hotmail.com", "outlook.com", "yahoo.com", "icloud.com",
+    "googlemail.com",
+})
+
+# Addresses a company sends FROM, not addresses a person has. An inference that
+# "Support works at Acme" is noise that never stops being wrong.
+ROLE_LOCALS = frozenset({
+    "noreply", "no-reply", "donotreply", "do-not-reply", "bounce", "bounces",
+    "mailer-daemon", "postmaster", "abuse", "security", "support", "help",
+    "helpdesk", "info", "hello", "hi", "contact", "enquiries", "inquiries",
+    "sales", "billing", "accounts", "accounting", "invoices", "admin",
+    "team", "office", "notifications", "notification", "alerts", "news",
+    "newsletter", "marketing", "careers", "jobs", "hr", "recruiting",
+    "service", "customerservice", "success", "feedback", "orders",
+})
+
+# The same words in a DISPLAY name. "Acme Support" is two capitalised words and
+# would otherwise pass for a person.
+ROLE_WORDS = frozenset({
+    "support", "team", "sales", "billing", "info", "admin", "notifications",
+    "service", "success", "marketing", "accounts", "accounting", "security",
+    "careers", "jobs", "help", "helpdesk", "desk", "hr", "office", "news",
+    "newsletter", "alerts", "noreply", "mail", "mailer", "bot", "system",
+    "customer", "care", "group", "department", "dept", "inc", "ltd", "llc",
+    "gmbh", "corp", "company", "the",
+})
+
+# Lowercase particles that are part of a name, not a word in a sentence.
+# Without these "Maria de Souza Lima" and "Ludwig van Beethoven" fail a
+# capitalised-words test, which would quietly make this work for English names
+# and not for most others.
+NAME_PARTICLES = frozenset({
+    "de", "del", "dela", "della", "der", "den", "des", "di", "da", "do",
+    "dos", "das", "du", "la", "le", "lo", "van", "von", "ter", "ten", "af",
+    "av", "bin", "ibn", "al", "el", "mc", "mac", "op", "in", "'t", "y", "e",
+})
+
+
+def _name_shaped(part: str) -> bool:
+    """A capitalised word made of letters, apostrophes and hyphens.
+
+    Deliberately not a regex over [A-Za-z]: that spells "works for English
+    names", and would refuse María, Gómez, Müller and Škoda while accepting
+    Smith. isupper()/isalpha() are Unicode-aware and cost nothing.
+    """
+    core = part.rstrip(".")
+    if not core or len(core) > 20 or not core[0].isupper():
+        return False
+    return all(c.isalpha() or c in "'’-" for c in core)
+
+
+def _looks_like_person(name: str) -> bool:
+    """One to four name-shaped words, no role vocabulary.
+
+    Capitalisation is required on purpose. _name() falls back to the local part
+    of the address when a message carries no display name, so "sarah@acme.com"
+    arrives as "sarah" and is refused: we claim employment only when a human
+    actually presented themselves by name. Particles are the exception, and the
+    first word must still be a capitalised name.
+    """
+    parts = (name or "").replace(",", " ").split()
+    if not 1 <= len(parts) <= 4:
+        return False
+    if any(p.lower().strip(".") in ROLE_WORDS for p in parts):
+        return False
+    if not _name_shaped(parts[0]):
+        return False
+    return all(_name_shaped(p) or p.lower() in NAME_PARTICLES
+               for p in parts[1:])
+
+
+def infer_employment(pp: dict) -> dict | None:
+    """A person wrote from a company address, so they work there.
+
+    This is the one relation between a memory and a PERSON that is derivable
+    from data OMEM already resolves and was throwing away. Every party in
+    _subject_for() collapses to a company, so an email from sarah@acme.com
+    became memories about company:acme and Sarah was never a node at all.
+    Nothing linked the human to the organisation, which left the graph too
+    sparse for traversal to be worth much.
+
+    It is an INFERENCE, not something anyone said, and it is recorded as one:
+    the fact carries dkind="inference" so /why distinguishes what was read in a
+    message from what was concluded from an address. It is defeasible like any
+    other belief -- the same person writing later from another company yields a
+    competing works_at that supersession and contradiction handle normally.
+
+    Deliberately conservative, in the spirit of the rest of this module:
+
+      inbound only            outbound mail carries the recipient's address but
+                              rarely their name, so there is nothing to name
+      never internal          a colleague is the owner's own org chart, which
+                              needs configured identity to be about anyone
+      never free-mail         gmail.com is not an employer
+      never a role address    support@ and noreply@ are not people
+      a real display name     capitalised, no role words
+
+    Returns a fact dict in exactly the shape extract_relations() produces, so
+    both ingest paths turn it into a two-subject assertion and an edge with no
+    special casing anywhere downstream.
+    """
+    if pp.get("direction") != "inbound" or pp.get("internal"):
+        return None
+    email = (pp.get("counterparty_email") or "").lower()
+    dom = (pp.get("counterparty_domain") or "").lower()
+    if not email or "@" not in email or not dom or dom in FREE_MAIL:
+        return None
+    local = email.split("@", 1)[0]
+    if local in ROLE_LOCALS or any(local.startswith(r + "+") for r in ROLE_LOCALS):
+        return None
+    name = (pp.get("sender_name") or "").strip()
+    if not _looks_like_person(name):
+        return None
+
+    slug = re.sub(r"[^a-z0-9]+", "-", dom.split(".")[0].lower())
+    # "Acme" writing from acme.com is the company signing its own mail.
+    if any(_slug(part) == _slug(slug) for part in name.split()):
+        return None
+
+    # Same id shape as the third_party person in _subject_for(), so a human
+    # mentioned in a body and a human who wrote the mail are ONE node.
+    person = {"id": f"person:{_slug(name)}@{dom.split('.')[0]}",
+              "type": "person", "label": name}
+    company = {"id": f"company:{slug}", "type": "organization", "label": dom}
+    return {
+        "subject": person,
+        "proposition": f"rel_works_at_{company['id'].split(':', 1)[1]}",
+        "relation": "works_at",
+        "relation_target": company,
+        # Below the 0.75 the explicit relation patterns carry: an address is
+        # good evidence of employment and not as good as someone saying so.
+        "confidence": 0.7,
+        "event_kind": "email",
+        "speech_act": "STATEMENT",
+        "sentence_party": "relation",
+        "dkind": "inference",
+        "evidence": f'wrote from {email} ("{name}")',
+        "label": f"{name} works at {dom}",
+    }
+
+
 # value-bearing statement patterns (unchanged in spirit from BusinessFactExtractor
 # but only applied to STATEMENT/DECISION/COMPLETED sentences)
 _VALUE_PATTERNS = [
@@ -209,8 +353,7 @@ class ContextualBusinessExtractor(Extractor):
             slug = _slug(name)
             return {"id": f"company:{slug}", "type": "organization",
                     "label": f"{name} (our company)"}
-        if dom and dom not in ("gmail.com", "hotmail.com", "outlook.com",
-                                "yahoo.com", "icloud.com", "googlemail.com"):
+        if dom and dom not in FREE_MAIL:
             slug = re.sub(r"[^a-z0-9]+", "-", dom.split(".")[0].lower())
             return {"id": f"company:{slug}", "type": "organization",
                     "label": f"{dom} (our company)"}
@@ -225,8 +368,7 @@ class ContextualBusinessExtractor(Extractor):
 
         def company_of(email_or_dom: str) -> dict | None:
             dom = email_or_dom.split("@")[-1] if "@" in email_or_dom else email_or_dom
-            if not dom or dom in ("gmail.com", "hotmail.com", "outlook.com",
-                                   "yahoo.com", "icloud.com", "googlemail.com"):
+            if not dom or dom in FREE_MAIL:
                 # free-mail: attach to the person, not a fictitious company
                 local = email_or_dom.split("@")[0] if "@" in email_or_dom else ""
                 if not local:
@@ -278,6 +420,17 @@ class ContextualBusinessExtractor(Extractor):
         seen: set[tuple] = set()
         last_party = None  # elliptical continuations ("Payment terms Net 30.")
                            # inherit the party of the preceding resolved sentence
+
+        # Who wrote this, and where they work. Derived from the participants
+        # rather than any sentence, so it holds for a message whose body says
+        # nothing durable at all -- which is most of them. Deduplication
+        # downstream (fact_fingerprints) means repeated mail from the same
+        # person reinforces one memory instead of creating many.
+        _emp = infer_employment(pp)
+        if _emp:
+            _emp["event_time"] = payload.get("at", "now")
+            seen.add((_emp["subject"]["id"], _emp["proposition"]))
+            facts.append(_emp)
 
         for sentence in split_sentences(f"{subject_line}. {body}")[:80]:
             act = speech_act(sentence)

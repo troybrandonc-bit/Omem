@@ -4019,7 +4019,8 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     record(p, "assert", base)
                     record(p, "derive", {"id": _mint_global("d"), "consequent": aid,
-                                         "antecedents": [ev], "dkind": "extraction"})
+                                         "antecedents": [ev],
+                                         "dkind": f.get("dkind") or "extraction"})
                 ENT.meter(p.id, "assertions_created")
                 if f.get("relation") and isinstance(_rt, dict) and _rt.get("id"):
                     _graph.record_edge(STORE.db, p.id, aid, subj["id"],
