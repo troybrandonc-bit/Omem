@@ -57,6 +57,9 @@ _UPSERT_PK = {
     # declared inference rules + their recorded conclusions
     "inference_rules": ["project_id", "id"],
     "rule_conclusions": ["project_id", "fp"],
+    # declared relation constraints + the tensions they detect
+    "relation_constraints": ["project_id", "id"],
+    "constraint_tensions": ["project_id", "id"],
 }
 
 
@@ -183,6 +186,11 @@ _columns_of = {
                         "then_rel", "then_dir", "active", "created", "created_by"],
     "rule_conclusions": ["project_id", "fp", "rule_id", "assertion_id",
                          "premise_a", "premise_b", "created"],
+    "relation_constraints": ["id", "project_id", "relation", "kind", "active",
+                             "created", "created_by"],
+    "constraint_tensions": ["id", "project_id", "constraint_id", "relation",
+                            "entity", "holders", "fp", "status", "created",
+                            "decided", "decided_by", "kept"],
 }
 
 

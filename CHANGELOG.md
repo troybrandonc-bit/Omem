@@ -7,6 +7,52 @@ Release notes for people using OMEM. Engineering history lives in
 
 ### Added
 
+- **`changes(since)`: what changed while you were gone.** Every piece of
+  this was always reconstructable -- belief state, conflicts and the
+  referent partition all answer for any past time -- and no surface ever did
+  the comparison. An agent starting a session wants the delta, not the whole
+  pack again:
+
+  ```python
+  d = mem.changes(since=last_seen)
+  # beliefs that appeared; beliefs that closed, each saying HOW
+  # (superseded and by what, or withdrawn); conflicts newly opened and
+  # newly resolved; referents that merged or split
+  ```
+
+  `GET /v1/memory/diff?since=T` is the endpoint. Read-only, deterministic,
+  and scope-safe: a viewer's diff contains only what that viewer could have
+  recalled, and a conflict appears only when both sides are visible to them.
+  A quiet interval says so honestly instead of padding.
+
+- **Declared relation constraints, and the tensions they detect.** The
+  engine's conflict rule is subject-set equality, which is what keeps belief
+  state reproducible -- and it means "Sarah works at Acme" and "Sarah works
+  at Beta" never contradict: different subject sets, both open forever, each
+  looking uncontested. Whether that is fine is domain knowledge (`supplies`
+  is many-to-many; `works_at` usually is not), so the shape a relation may
+  take is now declared, like a contradiction and like a rule:
+
+  ```python
+  mem.declare_constraint("works_at", "one_dst_per_src")
+  # a person has one employer at a time
+  ```
+
+  A violation among live relations becomes a **tension** in the same queue
+  merge proposals wait in -- the dashboard's Proposals screen shows both.
+  Nothing else happens: OMEM does not pick the newer employer. A person
+  resolves by naming the counterparty that survives (beliefs toward the
+  others are retracted under the resolver's name, and rule conclusions
+  resting on a retracted premise fall in the same request), or dismisses,
+  which is permanent for exactly that counterparty set: the machine never
+  nags twice about evidence a person already judged, a corroborating
+  re-assertion never re-raises a question, and a new counterparty is new
+  evidence with its own tension.
+
+  SDK: `declare_constraint`, `constraints`, `deactivate_constraint`,
+  `check`, `tensions`, `resolve_tension`, `dismiss_tension`. The scheduler
+  runs a check alongside consolidation.
+
 - **The reasoning shipped in 0.2.11 is now reachable without curl.** The
   Python SDK grows the whole surface: `resolve()`, `merge_proposals()`,
   `approve_merge()` / `reject_merge()`, `corefer()` / `split()`,

@@ -273,6 +273,38 @@ run in CI:
 python3 scripts/demo_reasoning.py
 ```
 
+## Shapes that ask questions
+
+Two beliefs conflict only over the same subjects, which is what keeps belief
+state reproducible -- and it means "Sarah works at Acme" and "Sarah works at
+Beta" never contradict. Whether that is fine is domain knowledge, so you
+declare it:
+
+```python
+mem.declare_constraint("works_at", "one_dst_per_src")   # one employer at a time
+mem.check()
+```
+
+A violation becomes a tension in the Proposals queue. OMEM does not pick the
+newer employer: you name the one that survives (the rest are retracted under
+your name, and anything the rules engine concluded from them falls in the
+same request), or dismiss it, which is permanent for exactly that evidence.
+The machine never nags twice about a question a person already answered.
+
+## What changed while you were gone
+
+The question every agent asks at session start, answered from the same as_of
+machinery every query already uses:
+
+```python
+d = mem.changes(since=last_seen)
+```
+
+Beliefs that appeared; beliefs that closed, each saying how -- superseded
+and by what, or withdrawn; conflicts newly opened and newly resolved;
+referents that merged or split. Read-only, deterministic, and scope-safe:
+your diff contains only what you could have recalled.
+
 ## Seeing what it refuses
 
 The self-healing boundary is the part that is hard to believe from a

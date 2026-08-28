@@ -784,6 +784,10 @@ STORE.db.commit()
 import rules as _rules
 STORE.db.executescript(_rules.RULES_SCHEMA)
 STORE.db.commit()
+import constraints as _constraints
+STORE.db.executescript(_constraints.CONSTRAINTS_SCHEMA)
+STORE.db.commit()
+import beliefdiff as _bdiff
 
 
 def _consolidate_all_projects():
@@ -802,6 +806,10 @@ def _consolidate_all_projects():
             pass
         try:
             _rules.run(p, STORE.db, SCOPES, record, _mint_global)
+        except Exception:
+            pass
+        try:
+            _constraints.check(p, STORE.db)
         except Exception:
             pass
 
@@ -2329,6 +2337,47 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(404, {"error": "project not found"})
             data = _rules.list_rules(STORE.db, p.id)
             return self._send(200, {"data": data, "count": len(data)})
+
+        # ── declared relation constraints, and the tensions they detected ──
+        if parts == ["v1", "constraints"]:
+            pid = qs.get("project", [None])[0]
+            p = PROJECTS.get(pid)
+            if not p:
+                return self._send(404, {"error": "project not found"})
+            data = _constraints.list_constraints(STORE.db, p.id)
+            return self._send(200, {"data": data, "count": len(data)})
+
+        if parts == ["v1", "memory", "tensions"]:
+            pid = qs.get("project", [None])[0]
+            p = PROJECTS.get(pid)
+            if not p:
+                return self._send(404, {"error": "project not found"})
+            status = qs.get("status", [None])[0]
+            data = _constraints.list_tensions(STORE.db, p.id, status=status)
+            return self._send(200, {"data": data, "count": len(data)})
+
+        # ── the belief diff: what changed since a logical time. The delta an
+        # agent wants at session start, computed from the same as_of machinery
+        # every query already uses. Read-only, scope-safe, deterministic.
+        if parts == ["v1", "memory", "diff"]:
+            pid = qs.get("project", [None])[0]
+            p = PROJECTS.get(pid)
+            if not p:
+                return self._send(404, {"error": "project not found"})
+            try:
+                since = int(qs.get("since", [None])[0])
+            except (TypeError, ValueError):
+                return self._err(422, "invalid_request",
+                                 "since must be a logical time -- an integer, "
+                                 "such as a previous response's as_of",
+                                 param="since")
+            viewer, _err = self._effective_agent(auth, qs.get("viewer", [None])[0])
+            if _err:
+                return
+            teams = SCOPES.teams_of(pid, viewer) if viewer else set()
+            return self._send(200, _bdiff.diff(
+                p, STORE.db, SCOPES, since, viewer=viewer, teams=teams,
+                user=qs.get("user", [None])[0]))
 
         # ── P4: open conflicts with evidence sides + recommendation ──
         if parts == ["v1", "memory", "conflicts"]:
@@ -3896,6 +3945,91 @@ class Handler(BaseHTTPRequestHandler):
                                 "derived": len(result["derived"]),
                                 "retracted": len(result["retracted"])},
                       correlation_id=self._corr())
+            return self._send(200, result)
+
+        # ── declared relation constraints. The shape a relation may take is
+        # data a caller declares; a violation among live edges becomes an open
+        # TENSION for a person to judge. Detection only -- no auto-resolution.
+        if parts == ["v1", "constraints"]:
+            p = self._proj(qs)
+            if p is None:
+                return self._err(404, "not_found", "project not found")
+            _agent, _err = self._effective_agent(auth, body.get("agent"))
+            if _err:
+                return
+            try:
+                result = _constraints.declare(STORE.db, p.id, body.get("relation"),
+                                              body.get("kind"), created_by=_agent)
+            except ValueError as ex:
+                return self._err(422, "invalid_request", str(ex))
+            ENT.audit("constraints.declared", org_id=self._org_of_project(p.id),
+                      resource=result["id"], correlation_id=self._corr())
+            self._logreq(p, "POST", "/v1/constraints", 201, result["id"])
+            return self._send(201, result)
+
+        if len(parts) == 4 and parts[:2] == ["v1", "constraints"] \
+                and parts[3] == "deactivate":
+            p = self._proj(qs)
+            if p is None:
+                return self._err(404, "not_found", "project not found")
+            if not _constraints.deactivate(STORE.db, p.id, parts[2]):
+                return self._err(404, "not_found", "constraint not found")
+            ENT.audit("constraints.deactivated", org_id=self._org_of_project(p.id),
+                      resource=parts[2], correlation_id=self._corr())
+            return self._send(200, {"id": parts[2], "active": False,
+                                    "note": "its open tensions lapse on the "
+                                            "next check"})
+
+        if parts == ["v1", "memory", "check"]:
+            p = self._proj(qs)
+            if p is None:
+                return self._err(404, "not_found", "project not found")
+            result = _constraints.check(p, STORE.db)
+            ENT.audit("memory.checked", org_id=self._org_of_project(p.id),
+                      metadata={"constraints": result["constraints"],
+                                "raised": len(result["raised"]),
+                                "lapsed": len(result["lapsed"])},
+                      correlation_id=self._corr())
+            return self._send(200, result)
+
+        if len(parts) == 5 and parts[:3] == ["v1", "memory", "tensions"] \
+                and parts[4] in ("resolve", "dismiss"):
+            p = self._proj(qs)
+            if p is None:
+                return self._err(404, "not_found", "project not found")
+            _agent, _err = self._effective_agent(auth, body.get("agent"))
+            if _err:
+                return
+            if not _agent and "user" in auth:
+                # Same attribution rule as the merge queue: a dashboard
+                # operator is a person, and the judgment is theirs by name.
+                try:
+                    _agent = "user:" + (auth["user"]["email"] or auth["user"]["id"])
+                except Exception:
+                    _agent = None
+            if not _agent:
+                return self._err(422, "invalid_request",
+                                 "a resolving/dismissing agent is required: "
+                                 "the judgment is recorded under their name")
+            if parts[4] == "resolve":
+                if _agent not in p.labels:
+                    # Resolution retracts through the engine, which refuses
+                    # ops from unrecorded agents (R_NO_AGENT).
+                    record(p, "agent", {"id": _agent, "kind": "user",
+                                        "label": _agent.split(":", 1)[-1]})
+                result = _constraints.resolve(p, STORE.db, record, _mint_global,
+                                              parts[3], body.get("keep"), _agent)
+            else:
+                result = _constraints.dismiss(STORE.db, p.id, parts[3], _agent)
+            if result.get("error") == "not_found":
+                return self._err(404, "not_found", "tension not found")
+            if result.get("error") == "refused":
+                return self._err(422, "invalid_request", result.get("reason"))
+            if result.get("error"):
+                return self._err(409, "conflict",
+                                 f"tension already {result.get('status', 'decided')}")
+            ENT.audit(f"memory.tension_{parts[4]}d", org_id=self._org_of_project(p.id),
+                      resource=parts[3], metadata=result, correlation_id=self._corr())
             return self._send(200, result)
 
         # ── scopes: explicit promotion + team membership ──
