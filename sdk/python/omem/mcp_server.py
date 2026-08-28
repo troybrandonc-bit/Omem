@@ -113,14 +113,28 @@ TOOLS = [
             "claim. Two claims conflict only when someone has declared them "
             "opposed, never because they look similar. "
             'Example: {"about": "customer:acme", "claim": "prefers_dark_mode", '
-            '"because": "said on the 3 Nov call"}'),
+            '"because": "said on the 3 Nov call"}. '
+            "To record a RELATIONSHIP between two entities, add `related_to` "
+            "and use one of these eight as the claim: works_at, uses, "
+            "managed_by, reports_to, partner_of, supplies, owns, involves. "
+            "Recall can then travel between them, so asking about the person "
+            "surfaces what is known about the company. Any other claim word "
+            "still records the fact but builds no link. "
+            'Example: {"about": "person:sarah", "claim": "works_at", '
+            '"related_to": "company:acme"}'),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "about": {"type": "string",
                           "description": "Entity the claim is about, e.g. customer:acme"},
                 "claim": {"type": "string",
-                          "description": "Short token, e.g. prefers_dark_mode"},
+                          "description": "Short token, e.g. prefers_dark_mode. For a "
+                                         "relationship use works_at, uses, managed_by, "
+                                         "reports_to, partner_of, supplies, owns or involves."},
+                "related_to": {"type": "string",
+                               "description": "Second entity, when the claim is a "
+                                              "relationship between the two, "
+                                              "e.g. company:acme"},
                 "because": {"type": "string",
                             "description": "Where this came from, recorded as the label"},
             },
@@ -165,9 +179,18 @@ class McpServer:
 
         `agent` is not a tool argument: the model does not get to say whose
         memory this is. Same rule as recall and observe.
+
+        `related_to` makes the assertion two-subject, which is what a relation
+        IS here: relations are engine facts first and a graph edge second, so
+        this adds no new primitive. The edge only forms when the claim is one
+        of the eight known relations, and the description says which; a claim
+        outside that set still records the fact, without a link.
         """
+        about = str(a["about"])
+        other = a.get("related_to")
+        subjects = [about, str(other)] if other else about
         return self.memory.remember(self.agent_id,
-                                    about=str(a["about"]),
+                                    about=subjects,
                                     claim=str(a["claim"]),
                                     label=(str(a["because"]) if a.get("because") else None))
 

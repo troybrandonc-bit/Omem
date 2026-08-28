@@ -148,6 +148,49 @@ try:
           any(m["proposition"] == "prefers_dark_mode" and m["status"] == "BELIEVED_TRUE"
               for m in pack.get("memories", [])), str(pack.get("memories"))[:200])
 
+    # A relationship between two entities. Relations are engine facts first
+    # (a two-subject assertion) and a graph edge second, so `related_to` adds
+    # no primitive -- it stops the tool from being able to say only one thing
+    # at a time. Until the graph was projected on write this would have
+    # recorded the fact and built no edge until a restart.
+    check("related_to is offered", "related_to" in rem["inputSchema"]["properties"],
+          str(sorted(rem["inputSchema"]["properties"])))
+    check("and the description names the relations that actually link",
+          "works_at" in rem["description"] and "reports_to" in rem["description"],
+          rem["description"][-200:])
+
+    out = json.loads(rpc(p_r, {"jsonrpc": "2.0", "id": 6, "method": "tools/call", "params": {
+        "name": "omem_remember", "arguments": {
+            "about": "person:sarah", "claim": "works_at",
+            "related_to": "company:acme"}}})["result"]["content"][0]["text"])
+    check("a relation records both entities as subjects",
+          sorted(out.get("subjects") or []) == ["company:acme", "person:sarah"],
+          str(out)[:200])
+
+    # The point of the edge: something learned about the company comes back
+    # when the agent is asking about the person.
+    rpc(p_r, {"jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": {
+        "name": "omem_remember", "arguments": {
+            "about": "company:acme", "claim": "renewed_annual_contract"}}})
+    pack = json.loads(rpc(p_r, {"jsonrpc": "2.0", "id": 8, "method": "tools/call", "params": {
+        "name": "omem_recall", "arguments": {"context": "person:sarah"}}}
+    )["result"]["content"][0]["text"])
+    # Assert on the REASON, not just that the memory came back. This project
+    # holds four memories, so "acme appears in the pack" would pass whether or
+    # not an edge existed. recall says why it included each one, and the graph
+    # path is the only answer that proves the traversal happened.
+    acme = [m for m in pack.get("memories", [])
+            if "company:acme" in (m.get("subjects") or [])]
+    check("and recall from the person reaches the company's facts",
+          bool(acme), str(pack.get("memories"))[:240])
+    check("because it travelled the relation, not because the project is small",
+          any("reached through the memory graph" in (m.get("why_included") or "")
+              for m in acme),
+          str([m.get("why_included") for m in acme])[:240])
+    check("and the pack names the path it took",
+          any("works_at" in (m.get("path") or "") for m in acme),
+          str([m.get("path") for m in acme])[:240])
+
     # The same sentence through observe records nothing, which is why this tool
     # had to exist rather than the extractor being widened.
     obs = json.loads(rpc(p_r, {"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {
