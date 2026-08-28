@@ -3,7 +3,11 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
-## Unreleased
+## 0.2.12 - 28 Aug 2026
+
+**This release is OMEM asking the right questions: it notices when live
+beliefs break a shape you declared, waits for your judgment instead of
+guessing, and tells you what changed while you were gone.**
 
 ### Added
 
