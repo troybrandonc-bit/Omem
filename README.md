@@ -386,8 +386,18 @@ Installing the package gives you an `omem-mcp` command that speaks MCP over
 stdio, so MCP clients like Claude Desktop can use OMEM as a memory tool:
 
 ```bash
-OMEM_API_KEY=... OMEM_BASE_URL=http://127.0.0.1:8787 OMEM_AGENT=support omem-mcp
+pip install omem-infrastructure
 ```
+
+Then, in your MCP client's config, the whole entry is:
+
+```json
+{ "mcpServers": { "omem": { "command": "omem-mcp" } } }
+```
+
+No key, no URL, no separate server to start. On first run it starts the bundled
+server itself, creates a project, and remembers it in `~/.omem`. Restarting the
+client reuses the same memory.
 
 Identity is fixed by the environment, never by a tool argument, on both axes
 that scope memory: `OMEM_AGENT` is the agent whose memory this is, and
@@ -404,21 +414,20 @@ key, then add this to `claude_desktop_config.json` and restart the app:
   "mcpServers": {
     "omem": {
       "command": "omem-mcp",
-      "env": {
-        "OMEM_API_KEY": "omem_sk_...",
-        "OMEM_BASE_URL": "http://127.0.0.1:8787",
-        "OMEM_PROJECT": "proj_...",
-        "OMEM_AGENT": "claude",
-        "OMEM_USER": "you@example.com"
-      }
+      "env": { "OMEM_AGENT": "claude", "OMEM_USER": "you@example.com" }
     }
   }
 }
 ```
 
+Both of those are optional. `OMEM_AGENT` names the agent whose memory this is
+and `OMEM_USER` the end user it acts for; neither is a tool argument, so a model
+cannot name either one. Point it at a server you already run by setting
+`OMEM_API_KEY`, `OMEM_BASE_URL` and `OMEM_PROJECT` instead, and explicit
+configuration always wins over the bundled one.
+
 The config file lives at `~/Library/Application Support/Claude/claude_desktop_config.json`
-on macOS and `%APPDATA%\Claude\claude_desktop_config.json` on Windows. The server
-has to be running for the tool to answer, so keep `omem-server` up.
+on macOS and `%APPDATA%\Claude\claude_desktop_config.json` on Windows.
 
 ## Status and price
 
