@@ -590,8 +590,13 @@ class Ingestor:
                     except Exception:
                         pass
                 # provenance: derive the assertion from the source event
+                # dkind comes from the fact. Almost everything here is read
+                # out of the message ("extraction"); an employment relation is
+                # concluded from the sender's address ("inference"), and /why
+                # should not present the two as the same kind of knowing.
                 self.record(p, "derive", {"id": self.mint("d"), "consequent": aid,
-                                          "antecedents": [event_id], "dkind": "extraction"})
+                                          "antecedents": [event_id],
+                                          "dkind": f.get("dkind") or "extraction"})
                 self.db.execute(
                     "INSERT OR REPLACE INTO fact_fingerprints VALUES(?,?,?)", (p.id, fp, aid))
                 # persist the extractor's evidence so the "why" surface can show
