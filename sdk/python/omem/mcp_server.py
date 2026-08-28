@@ -168,13 +168,19 @@ class McpServer:
 
 
 def main():
-    key = os.environ.get("OMEM_API_KEY")
+    # Zero configuration is the point. With no OMEM_API_KEY the bootstrap
+    # starts the bundled server, provisions a project once and remembers it, so
+    # the whole client config is {"command": "omem-mcp"}. Setting OMEM_API_KEY
+    # still wins and nothing below overrides it.
+    from .mcp_bootstrap import resolve  # noqa: E402
+    key, base_url, project = resolve()
     if not key:
-        print("OMEM_API_KEY is required", file=sys.stderr)
+        print("omem-mcp: could not start OMEM. Either let it run its own "
+              "server (no configuration needed), or start one with "
+              "`omem-server` and set OMEM_API_KEY and OMEM_PROJECT from its "
+              "first-run output.", file=sys.stderr)
         sys.exit(2)
-    mem = Memory(key,
-                 base_url=os.environ.get("OMEM_BASE_URL", "http://127.0.0.1:8787"),
-                 project=os.environ.get("OMEM_PROJECT"))
+    mem = Memory(key, base_url=base_url, project=project)
     McpServer(mem, os.environ.get("OMEM_AGENT", "mcp-agent"),
               os.environ.get("OMEM_USER")).serve_stdio()
 

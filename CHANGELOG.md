@@ -3,6 +3,40 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## Unreleased
+
+### Changed
+
+- **`omem-mcp` works with nothing configured.** Using OMEM from an MCP client
+  took six steps: install, start `omem-server`, keep it running, copy a project
+  id and a key out of the terminal, paste both into a JSON config, restart the
+  client. A typical MCP server is one JSON block, and being in the registry and
+  then losing people at step three is worse than not being listed.
+
+  The whole config is now:
+
+  ```json
+  { "mcpServers": { "omem": { "command": "omem-mcp" } } }
+  ```
+
+  With no `OMEM_API_KEY` it starts the bundled server itself on a loopback port,
+  creates a project once and remembers it in `~/.omem`. Setting `OMEM_API_KEY`
+  still wins and points it at a server you run yourself, unchanged.
+
+### Fixed
+
+- **A hard-killed OMEM held its database for 90 seconds.** The writer lock
+  presumed a holder alive until its heartbeat went stale, which is right for a
+  server someone restarts by hand and wrong for an MCP server, whose client
+  starts and kills it constantly: a restart inside that window was refused.
+
+  A holder on this machine whose process no longer exists is now taken over
+  immediately. A recycled pid reads as alive and falls back to the timeout, and
+  a holder on another host is never judged, because its processes cannot be
+  seen from here. The liveness check is `ctypes` on Windows rather than
+  `os.kill(pid, 0)`, which on Windows terminates the process it is asked about
+  instead of reporting on it.
+
 ## 0.2.8 - 27 Aug 2026
 
 **If you use agent-scoped memory, this release is the one that makes it work.**
