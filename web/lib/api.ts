@@ -308,6 +308,22 @@ export interface InferReport {
   derived: { assertion: string; rule: string; proposition: string; pair: [string, string] }[];
   retracted: { assertion: string; proposition: string; reason?: string }[];
 }
+/** A declared shape broken by live relations: "Sarah works at two companies,
+ *  and works_at was declared one-employer-at-a-time". Detection only -- a
+ *  person resolves by naming the counterparty that survives, or dismisses,
+ *  which is permanent for exactly this counterparty set. */
+export interface Tension {
+  id: string; constraint_id: string; relation: string; entity: string;
+  holders: Record<string, string[]>; fp: string;
+  status: "open" | "resolved" | "dismissed" | "lapsed" | string;
+  created: number; decided: number | null; decided_by: string | null;
+  kept: string | null;
+}
+export interface CheckReport {
+  constraints: number; unchanged: number; spent: number;
+  raised: { tension: string; relation: string; entity: string; between: string[] }[];
+  lapsed: { tension: string; reason: string }[];
+}
 
 export type AuthMode = "local" | "password";
 export interface SignupResult { token: string; email: string; existing: boolean; org?: { id: string; name: string }; project?: { id: string; name: string; env: string }; api_key?: ApiKey; }
@@ -478,6 +494,17 @@ export const api = {
     req<{ data: InferenceRule[]; count: number }>("GET", `/v1/rules?project=${enc(p)}`),
   runInfer: (p: string) =>
     req<InferReport>("POST", `/v1/memory/infer?project=${enc(p)}`, {}),
+  runCheck: (p: string) =>
+    req<CheckReport>("POST", `/v1/memory/check?project=${enc(p)}`, {}),
+  tensions: (p: string, status?: string) =>
+    req<{ data: Tension[]; count: number }>(
+      "GET", `/v1/memory/tensions?project=${enc(p)}${status ? `&status=${enc(status)}` : ""}`),
+  tensionResolve: (p: string, id: string, keep: string) =>
+    req<{ tension: string; status: string; kept: string; retracted: string[] }>(
+      "POST", `/v1/memory/tensions/${enc(id)}/resolve?project=${enc(p)}`, { keep }),
+  tensionDismiss: (p: string, id: string) =>
+    req<{ tension: string; status: string }>(
+      "POST", `/v1/memory/tensions/${enc(id)}/dismiss?project=${enc(p)}`, {}),
   gmailRescan: (p: string, opts?: { connector_id?: string; window_days?: 7 | 30 | 90 | 365 }) =>
     req<GmailRescanResult>("POST", `/v1/memory/gmail-rescan?project=${enc(p)}`, opts ?? {}),
   memoryQuality: (p: string) => req<MemoryQuality>("GET", `/v1/memory/quality?project=${enc(p)}`),

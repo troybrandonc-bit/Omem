@@ -1,15 +1,17 @@
 "use client";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type MergeProposal, type ResolveReport } from "@/lib/api";
+import { api, type ResolveReport } from "@/lib/api";
 import { useApp } from "@/components/providers";
 import { Skeleton, Button, Badge, EmptyState } from "@/components/ui/primitives";
 import { GitMerge } from "lucide-react";
 
-// The identity queue. The machine suggests that two entities are one person;
-// nothing reaches the engine until somebody here decides. An approval is
-// recorded under the approver's name -- the judgment is theirs -- and a
-// rejection is permanent for the machine: the pair is never proposed again.
+// The judgment queue. Two kinds of question wait here, and neither touches
+// the engine until somebody decides. Merge proposals: the machine suspects
+// two entities are one person. Tensions: live relations break a declared
+// shape (works_at was declared one-employer-at-a-time, and Sarah has two).
+// Every decision is recorded under the decider's name, and a rejection or
+// dismissal is permanent for the machine: never the same question twice.
 
 function Pair({ a, b }: { a: string; b: string }) {
   return (
@@ -33,9 +35,15 @@ export default function Proposals() {
     queryFn: () => api.mergeProposals(project), refetchInterval: 8000,
     enabled: !!project,
   });
+  const { data: tensionData } = useQuery({
+    queryKey: ["tensions", project],
+    queryFn: () => api.tensions(project), refetchInterval: 8000,
+    enabled: !!project,
+  });
 
   function refresh() {
     qc.invalidateQueries({ queryKey: ["merge-proposals", project] });
+    qc.invalidateQueries({ queryKey: ["tensions", project] });
     qc.invalidateQueries({ queryKey: ["entities", project] });
   }
 
@@ -46,13 +54,25 @@ export default function Proposals() {
   }
 
   const runPass = () =>
-    act("resolve", async () => setReport(await api.runResolve(project)));
+    act("resolve", async () => {
+      setReport(await api.runResolve(project));
+      await api.runCheck(project);
+    });
   const decide = (id: string, decision: "approve" | "reject") =>
     act(`${decision}-${id}`, () => api.mergeDecide(project, id, decision));
+  const keepTension = (id: string, keep: string) =>
+    act(`keep-${id}-${keep}`, () => api.tensionResolve(project, id, keep));
+  const dismissTension = (id: string) =>
+    act(`dismiss-${id}`, () => api.tensionDismiss(project, id));
 
   const rows = data?.data ?? [];
   const open = rows.filter(p => p.status === "open");
   const decided = rows.filter(p => p.status !== "open")
+    .sort((a, b) => (b.decided ?? 0) - (a.decided ?? 0));
+  const tensions = tensionData?.data ?? [];
+  const openTensions = tensions.filter(t => t.status === "open");
+  const decidedTensions = tensions
+    .filter(t => t.status === "resolved" || t.status === "dismissed")
     .sort((a, b) => (b.decided ?? 0) - (a.decided ?? 0));
 
   return (
@@ -135,6 +155,58 @@ export default function Proposals() {
               </div>
             ))}
           </div>}
+
+      {openTensions.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-1 text-sm font-medium">Tensions</h2>
+          <p className="mb-3 max-w-lg text-2xs text-muted">
+            Live relations break a declared shape. Keep the one that is current — the
+            others are retracted under your name — or dismiss if both are genuinely true.
+          </p>
+          <div className="space-y-3">
+            {openTensions.map(t => (
+              <div key={t.id} className="rounded-lg border p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="mono text-sm">{t.entity}</span>
+                  <span className="text-2xs text-faint">
+                    has {Object.keys(t.holders).length} live «{t.relation}» where the
+                    declared shape allows one
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {Object.keys(t.holders).sort().map(cp => (
+                    <Button key={cp} size="sm" variant="secondary" disabled={busy !== null}
+                      onClick={() => keepTension(t.id, cp)}>
+                      {busy === `keep-${t.id}-${cp}` ? "…" : `Keep ${cp.split(":").pop()}`}
+                    </Button>
+                  ))}
+                  <Button size="sm" variant="danger" disabled={busy !== null}
+                    onClick={() => dismissTension(t.id)}>
+                    {busy === `dismiss-${t.id}` ? "…" : "Both are fine"}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {decidedTensions.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-2 text-sm font-medium">Judged tensions</h2>
+          <div className="overflow-hidden rounded-lg border">
+            {decidedTensions.map(t => (
+              <div key={t.id} className="flex flex-wrap items-center gap-2 border-b px-4 py-2 text-2xs last:border-b-0">
+                <Badge tone={t.status === "resolved" ? "believed" : "closed"}>{t.status}</Badge>
+                <span className="mono">{t.entity}</span>
+                <span className="text-faint">{t.relation}</span>
+                {t.kept && <span className="text-faint">kept {t.kept}</span>}
+                {t.decided_by && <span className="ml-auto text-faint">by {t.decided_by}</span>}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {decided.length > 0 && (
         <section className="mt-8">

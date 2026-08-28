@@ -344,6 +344,69 @@ class Memory:
         ordinary assertion derived from the exact premises it used."""
         return self._req("POST", "/v1/memory/infer", {})
 
+    def declare_constraint(self, relation, kind, agent=None):
+        """Declare the shape a relation may take.
+
+            mem.declare_constraint("works_at", "one_dst_per_src")
+            # a person has one employer at a time
+
+        The engine cannot see this kind of clash: 'Sarah works at Acme' and
+        'Sarah works at Beta' have different subject sets, so they never
+        contradict. A declared constraint makes the clash DETECTABLE -- a
+        violation becomes an open tension for a person to judge, and nothing
+        is ever auto-resolved. Kinds: one_dst_per_src, one_src_per_dst."""
+        return self._req("POST", "/v1/constraints",
+                         {"relation": relation, "kind": kind, "agent": agent})
+
+    def constraints(self):
+        """Every declared constraint, active and deactivated alike."""
+        return self._req("GET", "/v1/constraints").get("data", [])
+
+    def deactivate_constraint(self, constraint_id):
+        """Turn a constraint off; its open tensions lapse on the next check."""
+        return self._req("POST", f"/v1/constraints/{constraint_id}/deactivate", {})
+
+    def check(self):
+        """One detection pass: lapse tensions whose evidence changed, then
+        raise what the live relations currently violate. Detection only --
+        the engine is untouched and every belief stays exactly as believed."""
+        return self._req("POST", "/v1/memory/check", {})
+
+    def tensions(self, status=None):
+        """The detected violations awaiting judgment (and, with status=,
+        what was decided about past ones)."""
+        q = f"?status={status}" if status else ""
+        return self._req("GET", f"/v1/memory/tensions{q}").get("data", [])
+
+    def resolve_tension(self, tension_id, keep, agent=None):
+        """Name the belief that survives. The other holders are retracted
+        under the resolver's name -- withdrawn, not negated -- and rule
+        conclusions resting on them fall in the same request."""
+        return self._req("POST", f"/v1/memory/tensions/{tension_id}/resolve",
+                         {"keep": keep, "agent": agent})
+
+    def dismiss_tension(self, tension_id, agent=None):
+        """Both beliefs are fine; the shape does not apply here. Permanent
+        for exactly this holder set -- the machine never nags twice about
+        evidence a person already judged."""
+        return self._req("POST", f"/v1/memory/tensions/{tension_id}/dismiss",
+                         {"agent": agent})
+
+    def changes(self, since, viewer=None, user=None):
+        """What changed since a logical time -- the delta an agent wants at
+        session start instead of the whole pack again. `since` is any earlier
+        response's as_of (or now() noted last session). Returns beliefs that
+        appeared, beliefs that closed (each saying HOW: superseded and by
+        what, or withdrawn), conflicts newly opened and newly resolved, and
+        referents that merged or split. Read-only and scope-safe: your diff
+        contains only what you could have recalled."""
+        q = f"?since={since}"
+        if viewer:
+            q += f"&viewer={viewer}"
+        if user:
+            q += f"&user={user}"
+        return self._req("GET", f"/v1/memory/diff{q}")
+
     def _recall_legacy(self, about):
         """Return real memories about a subject. State comes from the engine."""
         return self._req("POST", "/v1/recall", {"about": about})
