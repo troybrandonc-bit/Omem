@@ -788,6 +788,7 @@ import constraints as _constraints
 STORE.db.executescript(_constraints.CONSTRAINTS_SCHEMA)
 STORE.db.commit()
 import beliefdiff as _bdiff
+import confidence as _confidence
 
 
 def _consolidate_all_projects():
@@ -1085,6 +1086,15 @@ def _quality_gate(project_id, conn, payload, facts, verdict, source_record_id):
 INGEST.quality_gate = _quality_gate
 INGEST.semantic_active = lambda pid: (ENT.setting(pid, "llm_enabled") == "1"
                                       and providers.llm_configured())
+# Real embeddings for semantic recall, when the operator opts in with
+# OMEM_EMBED_MODEL. The default stays the dependency-free hashing embedding;
+# any provider failure falls back to it per call, so recall survives an
+# outage with narrower results rather than none. The model id keys the
+# vector cache, so swapping models can never serve stale vectors.
+if providers.embeddings_configured():
+    import semantic_recall as _semrec
+    _semrec.set_embedder(providers.embed_texts,
+                         tag=os.environ.get("OMEM_EMBED_MODEL"))
 SCHEDULER = Scheduler(INGEST)
 SCHEDULER.consolidator = _consolidate_all_projects
 SCHEDULER.consolidation_interval = 300
@@ -2338,6 +2348,15 @@ class Handler(BaseHTTPRequestHandler):
             data = _rules.list_rules(STORE.db, p.id)
             return self._send(200, {"data": data, "count": len(data)})
 
+        # ── the relation vocabulary itself, with how each edge reads. One
+        # source of truth (graph.RELATION_REGISTRY); rules and constraints
+        # validate against exactly this list, and the extraction prompt's
+        # enum is generated from it.
+        if parts == ["v1", "relations"]:
+            data = [{"name": r, "reads": _graph.RELATION_REGISTRY[r]["reads"]}
+                    for r in _graph.RELATIONS]
+            return self._send(200, {"data": data, "count": len(data)})
+
         # ── declared relation constraints, and the tensions they detected ──
         if parts == ["v1", "constraints"]:
             pid = qs.get("project", [None])[0]
@@ -2787,10 +2806,16 @@ class Handler(BaseHTTPRequestHandler):
                 if d.consequent == aid or d.consequent in prov_ids:
                     for anc in d.antecedents:
                         edges.append({"from": d.consequent, "to": anc, "kind": d.kind})
+            # Effective confidence, with its derivation spelled out. Strength
+            # of support, never truth: `state` above is the engine's alone.
+            _support = len({(r["observed_by"], r.get("source"))
+                            for r in _consol.reinforcement_rows(STORE.db, p.id, aid)})
+            _cscore, _cwhy = _confidence.effective(a.confidence, _support)
             return self._send(200, {
                 "assertion": shape_assertion(p, aid, T),
                 "as_of": T,
                 "state": state,
+                "confidence": {"score": _cscore, "because": _cwhy},
                 "grounded": grounded == "GROUNDED",
                 "provenance": {"nodes": prov_nodes, "edges": edges},
                 "revision_chain": [shape_assertion(p, c, T) for c in chain],

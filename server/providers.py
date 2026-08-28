@@ -406,6 +406,44 @@ class OpenAICompatClient(LLMClient):
         return resp["choices"][0]["message"]["content"]
 
 
+# ── Real embeddings (OpenAI-compatible /embeddings) ────────────────────────
+def embeddings_configured() -> bool:
+    """A real embedder is OPT-IN via OMEM_EMBED_MODEL, on top of the same key
+    and base URL the LLM uses. Deliberately not inferred from llm_configured
+    alone: chat being configured says nothing about the account having an
+    embeddings endpoint, and a wrong guess would fail on every recall."""
+    return bool(os.environ.get("OMEM_EMBED_MODEL")) and llm_configured()
+
+
+def embed_texts(texts):
+    """fn(list[str]) -> list[list[float]] against {base}/embeddings, chunked
+    100 at a time. Raises on failure: semantic_recall.embed() catches and
+    falls back to the dependency-free hashing embedding, so recall survives a
+    provider outage with narrower results rather than none."""
+    base = os.environ.get("OMEM_LLM_BASE_URL", "https://api.openai.com/v1")
+    key = os.environ["OMEM_LLM_API_KEY"]
+    model = os.environ["OMEM_EMBED_MODEL"]
+    out = []
+    for i in range(0, len(texts), 100):
+        chunk = texts[i:i + 100]
+        body = json.dumps({"model": model, "input": chunk}).encode()
+        req = urllib.request.Request(
+            f"{base}/embeddings", data=body,
+            headers={"Content-Type": "application/json",
+                     "Authorization": f"Bearer {key}",
+                     "User-Agent": "omem-cloud/1.0",
+                     "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            resp = json.loads(r.read())
+        rows = sorted(resp.get("data", []), key=lambda d: d.get("index", 0))
+        out.extend([row["embedding"] for row in rows])
+    if len(out) != len(texts):
+        raise RuntimeError(
+            f"{_host_of(base)} returned {len(out)} embeddings for "
+            f"{len(texts)} inputs")
+    return out
+
+
 # ── Real Stripe (test mode) ────────────────────────────────────────────────
 def stripe_configured() -> bool:
     return bool(os.environ.get("STRIPE_SECRET_KEY"))

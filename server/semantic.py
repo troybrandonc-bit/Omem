@@ -28,6 +28,7 @@ import json
 import re
 import time
 
+import graph as _graph
 from ingest import Extractor
 from email_analysis import parse_participants, normalize_identity, SPEECH_ACTS
 from extraction import (ContextualBusinessExtractor, canonical_proposition,
@@ -59,7 +60,7 @@ Return ONLY a JSON object, no prose, matching exactly:
                    |"DECISION"|"COMPLETED"|"STATEMENT",
       "certainty": "high"|"medium"|"low",
       "temporal_status": "current"|"past"|"future",
-      "relation": null | {"name": "works_at"|"uses"|"managed_by"|"reports_to"|"partner_of",
+      "relation": null | {"name": __RELATION_ENUM__,
                           "target": "<entity id from ALLOWED ENTITIES, or product:<name-in-email>>"},
       "evidence": [{"quote": "<EXACT verbatim substring of the email body or subject>"}],
       "confidence": 0.0-1.0,
@@ -89,6 +90,13 @@ Hard rules:
 - If existing memories are shown and this email changes one, set
   existing_memory_relationship accordingly.
 - Ignore quoted/forwarded earlier messages: judge only what THIS sender wrote."""
+
+# The relation enum is DERIVED from the graph's registry, never spelled here.
+# It was spelled here once, listed five of the eight relations, and the model
+# obediently never proposed supplies, owns or involves -- a drift invisible
+# from either file alone. Validation below still re-checks every proposal
+# against graph.RELATIONS, so prompt and gate cannot disagree.
+SEMANTIC_SYSTEM = SEMANTIC_SYSTEM.replace("__RELATION_ENUM__", _graph.prompt_enum())
 
 
 def build_semantic_input(payload: dict, participants: dict, identity: dict,

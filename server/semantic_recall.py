@@ -28,6 +28,8 @@ import hashlib
 import math
 import re
 
+from omem_engine.canon import RETRACTED
+
 _DIM = 256  # hashed-embedding dimensionality (small, fast, dependency-free)
 _TOKEN = re.compile(r"[a-z0-9]+")
 
@@ -35,13 +37,27 @@ _TOKEN = re.compile(r"[a-z0-9]+")
 # instead of the hashing embedding. Kept module-level so a deployment can wire a
 # provider once at boot without touching call sites.
 _EMBEDDER = None
+_EMBED_TAG = "hash-v1"   # names the active embedder; cached vectors key on it
+_GEN = 0
+
+# Per-project vector cache: {project_id: {assertion_id: (fingerprint, vec)}}.
+# Assertions are immutable and never deleted, so an entry goes stale only when
+# its rendered TEXT changes (a label edit) or the embedder changes -- both of
+# which change the fingerprint. Before this cache existed, every recall
+# re-embedded every assertion in the project, which was an irritation for the
+# free hashing embedding and a per-recall bill for a real one.
+_VECS: dict = {}
 
 
-def set_embedder(fn):
+def set_embedder(fn, tag: str | None = None):
     """Install a real embedding function fn(list[str]) -> list[list[float]].
-    Pass None to revert to the built-in dependency-free hashing embedding."""
-    global _EMBEDDER
+    Pass None to revert to the built-in dependency-free hashing embedding.
+    `tag` names the embedder (use the model id): cached vectors key on it, so
+    swapping embedders can never serve one model's vectors as another's."""
+    global _EMBEDDER, _EMBED_TAG, _GEN
+    _GEN += 1
     _EMBEDDER = fn
+    _EMBED_TAG = tag or (f"custom-{_GEN}" if fn is not None else "hash-v1")
 
 
 def _char_ngrams(text: str, n: int = 3):
@@ -102,23 +118,54 @@ class SemanticRetriever:
         self.min_similarity = min_similarity
         self.cap = cap
 
+    def _text_of(self, a) -> str:
+        """What gets embedded: the proposition IN ITS CONTEXT. Embedding only
+        the bare token meant "prefers_annual_billing" about Acme and the same
+        token about anyone else were identical points, and a query naming the
+        customer gained nothing. The human label and the subjects' labels are
+        part of the meaning, so they are part of the vector."""
+        meta = self.p.labels.get(a.id)
+        label = meta.get("label") if isinstance(meta, dict) else None
+        subj = []
+        for s in a.subjects:
+            m = self.p.labels.get(s)
+            subj.append((m.get("label") if isinstance(m, dict) else None)
+                        or s.split(":", 1)[-1].replace("_", " ").replace("-", " "))
+        parts = [(a.proposition or "").replace("_", " "), label or "",
+                 " ".join(subj)]
+        return " ".join(x for x in parts if x).strip()
+
     def retrieve(self, context_text: str, *, exclude: set[str] | None = None) -> dict[str, float]:
         context_text = (context_text or "").strip()
         if not context_text:
             return {}
-        assertions = list(self.p.engine.store.assertions())
+        # Machinery is not meaning: coreference claims and retraction markers
+        # would only surface as noise now that subject labels are embedded.
+        assertions = [a for a in self.p.engine.store.assertions()
+                      if a.proposition and a.proposition != RETRACTED
+                      and not a.proposition.startswith("COREF(")]
         if not assertions:
             return {}
-        # embed the query once + every candidate proposition
-        props = [a.proposition or "" for a in assertions]
+        cache = _VECS.setdefault(self.p.id, {})
+        keyed = []
+        for a in assertions:
+            text = self._text_of(a)
+            fp = hashlib.md5(f"{_EMBED_TAG}|{text}".encode()).hexdigest()[:16]
+            keyed.append((a, text, fp))
+        missing = [(i, text) for i, (a, text, fp) in enumerate(keyed)
+                   if cache.get(a.id, (None, None))[0] != fp]
+        if missing:
+            vecs = embed([t for _, t in missing])
+            for (i, _), v in zip(missing, vecs):
+                a, _, fp = keyed[i]
+                cache[a.id] = (fp, v)
         qv = embed([context_text])[0]
-        pvs = embed(props)
         scored = []
         exclude = exclude or set()
-        for a, pv in zip(assertions, pvs):
+        for a, _, _fp in keyed:
             if a.id in exclude:
                 continue
-            sim = _cosine(qv, pv)
+            sim = _cosine(qv, cache[a.id][1])
             if sim >= self.min_similarity:
                 scored.append((a.id, sim, -a.assertion_time))
         # highest similarity first; ties broken deterministically (newer, then id)

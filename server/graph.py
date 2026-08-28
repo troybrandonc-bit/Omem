@@ -32,8 +32,35 @@ CREATE INDEX IF NOT EXISTS edges_src ON memory_edges(project_id, src);
 CREATE INDEX IF NOT EXISTS edges_dst ON memory_edges(project_id, dst);
 """
 
-RELATIONS = ("works_at", "uses", "managed_by", "reports_to", "partner_of",
-             "supplies", "owns", "involves")
+# The relation vocabulary, in ONE place. It used to be spelled in five files
+# that could not agree: this tuple, the LLM prompt (which offered five of the
+# eight), the deterministic regexes, the consolidation hints, and the MCP tool
+# prose. Every consumer now derives from this registry or is pinned to it by
+# tests_relation_registry.py, so adding a relation is one edit here plus the
+# prose updates that suite refuses to let drift.
+#
+# `reads` is how a directed edge is read aloud -- prompt and doc material,
+# never parsed. Endpoint kinds in it are convention, not enforcement: type
+# constraints on relations are constraints.py's job, declared per project.
+RELATION_REGISTRY = {
+    "works_at":   {"reads": "src works at dst (person -> organisation)"},
+    "uses":       {"reads": "src uses dst (organisation -> product)"},
+    "managed_by": {"reads": "src is managed by dst (account -> person)"},
+    "reports_to": {"reads": "src reports to dst (person -> person)"},
+    "partner_of": {"reads": "src is a partner of dst (organisation -> organisation)"},
+    "supplies":   {"reads": "src supplies dst (organisation -> organisation)"},
+    "owns":       {"reads": "src owns dst (organisation -> organisation)"},
+    "involves":   {"reads": "src's orbit involves dst (organisation -> person)"},
+}
+RELATIONS = tuple(RELATION_REGISTRY)
+
+
+def prompt_enum() -> str:
+    """The relation alternatives for the extraction prompt, derived so the
+    prompt can never again offer the model fewer relations than the graph
+    accepts (it offered five of eight for two releases and nobody could see
+    it from either file alone)."""
+    return "|".join(f'"{r}"' for r in RELATIONS)
 
 
 def record_edge(db, project_id: str, assertion_id: str, src: str,

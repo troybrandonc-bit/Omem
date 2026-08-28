@@ -3,6 +3,49 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## Unreleased
+
+### Added
+
+- **Real embeddings for semantic recall, with a cache and richer text.**
+  `set_embedder()` existed with nothing ever wired into it. Set
+  `OMEM_EMBED_MODEL` (on top of the LLM key and base URL you already have)
+  and recall uses your provider's OpenAI-compatible `/embeddings` endpoint;
+  leave it unset and the dependency-free hashing embedding keeps working
+  offline, and every provider failure falls back to it per call. What gets
+  embedded is now the proposition IN CONTEXT -- token, label, and subject
+  labels -- so a query naming the customer finds the customer's memory.
+  Vectors cache per (assertion, text, embedder), so a recall embeds only the
+  query and whatever is new, not the whole project every time.
+
+- **`GET /v1/relations`** -- the relation vocabulary with how each edge
+  reads, queryable so nothing downstream hardcodes it. `mem.relations()` in
+  the SDK.
+
+### Changed
+
+- **The confidence field finally does something.** Assertions have carried a
+  confidence since the engine's first commit and no read path ever used it.
+  Now: stated confidence (or 0.6 unstated), +0.1 per independent
+  corroboration -- a DISTINCT observer and source, so a thousand copies of
+  one email are one observation -- capped at three, held under 0.99 always,
+  because certainty is not a thing this system claims. Recall ranks by its
+  coarse bucket (a corroborated older fact now outranks an unsupported newer
+  one; `OMEM_CONFIDENCE_RANKING=0` reverts the ranking, display always
+  ships), and both the pack and `/why` spell out the derivation. It is
+  strength of support, never truth: the engine's belief state is not
+  consulted, adjusted, or overridden by it.
+
+- **The relation vocabulary lives in one place.** It lived in five: the
+  graph's tuple, the LLM prompt (which offered five of the eight relations,
+  so the model obediently never proposed `supplies`, `owns` or `involves`),
+  the deterministic regexes, the consolidation hints (six of eight, so an
+  `owns_...` fact ranked as a plain fact while `works_at_...` ranked
+  relational), and the MCP tool prose. The prompt enum and the hints are now
+  derived from `graph.RELATION_REGISTRY`, and the consumers that cannot
+  derive are pinned by a test suite, so the next drift is a red CI run
+  instead of a quiet lie.
+
 ## 0.2.12 - 28 Aug 2026
 
 **This release is OMEM asking the right questions: it notices when live

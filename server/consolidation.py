@@ -80,8 +80,14 @@ CREATE TABLE IF NOT EXISTS consolidation_state(
 
 MEMORY_CLASSES = ("transient", "episodic", "semantic", "relational", "generalized")
 
-_RELATIONAL_HINTS = ("works_at_", "uses_", "managed_by_", "integration_",
-                     "partner_of_", "reports_to_")
+# Derived from the graph's registry: a proposition speaking any relation's
+# vocabulary classifies as relational. This list was hand-copied once, held
+# six of the eight relations, and a fact spelled `owns_...` or `supplies_...`
+# ranked as a plain fact while `works_at_...` ranked as relational -- a
+# distinction no design ever intended. `integration_` stays as the one
+# deliberate extra: it predates the registry and real projects classify by it.
+import graph as _graph_hints
+_RELATIONAL_HINTS = tuple(f"{r}_" for r in _graph_hints.RELATIONS) + ("integration_",)
 
 
 def classify_proposition(prop: str) -> str:
