@@ -7,6 +7,68 @@ Release notes for people using OMEM. Engineering history lives in
 
 ### Added
 
+- **Declared inference rules, with truth maintenance.** The engine decides
+  contradiction only from explicitly declared token pairs; inference now gets
+  the same treatment. A rule is data a caller declares, never a judgment the
+  machine invents:
+
+  ```json
+  {"when": [{"rel": "works_at", "dir": "fwd"}, {"rel": "owns", "dir": "rev"}],
+   "then": {"rel": "involves", "dir": "rev"}}
+  ```
+
+  "Whoever works at a company you own is in your orbit." `POST /v1/rules`
+  declares it (anything outside the relation vocabulary is refused);
+  `POST /v1/memory/infer` runs a deterministic pass (the scheduler runs one
+  too). A conclusion is an ordinary assertion by `agent:omem-rules`, derived
+  from the exact premises it used -- `/why` walks from the conclusion to the
+  evidence -- and projected to a real graph edge, so recall reaches in one hop
+  what used to take two. Rules chain: a conclusion's edge can satisfy the next
+  rule's premise, to a bounded fixpoint.
+
+  The half that matters is **truth maintenance**. A concluded belief is only
+  as alive as its premises: retract the ownership and the conclusion is
+  withdrawn in the same request, and a conclusion resting on THAT conclusion
+  falls after it, cascade through the engine's own derivation graph. Every
+  withdrawal is an ordinary retraction in the op log -- attributed, replayable,
+  visible in as_of.
+
+  And the refusals: evidence is spent once, so a conclusion a person closed is
+  never re-litigated from the same premises (new evidence makes a new
+  fingerprint and may conclude again); a deactivated rule's conclusions are
+  withdrawn on the next pass; the machine only ever retracts what it itself
+  concluded.
+
+- **OMEM notices two entities are one person.** The engine has had coreference
+  from the start -- merge, split, and a referent partition every query reduces
+  subject sets through -- and nothing ever proposed a merge. So
+  `person:sarah_chen` (named in a message body) sat next to
+  `person:sarah_chen@acme` (who wrote the mail), each holding half the beliefs
+  about one human, unable to corroborate or contradict each other. Joining them
+  required a caller to notice the duplication and call `/v1/coreference` by
+  hand, which in practice meant never.
+
+  `POST /v1/memory/resolve` runs one identity pass (the scheduler also runs it
+  alongside consolidation). Decisive evidence merges: the same full name inside
+  the same organisation, which is the identity rule formation itself already
+  applies whenever one path mints the id. The merge is an ordinary coreference
+  assertion by `agent:omem-resolution`, with a derivation to the assertions
+  anchoring both entities to the organisation, so `/why` answers for it and a
+  split undoes it without editing history. Suggestive evidence -- "Sarah"
+  against "Sarah Chen" at acme, and nobody else there is a Sarah -- becomes a
+  row in `GET /v1/memory/merge-proposals`, and **nothing reaches the engine
+  until someone approves it**, at which point the coreference is recorded under
+  the approver's name, because the judgment was theirs.
+
+  Everything else is a refusal, on purpose: never across organisations, never
+  without one, never on conflicting surnames or role vocabulary ("Acme
+  Billing" is not a person), never when the name matches two people, never
+  re-proposing a rejection -- and never, ever re-merging a pair a split
+  separated. A split is a person saying "these are different"; the machine
+  does not relitigate it, not even through its own approval queue.
+
+  `{"apply": false}` is a dry run that records nothing anywhere.
+
 - **`omem_remember`: record a fact you already know.** MCP clients could only
   `observe`, which runs text through a deterministic extractor with a fixed
   vocabulary aimed at decisions and commitments about contracts. That is the

@@ -319,6 +319,22 @@ def record(p: Project, kind: str, a: dict):
                                      a["proposition"])
         except Exception:
             pass
+    # Truth maintenance nudge: when a belief closes, conclusions the rules
+    # engine derived FROM it fall in the same request, walking the engine's
+    # own derivation graph. Skipped for the rules agent's own retractions
+    # (its cascade is handled inside maintain_after_close's worklist).
+    # Best-effort: run()'s sweep is the authority and re-checks every
+    # conclusion against the engine, so a missed nudge delays a withdrawal,
+    # never loses it.
+    if kind in ("supersede", "retract"):
+        try:
+            if a.get("agent") != _rules.RULES_AGENT:
+                closed = list(a.get("olds") or ([a["old"]] if a.get("old") else []))
+                if closed:
+                    _rules.maintain_after_close(p, STORE.db, record,
+                                                _mint_global, closed)
+        except Exception:
+            pass
 
 
 def source_view(src, connector=None):
@@ -762,6 +778,12 @@ STORE.db.executescript(_consol.P3_SCHEMA)
 STORE.db.commit()
 INGEST.on_reinforce = lambda pid, aid, agent, source: _consol.reinforce(
     STORE.db, pid, aid, agent, source)
+import resolution as _resolution
+STORE.db.executescript(_resolution.MERGE_SCHEMA)
+STORE.db.commit()
+import rules as _rules
+STORE.db.executescript(_rules.RULES_SCHEMA)
+STORE.db.commit()
 
 
 def _consolidate_all_projects():
@@ -770,6 +792,18 @@ def _consolidate_all_projects():
             continue
         _consol.consolidate(p, STORE.db, SCOPES, record, _mint_global,
                             contradictions=CONTRADICTIONS.get(pid, []))
+        # Identity resolution and rule inference ride the same scheduled pass:
+        # all three are learners that read settled state and write conclusions
+        # through record(). Each is best-effort so one failing never blocks
+        # the others, or the projects after this one.
+        try:
+            _resolution.scan(p, STORE.db, SCOPES, record, _mint_global)
+        except Exception:
+            pass
+        try:
+            _rules.run(p, STORE.db, SCOPES, record, _mint_global)
+        except Exception:
+            pass
 
 
 
@@ -2276,6 +2310,26 @@ class Handler(BaseHTTPRequestHandler):
                 STORE.db, p, entity, depth=depth, T=_T, scopes=SCOPES, viewer=viewer,
                 teams=teams, user=qs.get("user", [None])[0]))
 
+        # ── identity resolution: the machine's open suggestions, and what was
+        # decided about past ones. The queue a reviewer works through.
+        if parts == ["v1", "memory", "merge-proposals"]:
+            pid = qs.get("project", [None])[0]
+            p = PROJECTS.get(pid)
+            if not p:
+                return self._send(404, {"error": "project not found"})
+            status = qs.get("status", [None])[0]
+            data = _resolution.list_proposals(STORE.db, p.id, status=status)
+            return self._send(200, {"data": data, "count": len(data)})
+
+        # ── declared inference rules, active and deactivated alike ──
+        if parts == ["v1", "rules"]:
+            pid = qs.get("project", [None])[0]
+            p = PROJECTS.get(pid)
+            if not p:
+                return self._send(404, {"error": "project not found"})
+            data = _rules.list_rules(STORE.db, p.id)
+            return self._send(200, {"data": data, "count": len(data)})
+
         # ── P4: open conflicts with evidence sides + recommendation ──
         if parts == ["v1", "memory", "conflicts"]:
             pid = qs.get("project", [None])[0]
@@ -3738,6 +3792,94 @@ class Handler(BaseHTTPRequestHandler):
                                          contradictions=CONTRADICTIONS.get(p.id, []))
             ENT.audit("memory.consolidated", org_id=self._org_of_project(p.id),
                       metadata={k: v for k, v in result.items() if k != "details"},
+                      correlation_id=self._corr())
+            return self._send(200, result)
+
+        # ── identity resolution: one pass over person entities. Decisive
+        # evidence merges (recorded, attributed, derivable); suggestive
+        # evidence becomes a proposal nothing acts on until a caller does.
+        # {"apply": false} is a dry run that records nothing anywhere.
+        if parts == ["v1", "memory", "resolve"]:
+            p = self._proj(qs)
+            if p is None:
+                return self._err(404, "not_found", "project not found")
+            result = _resolution.scan(p, STORE.db, SCOPES, record, _mint_global,
+                                      apply=body.get("apply", True) is not False)
+            ENT.audit("memory.resolved", org_id=self._org_of_project(p.id),
+                      metadata={"merged": len(result["merged"]),
+                                "proposed": len(result["proposed"]),
+                                "refused": len(result["refused"]),
+                                "dry_run": result["dry_run"]},
+                      correlation_id=self._corr())
+            return self._send(200, result)
+
+        if len(parts) == 5 and parts[:3] == ["v1", "memory", "merge-proposals"] \
+                and parts[4] in ("approve", "reject"):
+            p = self._proj(qs)
+            if p is None:
+                return self._err(404, "not_found", "project not found")
+            _agent, _err = self._effective_agent(auth, body.get("agent"))
+            if _err:
+                return
+            if not _agent:
+                return self._err(422, "invalid_request",
+                                 "an approving/rejecting agent is required: "
+                                 "the judgment is recorded under their name")
+            if parts[4] == "approve":
+                result = _resolution.approve(p, STORE.db, SCOPES, record,
+                                             _mint_global, parts[3], _agent)
+            else:
+                result = _resolution.reject(STORE.db, p.id, parts[3], _agent)
+            if result.get("error") == "not_found":
+                return self._err(404, "not_found", "proposal not found")
+            if result.get("error"):
+                return self._err(409, "conflict", result.get("reason") or
+                                 f"proposal already {result.get('status', 'decided')}")
+            ENT.audit(f"memory.merge_{parts[4]}d", org_id=self._org_of_project(p.id),
+                      resource=parts[3], metadata=result, correlation_id=self._corr())
+            return self._send(200, result)
+
+        # ── declared inference rules. A rule is data, never a judgment the
+        # machine invents; its conclusions are ordinary derivable assertions,
+        # withdrawn automatically when their premises stop being believed.
+        if parts == ["v1", "rules"]:
+            p = self._proj(qs)
+            if p is None:
+                return self._err(404, "not_found", "project not found")
+            _agent, _err = self._effective_agent(auth, body.get("agent"))
+            if _err:
+                return
+            try:
+                result = _rules.declare(STORE.db, p.id, body.get("when"),
+                                        body.get("then"), created_by=_agent)
+            except ValueError as ex:
+                return self._err(422, "invalid_request", str(ex))
+            ENT.audit("rules.declared", org_id=self._org_of_project(p.id),
+                      resource=result["id"], correlation_id=self._corr())
+            self._logreq(p, "POST", "/v1/rules", 201, result["id"])
+            return self._send(201, result)
+
+        if len(parts) == 4 and parts[:2] == ["v1", "rules"] and parts[3] == "deactivate":
+            p = self._proj(qs)
+            if p is None:
+                return self._err(404, "not_found", "project not found")
+            if not _rules.deactivate(STORE.db, p.id, parts[2]):
+                return self._err(404, "not_found", "rule not found")
+            ENT.audit("rules.deactivated", org_id=self._org_of_project(p.id),
+                      resource=parts[2], correlation_id=self._corr())
+            return self._send(200, {"id": parts[2], "active": False,
+                                    "note": "its conclusions are withdrawn on "
+                                            "the next inference pass"})
+
+        if parts == ["v1", "memory", "infer"]:
+            p = self._proj(qs)
+            if p is None:
+                return self._err(404, "not_found", "project not found")
+            result = _rules.run(p, STORE.db, SCOPES, record, _mint_global)
+            ENT.audit("memory.inferred", org_id=self._org_of_project(p.id),
+                      metadata={"rules": result["rules"],
+                                "derived": len(result["derived"]),
+                                "retracted": len(result["retracted"])},
                       correlation_id=self._corr())
             return self._send(200, result)
 

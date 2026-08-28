@@ -52,6 +52,11 @@ _UPSERT_PK = {
     # source_records uses INSERT OR IGNORE with the UNIQUE(connector_id,
     # external_id) constraint as the conflict target (NOT the 'id' primary key)
     "source_records": ["connector_id", "external_id"],
+    # identity resolution proposals (INSERT OR IGNORE keeps first-writer wins)
+    "merge_proposals": ["project_id", "id"],
+    # declared inference rules + their recorded conclusions
+    "inference_rules": ["project_id", "id"],
+    "rule_conclusions": ["project_id", "fp"],
 }
 
 
@@ -171,6 +176,13 @@ _columns_of = {
     "relationship_overrides": ["project_id", "key_type", "key", "role", "source", "note", "ts"],
     "source_records": ["id", "project_id", "connector_id", "external_id", "payload",
                        "content_hash", "event_id", "received"],
+    "merge_proposals": ["id", "project_id", "entity_a", "entity_b", "confidence",
+                        "evidence", "support", "status", "created", "decided",
+                        "decided_by", "coreference_id"],
+    "inference_rules": ["id", "project_id", "when_a", "dir_a", "when_b", "dir_b",
+                        "then_rel", "then_dir", "active", "created", "created_by"],
+    "rule_conclusions": ["project_id", "fp", "rule_id", "assertion_id",
+                         "premise_a", "premise_b", "created"],
 }
 
 
