@@ -3891,9 +3891,32 @@ class Handler(BaseHTTPRequestHandler):
                     "extractor": type(ext).__name__}})
             ENT.meter(p.id, "observe_requests")
             if not facts:
+                # Say what would have worked, not only that nothing did.
+                #
+                # An empty result is usually correct -- most of what is said is
+                # not worth remembering, and refusing is the point. But it is
+                # also what a first-time caller sees, and "nothing met the bar"
+                # reads as broken rather than as strict. They close the tab and
+                # never file an issue, because from where they stand there is
+                # nothing to report.
+                #
+                # By far the most common cause is a missing speaker: extraction
+                # resolves the party from it, so without one there is nobody to
+                # attribute a claim to and the answer is always empty. That is
+                # worth naming separately from "this text carried no claim".
+                _spoken_by = (body.get("interaction") or {}).get("speaker")
+                if not _spoken_by:
+                    _note = ("no speaker was given, so there is nobody to "
+                             "attribute a claim to. Pass `speaker` (an email or "
+                             "a name) and try again.")
+                else:
+                    _note = ("nothing here was a durable claim about someone. "
+                             "Decisions and commitments are remembered "
+                             "(\"we have decided to renew\"); questions, "
+                             "preferences and pleasantries are not. Stating who "
+                             "did what, in the first person, works best.")
                 return self._send(200, {"observed": True, "memories": [],
-                                        "note": "nothing in this interaction met the bar for durable memory",
-                                        "source": source})
+                                        "note": _note, "source": source})
             ev = _mint_global("evt")
             # event_time = when the interaction happened. For 'now' we advance
             # the logical clock (p.tick) so each observation gets a fresh,
