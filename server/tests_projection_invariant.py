@@ -27,14 +27,16 @@ The second is the one that matters. "No drift" from a detector that cannot see
 content drift is not reassurance, it is silence.
 
 AND IT ASSERTS THE GAP, because a claim about integrity should be exact about
-its own limits. Edge DIRECTION is not engine truth: the engine holds subjects
-as a set (primitives.py says "order not observable", trust.py compares them
-with frozenset), so which end of a relation is the source is information the
-engine does not have. It comes from formation and rebuild takes it on trust. A
-reversed edge therefore survives and reconcile still reports the system clean.
-That is asserted here rather than left to be discovered, since the alternative
--- giving subjects an observable order -- is an engine invariant, not a
-projection detail.
+its own limits. Edge DIRECTION splits in two. Where the proposition token
+names its target (rel_works_at_acme), the direction is derivable from engine
+truth -- formation has always spelled relational tokens that way -- so a
+reversed edge IS caught and repaired, and that is asserted below. Where the
+token is bare (rel_works_at, no target), the engine holds subjects as a set
+(primitives.py says "order not observable", trust.py compares them with
+frozenset) and direction comes from formation on trust: a reversed bare-token
+edge survives and reconcile reports the system clean. That residue is asserted
+here rather than left to be discovered, since closing it -- giving subjects an
+observable order -- is an engine invariant, not a projection detail.
 """
 import json
 import os
@@ -146,21 +148,21 @@ orig = edge_row()
 n_before = api.STORE.db.execute(
     "SELECT COUNT(*) n FROM memory_edges WHERE project_id=?", (PID,)).fetchone()["n"]
 
-# What a rebuild CAN check, and what it cannot.
+# What a rebuild CAN check, and what it cannot. Direction splits in two.
 #
-# The engine holds subjects as a set -- primitives.py says "order not
-# observable" and trust.py compares them with frozenset -- so which end of a
-# relation is the source is information the engine does not have. Direction
-# comes from formation and rebuild takes it on trust. Asserting that a flipped
-# edge gets repaired would be asserting something the design cannot do, so this
-# pins the real behaviour instead, including the gap.
+# A BARE token (rel_supplies) proves nothing: the engine holds subjects as a
+# set -- primitives.py says "order not observable" and trust.py compares them
+# with frozenset -- so direction comes from formation and rebuild takes it on
+# trust. Asserting that a flipped bare-token edge gets repaired would be
+# asserting something the design cannot do, so this pins the real behaviour,
+# including the residue.
 api.STORE.db.execute(
     "UPDATE memory_edges SET src=?, dst=? WHERE project_id=? AND assertion_id=?",
     (orig["dst"], orig["src"], PID, orig["assertion_id"]))
 api.STORE.db.commit()
 r = reconcile()
-check("a reversed direction is NOT caught: the engine has no direction to "
-      "check against", r["drift_repaired"] is False, r)
+check("a reversed BARE-token direction is NOT caught: nothing in the engine "
+      "records it", r["drift_repaired"] is False, r)
 check("and the reversed row survives the rebuild, as documented",
       (edge_row()["src"], edge_row()["dst"]) == (orig["dst"], orig["src"]),
       edge_row())
@@ -168,6 +170,42 @@ api.STORE.db.execute(
     "UPDATE memory_edges SET src=?, dst=? WHERE project_id=? AND assertion_id=?",
     (orig["src"], orig["dst"], PID, orig["assertion_id"]))
 api.STORE.db.commit()
+
+# Where the token NAMES its target, the proposition -- which IS engine truth
+# -- carries the direction. rel_works_at_acme points at company:acme however
+# the subjects are ordered, so the write orients itself and a reversed row no
+# longer survives a rebuild.
+tok = mem.remember(A, ["person:pat", "company:acme"], "rel_works_at_acme")
+
+
+def tok_row():
+    return dict(api.STORE.db.execute(
+        "SELECT * FROM memory_edges WHERE project_id=? AND assertion_id=?",
+        (PID, tok["id"])).fetchone())
+
+
+check("a token-named relation is oriented by its token at write time, not "
+      "sorted order",
+      (tok_row()["src"], tok_row()["dst"]) == ("person:pat", "company:acme"),
+      tok_row())
+check("and writing it left the system clean",
+      reconcile()["drift_repaired"] is False)
+api.STORE.db.execute(
+    "UPDATE memory_edges SET src=?, dst=? WHERE project_id=? AND assertion_id=?",
+    ("company:acme", "person:pat", PID, tok["id"]))
+api.STORE.db.commit()
+r = reconcile()
+check("a reversed token-named edge IS caught: the proposition holds the "
+      "direction", r["drift_repaired"] is True, r)
+check("and the direction is restored from engine truth",
+      (tok_row()["src"], tok_row()["dst"]) == ("person:pat", "company:acme"),
+      tok_row())
+check("after which it is clean again", reconcile()["drift_repaired"] is False)
+
+# The token-named relation above added a row, so re-baseline before the next
+# corruption's count-is-identical claim.
+n_before = api.STORE.db.execute(
+    "SELECT COUNT(*) n FROM memory_edges WHERE project_id=?", (PID,)).fetchone()["n"]
 
 # The relation itself IS engine truth, and this is the case the old
 # count-based detector missed: one row changed, count identical.

@@ -10,7 +10,7 @@ import { isMarketingRoute } from "@/lib/routes";
 import {
   Home, Brain, Bot, Box, Clock, AlertTriangle, Network, FlaskConical, Braces,
   ScrollText, Gauge, Settings, Search, Sun, Moon, User, Activity, Users, ShieldCheck,
-  HeartPulse, ShieldPlus, Stethoscope, Menu, X, ChevronDown, History,
+  HeartPulse, ShieldPlus, Stethoscope, Menu, X, ChevronDown, History, GitMerge,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 // getSession and AuthMode moved with the bootstrap into providers.tsx; setSession
@@ -55,6 +55,7 @@ const NAV = [
   ]},
   { group: "What disagrees", items: [
     { href: "/conflicts", label: "Conflicts", icon: AlertTriangle },
+    { href: "/proposals", label: "Proposals", icon: GitMerge },
     { href: "/memory-health", label: "Memory health", icon: HeartPulse },
     { href: "/intelligence", label: "Intelligence", icon: Activity },
   ]},

@@ -3821,10 +3821,25 @@ class Handler(BaseHTTPRequestHandler):
             _agent, _err = self._effective_agent(auth, body.get("agent"))
             if _err:
                 return
+            if not _agent and "user" in auth:
+                # A dashboard operator is a person, not an agent-bound key.
+                # The judgment is theirs, so attribute it to them by name
+                # rather than refusing the one caller this queue exists for.
+                try:
+                    _agent = "user:" + (auth["user"]["email"] or auth["user"]["id"])
+                except Exception:
+                    _agent = None
             if not _agent:
                 return self._err(422, "invalid_request",
                                  "an approving/rejecting agent is required: "
                                  "the judgment is recorded under their name")
+            if parts[4] == "approve" and _agent not in p.labels:
+                # The engine refuses assertions from unrecorded agents
+                # (R_NO_AGENT), and an approval becomes a coreference assertion
+                # under the approver's name. Same smoothing the SDK's
+                # ensure_agent does, applied where the queue needs it.
+                record(p, "agent", {"id": _agent, "kind": "user",
+                                    "label": _agent.split(":", 1)[-1]})
             if parts[4] == "approve":
                 result = _resolution.approve(p, STORE.db, SCOPES, record,
                                              _mint_global, parts[3], _agent)

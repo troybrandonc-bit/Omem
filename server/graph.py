@@ -59,6 +59,58 @@ def relation_of(proposition: str):
     return None
 
 
+import re as _re_dir
+
+_LOCAL_PUNCT = _re_dir.compile(r"[^\w]+", _re_dir.UNICODE)
+_LOCAL_RUNS = _re_dir.compile(r"_+")
+
+
+def _local_token(entity_id: str) -> str:
+    """An entity's local part in proposition-token spelling: lowercase, every
+    punctuation run (including @ and -) collapsed to _, matching what
+    canonical_form does to the proposition the token sits inside."""
+    local = entity_id.split(":", 1)[-1].lower()
+    return _LOCAL_RUNS.sub("_", _LOCAL_PUNCT.sub("_", local)).strip("_")
+
+
+def token_direction(subjects, proposition: str):
+    """The (src, dst) the proposition itself proves, or None.
+
+    Formation has always written relational propositions as
+    rel_<relation>_<target-local> -- extract_relations, infer_employment and
+    the rules engine all name the TARGET in the token -- which means most
+    relational assertions carry, in engine truth, the one field the engine's
+    subject set cannot: which end the relation points at. When the token's
+    tail matches exactly one subject's local part, direction is DERIVED rather
+    than taken on trust: a direct write is oriented correctly instead of
+    falling back to sorted order (which pointed every SDK-written works_at at
+    the person), and a rebuild can verify a stored row against it.
+
+    A bare token (rel_works_at, with no target) proves nothing, and a tail
+    matching both subjects proves nothing either; both return None and stay
+    formation-on-trust, which is the honest limit rather than a guess.
+    """
+    rel = relation_of(proposition)
+    if rel is None:
+        return None
+    subs = sorted(subjects or ())
+    if len(subs) != 2:
+        return None
+    tail = None
+    for prefix in (f"rel_{rel}_", f"{rel}_"):
+        if proposition.startswith(prefix):
+            tail = proposition[len(prefix):]
+            break
+    if not tail:
+        return None
+    hits = [s for s in subs if _local_token(s) == tail]
+    if len(hits) != 1:
+        return None
+    dst = hits[0]
+    src = subs[0] if dst == subs[1] else subs[1]
+    return src, dst
+
+
 def project_assertion(db, project_id: str, assertion_id: str,
                       subjects, proposition: str) -> bool:
     """Project one accepted assertion into the graph, at write time.
@@ -70,9 +122,10 @@ def project_assertion(db, project_id: str, assertion_id: str,
     traversal until the process restarted. The candidate index has always been
     kept in lockstep on every write; this puts the graph on the same footing.
 
-    Direction matches rebuild_projection exactly: an existing row is
-    authoritative (formation direction survives), otherwise sorted order, so a
-    rebuild is a no-op over anything written here.
+    Direction matches rebuild_projection exactly: the proposition token is
+    authoritative when it names the target (token_direction), then an existing
+    row (formation direction survives), then sorted order -- so a rebuild is a
+    no-op over anything written here.
     """
     subs = sorted(subjects or ())
     if len(subs) < 2:
@@ -80,11 +133,15 @@ def project_assertion(db, project_id: str, assertion_id: str,
     rel = relation_of(proposition)
     if rel is None:
         return False
-    row = db.execute("SELECT src, dst FROM memory_edges WHERE project_id=? "
-                     "AND assertion_id=?", (project_id, assertion_id)).fetchone()
-    src, dst = subs[0], subs[1]
-    if row is not None and {row["src"], row["dst"]} == set(subs):
-        src, dst = row["src"], row["dst"]
+    td = token_direction(subs, proposition)
+    if td is not None:
+        src, dst = td
+    else:
+        row = db.execute("SELECT src, dst FROM memory_edges WHERE project_id=? "
+                         "AND assertion_id=?", (project_id, assertion_id)).fetchone()
+        src, dst = subs[0], subs[1]
+        if row is not None and {row["src"], row["dst"]} == set(subs):
+            src, dst = row["src"], row["dst"]
     record_edge(db, project_id, assertion_id, src, rel, dst)
     return True
 
@@ -186,19 +243,23 @@ def rebuild_projection(db, p) -> dict:
     Rows with no backing assertion are dropped (dangling-reference cleanup).
     Idempotent: running twice yields identical rows.
 
-    ONE FIELD IS NOT DERIVED, AND CANNOT BE. The engine holds subjects as a set
-    -- primitives.py: "order not observable", and trust.py compares them with
-    frozenset -- so which end of a relation is the source is information the
-    engine does not have. Direction comes from FORMATION (the ingest path knows
-    it and passes it to record_edge) and is preserved here whenever the stored
-    row still spans the same two subjects; sorted order is only the fallback
-    for an assertion written without one, such as remember([a, b], "rel_x").
+    DIRECTION IS DERIVED WHERE THE TOKEN PROVES IT, AND ON TRUST WHERE IT
+    CANNOT. The engine holds subjects as a set -- primitives.py: "order not
+    observable", and trust.py compares them with frozenset -- so subject order
+    carries no direction. But the PROPOSITION is engine truth too, and
+    formation has always spelled relational propositions rel_<rel>_<target>:
+    when that tail names exactly one subject (token_direction), the direction
+    is derived from engine state, a reversed row is caught and repaired here,
+    and reconcile reports it as drift.
 
-    So a rebuild verifies existence and relation against engine truth, and
-    takes direction on trust. A row whose direction was corrupted survives, and
-    reconcile reports the system clean, because there is nothing to check it
-    against. Recording direction as engine state would mean giving subjects an
-    observable order, which is an engine invariant, not a projection detail."""
+    A bare token (rel_works_at, no target) proves nothing. For those,
+    direction still comes from FORMATION (the ingest path knows it and passes
+    it to record_edge) and is preserved whenever the stored row spans the same
+    two subjects; sorted order is the last fallback. A bare-token row whose
+    direction was corrupted survives, and reconcile reports the system clean,
+    because there is genuinely nothing to check it against. Giving subjects an
+    observable order would close that residue at the cost of an engine
+    invariant, which is not a projection's trade to make."""
     existing = {r["assertion_id"]: (r["src"], r["relation"], r["dst"])
                 for r in db.execute("SELECT * FROM memory_edges WHERE project_id=?", (p.id,))}
     rebuilt: dict[str, tuple] = {}
@@ -213,10 +274,13 @@ def rebuild_projection(db, p) -> dict:
         if rel is None:
             continue
         subs = sorted(a.subjects)
-        # deterministic direction: the non-target subject is src. We recover it
-        # from the stored row when present (authoritative direction from
-        # formation), else fall back to sorted order.
-        if a.id in existing:
+        # deterministic direction: token first (derived from engine truth, so
+        # a reversed row is corrected), then the stored row (authoritative
+        # formation direction for bare tokens), then sorted order.
+        td = token_direction(subs, a.proposition)
+        if td is not None:
+            src, dst = td
+        elif a.id in existing:
             src, _, dst = existing[a.id]
             if {src, dst} != set(subs):
                 src, dst = subs[0], subs[1]
