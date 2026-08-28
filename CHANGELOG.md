@@ -3,7 +3,11 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
-## Unreleased
+## 0.2.11 - 28 Aug 2026
+
+**This is the release where OMEM starts reasoning: it notices one person
+behind two entities, concludes what your declared rules imply, and withdraws
+those conclusions the moment their premises die.**
 
 ### Added
 
