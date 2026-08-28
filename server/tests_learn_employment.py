@@ -65,7 +65,11 @@ def check(n, c, d=""):
         print("  FAIL " + n + "  " + str(d)[:220])
 
 
-OWNER = "troy@kronos.com"
+# This suite's own signup address. tests_p5_graph.py owns troy@kronos.com, and
+# under PostgreSQL every suite shares one database, so reusing it would 409.
+# The DOMAIN is deliberately still kronos.com: direction, the internal check and
+# the free-mail rules all key off it, and the existing suites share it happily.
+OWNER = "employ@kronos.com"
 IDENT = {"company_name": "Kronos", "domains": ["kronos.com"], "emails": [OWNER]}
 
 
