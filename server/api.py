@@ -305,6 +305,20 @@ def record(p: Project, kind: str, a: dict):
                                         a["proposition"], a["assertion_time"])
         except Exception:
             pass
+        # The graph is the OTHER above-engine projection, and it was not kept
+        # in lockstep here. Edges were written on the ingest/observe path and
+        # rebuilt at boot, so a relation asserted directly -- POST
+        # /v1/assertions, Memory.remember(), omem_remember -- produced no edge
+        # and recall could not traverse to it until the process restarted.
+        # Same contract as the index above: pure projection, decides nothing,
+        # best-effort because rebuild_projection can reconstruct it. The
+        # observe path still calls record_edge afterwards with the direction it
+        # knows from formation, and that upsert wins over the sorted default.
+        try:
+            _graph.project_assertion(STORE.db, p.id, a["id"], a["subjects"],
+                                     a["proposition"])
+        except Exception:
+            pass
 
 
 def source_view(src, connector=None):

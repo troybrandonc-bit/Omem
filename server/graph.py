@@ -45,6 +45,50 @@ def record_edge(db, project_id: str, assertion_id: str, src: str,
     db.commit()
 
 
+def relation_of(proposition: str):
+    """The relation this proposition names, or None. THE single decision point.
+
+    Both the write-time projection and the boot rebuild ask this, so an edge
+    that appears live and an edge that survives a restart can never disagree
+    about what counts as a relation. They used to answer separately, and only
+    the rebuild answered at all.
+    """
+    for r in RELATIONS:
+        if proposition.startswith(f"rel_{r}") or proposition.startswith(r):
+            return r
+    return None
+
+
+def project_assertion(db, project_id: str, assertion_id: str,
+                      subjects, proposition: str) -> bool:
+    """Project one accepted assertion into the graph, at write time.
+
+    The graph is a projection of engine state, and it was only ever built at
+    boot (rebuild_projection) or on the ingest/observe path. An assertion
+    written directly -- POST /v1/assertions, Memory.remember(), omem_remember
+    -- created no edge at all, so a relation recorded that way was invisible to
+    traversal until the process restarted. The candidate index has always been
+    kept in lockstep on every write; this puts the graph on the same footing.
+
+    Direction matches rebuild_projection exactly: an existing row is
+    authoritative (formation direction survives), otherwise sorted order, so a
+    rebuild is a no-op over anything written here.
+    """
+    subs = sorted(subjects or ())
+    if len(subs) < 2:
+        return False
+    rel = relation_of(proposition)
+    if rel is None:
+        return False
+    row = db.execute("SELECT src, dst FROM memory_edges WHERE project_id=? "
+                     "AND assertion_id=?", (project_id, assertion_id)).fetchone()
+    src, dst = subs[0], subs[1]
+    if row is not None and {row["src"], row["dst"]} == set(subs):
+        src, dst = row["src"], row["dst"]
+    record_edge(db, project_id, assertion_id, src, rel, dst)
+    return True
+
+
 def _live(p, aid: str, T) -> bool:
     a = p.engine.store.assertion(aid)
     if a is None:
@@ -133,12 +177,7 @@ def rebuild_projection(db, p) -> dict:
         # CLOSED. Temporal/open filtering happens per-query in _live() so that
         # as_of history (superseded edges at past times) is preserved. Rebuild
         # only removes DANGLING rows (no backing assertion at all).
-        rel = None
-        prop = a.proposition
-        for r in RELATIONS:
-            if prop.startswith(f"rel_{r}") or prop.startswith(r):
-                rel = r
-                break
+        rel = relation_of(a.proposition)
         if rel is None:
             continue
         subs = sorted(a.subjects)
