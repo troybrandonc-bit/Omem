@@ -83,8 +83,9 @@ try:
         "serverInfo", {}).get("name") == "omem", str(init)[:200])
     tl = rpc(p, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     names = sorted(t["name"] for t in tl["result"]["tools"])
-    check("the three tools are there",
-          names == ["omem_observe", "omem_recall", "omem_why"], str(names))
+    check("the four tools are there",
+          names == ["omem_observe", "omem_recall", "omem_remember", "omem_why"],
+          str(names))
 
     obs = rpc(p, {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {
         "name": "omem_observe", "arguments": {
@@ -103,6 +104,62 @@ finally:
     p.stdin.close()
     p.kill()               # hard, exactly as an MCP client may
     p.wait(timeout=10)
+
+print("== a fact you already know can be recorded directly ==")
+# observe() runs text through a deterministic extractor with a fixed
+# vocabulary: decisions and commitments about contracts. Right when you have a
+# transcript, wrong when the caller already knows the fact, because anything
+# outside that vocabulary is silently dropped. Until omem_remember, MCP had no
+# other way in, so "prefers dark mode" recorded nothing at all.
+#
+# The model naming a claim is not the model deciding what is true. OMEM still
+# owns belief state, contradiction and provenance; this only lets the caller say
+# what was said.
+p_r = spawn()
+try:
+    rpc(p_r, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
+    tl = rpc(p_r, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
+    names = sorted(t["name"] for t in tl["result"]["tools"])
+    check("omem_remember is exposed", "omem_remember" in names, str(names))
+    rem = [t for t in tl["result"]["tools"] if t["name"] == "omem_remember"][0]
+    check("the model cannot name the agent",
+          "agent" not in rem["inputSchema"]["properties"],
+          str(sorted(rem["inputSchema"]["properties"])))
+    check("about and claim are required",
+          sorted(rem["inputSchema"]["required"]) == ["about", "claim"],
+          str(rem["inputSchema"]["required"]))
+
+    out = json.loads(rpc(p_r, {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {
+        "name": "omem_remember", "arguments": {
+            "about": "customer:acme", "claim": "prefers_dark_mode",
+            "because": "said on the 3 Nov call"}}})["result"]["content"][0]["text"])
+    check("a claim outside the extractor's vocabulary is recorded",
+          out.get("proposition") == "prefers_dark_mode", str(out)[:200])
+    check("attributed to the process agent, not a tool argument",
+          str(out.get("agent", "")).endswith("mcp-agent"), str(out.get("agent")))
+    check("about the entity the caller named",
+          out.get("subjects") == ["customer:acme"], str(out.get("subjects")))
+
+    # And the point of recording it: it comes back with a belief state.
+    pack = json.loads(rpc(p_r, {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {
+        "name": "omem_recall", "arguments": {"context": "customer:acme preferences"}}
+    })["result"]["content"][0]["text"])
+    check("and recall returns it with a belief state",
+          any(m["proposition"] == "prefers_dark_mode" and m["status"] == "BELIEVED_TRUE"
+              for m in pack.get("memories", [])), str(pack.get("memories"))[:200])
+
+    # The same sentence through observe records nothing, which is why this tool
+    # had to exist rather than the extractor being widened.
+    obs = json.loads(rpc(p_r, {"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {
+        "name": "omem_observe", "arguments": {
+            "text": "Acme prefer dark mode.", "speaker": "pat@acme.com"}}
+    })["result"]["content"][0]["text"])
+    check("the same fact via observe still records nothing (vocabulary is fixed)",
+          len(obs.get("memories", [])) == 0, str(obs)[:160])
+finally:
+    p_r.stdin.close()
+    p_r.terminate()
+    p_r.wait(timeout=10)
 
 print("== an empty result says what would have worked ==")
 # An empty observe is usually correct: most of what is said is not worth

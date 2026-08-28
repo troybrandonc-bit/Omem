@@ -288,8 +288,14 @@ init = rpc({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
 check("MCP initialize", init["result"]["serverInfo"]["name"] == "omem")
 tl = rpc({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
 names = [t["name"] for t in tl["result"]["tools"]]
-check("MCP exposes exactly recall/observe/why",
-      sorted(names) == ["omem_observe", "omem_recall", "omem_why"], str(names))
+# Four now, not three. omem_remember was added because observe() runs a fixed
+# extraction vocabulary and silently dropped anything outside it, which left MCP
+# clients with no way to record a fact they already knew. The list is still
+# asserted exactly, because "no dangerous primitives" is a property of this
+# surface and a new tool appearing unnoticed is what that check exists to catch.
+check("MCP exposes exactly recall/observe/remember/why",
+      sorted(names) == ["omem_observe", "omem_recall", "omem_remember", "omem_why"],
+      str(names))
 rc = rpc({"jsonrpc": "2.0", "id": 3, "method": "tools/call",
           "params": {"name": "omem_recall",
                      "arguments": {"context": "acme renewal status?"}}})

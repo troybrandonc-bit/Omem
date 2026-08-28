@@ -4,9 +4,10 @@
     OMEM_AGENT=support-agent  python -m omem.mcp_server
 
 Exposes exactly three tools (no dangerous primitives):
-    omem_recall   context/task in -> MemoryPack out
-    omem_observe  raw interaction in -> what became memory (engine-decided)
-    omem_why      full provenance/state explanation for one memory
+    omem_recall    context/task in -> MemoryPack out
+    omem_observe   raw interaction in -> what became memory (engine-decided)
+    omem_remember  a fact you already know, recorded directly
+    omem_why       full provenance/state explanation for one memory
 
 IDENTITY IS FIXED AT PROCESS LEVEL, on BOTH axes that scope memory:
 
@@ -87,6 +88,46 @@ TOOLS = [
         },
     },
     {
+        "name": "omem_remember",
+        # observe() runs text through a deterministic extractor with a fixed
+        # vocabulary -- decisions and commitments about contracts. That is the
+        # right tool when you have a transcript and want OMEM to decide what is
+        # worth keeping. It is the WRONG one when the caller already knows the
+        # fact, because anything outside that vocabulary is silently dropped:
+        # "prefers dark mode" and "owns the billing integration" record nothing.
+        #
+        # The model naming a claim is not the model deciding what is true.
+        # Turning language into a subject and a proposition is a language task,
+        # which models are good at. OMEM still owns belief state, contradiction,
+        # provenance and the grounding gate. Same division as the healing
+        # subsystem: the model may propose, OMEM decides what is permitted.
+        "description": (
+            "Record a fact you already know, directly. Use this when you have "
+            "identified something worth remembering; use omem_observe instead "
+            "when you have raw conversation and want OMEM to decide what (if "
+            "anything) is durable. "
+            "`about` is any entity id you choose and reuse (customer:acme, "
+            "user:sarah, repo:omem). `claim` is a short token, not a sentence: "
+            "prefers_dark_mode, owns_billing_integration, uses_postgres. OMEM "
+            "normalises spelling, so three spellings of one claim stay one "
+            "claim. Two claims conflict only when someone has declared them "
+            "opposed, never because they look similar. "
+            'Example: {"about": "customer:acme", "claim": "prefers_dark_mode", '
+            '"because": "said on the 3 Nov call"}'),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "about": {"type": "string",
+                          "description": "Entity the claim is about, e.g. customer:acme"},
+                "claim": {"type": "string",
+                          "description": "Short token, e.g. prefers_dark_mode"},
+                "because": {"type": "string",
+                            "description": "Where this came from, recorded as the label"},
+            },
+            "required": ["about", "claim"],
+        },
+    },
+    {
         "name": "omem_why",
         "description": "Explain one memory: belief state, provenance chain, revision history, conflicts.",
         "inputSchema": {
@@ -119,6 +160,17 @@ class McpServer:
                                     "speaker": a.get("speaker") or "",
                                     "topic": a.get("topic") or ""})
 
+    def _remember(self, a: dict) -> dict:
+        """Attribution comes from the process, exactly as everywhere else here.
+
+        `agent` is not a tool argument: the model does not get to say whose
+        memory this is. Same rule as recall and observe.
+        """
+        return self.memory.remember(self.agent_id,
+                                    about=str(a["about"]),
+                                    claim=str(a["claim"]),
+                                    label=(str(a["because"]) if a.get("because") else None))
+
     def _why(self, a: dict) -> dict:
         return self.memory._req(
             "GET", f"/v1/assertions/{a['memory_id']}/why?viewer={self.agent_id}")
@@ -142,7 +194,7 @@ class McpServer:
             name = params.get("name")
             args = params.get("arguments") or {}
             fn = {"omem_recall": self._recall, "omem_observe": self._observe,
-                  "omem_why": self._why}.get(name)
+                  "omem_remember": self._remember, "omem_why": self._why}.get(name)
             if fn is None:
                 return {"jsonrpc": "2.0", "id": mid,
                         "error": {"code": -32602, "message": f"unknown tool {name!r}"}}
