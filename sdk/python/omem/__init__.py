@@ -42,7 +42,7 @@ import time
 import urllib.request
 import urllib.error
 
-__version__ = "0.2.18"
+__version__ = "0.2.19"
 
 
 class OmemError(Exception):
