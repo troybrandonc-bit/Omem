@@ -120,14 +120,78 @@ def _profiles(db, p, T) -> dict:
     return profs
 
 
-def _similarity(pa, pb) -> tuple[float, list]:
+def _prop_clusters(props: list) -> dict:
+    """prop -> cluster representative, via the same embeddings semantic
+    recall uses. "wants_yearly_invoicing" and "prefers_annual_billing" are
+    one experience to a person; with a real embedder configured they become
+    one feature here too. The dependency-free hashing embedding clusters
+    only near-identical spellings, which is the honest offline floor.
+    Deterministic: sorted greedy assignment, first-seen token is the rep."""
+    import semantic_recall as _sr
+    reps: list = []
+    mapping: dict = {}
+    ordered = sorted(props)
+    vecs = _sr.embed([x.replace("_", " ") for x in ordered])
+    for prop, vec in zip(ordered, vecs):
+        best, best_sim = None, 0.0
+        for rep_prop, rep_vec in reps:
+            sim = _sr._cosine(vec, rep_vec)
+            if sim > best_sim:
+                best, best_sim = rep_prop, sim
+        if best is not None and best_sim >= 0.75:
+            mapping[prop] = best
+        else:
+            reps.append((prop, vec))
+            mapping[prop] = prop
+    return mapping
+
+
+def _feature_weights(profs: dict, rep_of: dict) -> dict:
+    """Inverse-frequency weight per feature: w = 1 + ln(N / df). A trait
+    everyone shares still counts (floor of 1), a rare one binds hard --
+    sharing "runs_on_mainframes" says far more about two entities than
+    sharing "prefers_email", which is exactly how human analogy weighs
+    coincidence."""
+    import math
+    n = max(1, len(profs))
+    df: dict = {}
+    for pa in profs.values():
+        for f in {rep_of.get(x, x) for x in pa[0]}:
+            df[("p", f)] = df.get(("p", f), 0) + 1
+        for f in pa[1]:
+            df[("r", f)] = df.get(("r", f), 0) + 1
+    return {k: 1.0 + math.log(n / v) for k, v in df.items()}
+
+
+def _similarity(pa, pb, rep_of: dict, weights: dict) -> tuple[float, list]:
     """Score plus the EVIDENCE of resemblance, because a leap that cannot say
-    why it leapt is exactly the unreliability this layer refuses to keep."""
-    shared_props = pa[0] & pb[0]
-    shared_rels = pa[1] & pb[1]
-    score = len(shared_props) * 1.0 + len(shared_rels) * 1.5
-    because = sorted(f"both: {x}" for x in shared_props)
-    because += sorted(f"both: {rel} {cp}" for rel, cp in shared_rels)
+    why it leapt is exactly the unreliability this layer refuses to keep.
+    Props compare by cluster representative (meaning, not spelling); every
+    shared feature contributes its rarity weight."""
+    a_reps = {}
+    for x in pa[0]:
+        a_reps.setdefault(rep_of.get(x, x), x)
+    b_reps = {}
+    for x in pb[0]:
+        b_reps.setdefault(rep_of.get(x, x), x)
+    score = 0.0
+    because = []
+    for rep in sorted(set(a_reps) & set(b_reps)):
+        w = weights.get(("p", rep), 1.0)
+        score += w
+        if a_reps[rep] == b_reps[rep]:
+            note = f"both: {a_reps[rep]}"
+        else:
+            note = f"both: {a_reps[rep]} ~ {b_reps[rep]}"
+        because.append(note + (f" (rare, x{w:.1f})" if w >= 2.0 else ""))
+    for rel, cp in sorted(pa[1] & pb[1]):
+        w = weights.get(("r", (rel, cp)), 1.0)
+        # Shared CONTEXT weighs less than shared EXPERIENCE: both using the
+        # same tool is circumstance, both preferring the same terms is
+        # character. At weight 1.0 a single common relation can never cross
+        # MIN_SIMILARITY on its own, and that is the intended refusal.
+        score += 1.0 * w
+        because.append(f"both: {rel} {cp}")
     return score, because
 
 
@@ -154,13 +218,53 @@ def _score_generator(db, project_id: str, generator: str, won: bool):
     db.commit()
 
 
-def _birth_strength(db, project_id: str, generator: str) -> float:
-    """The learning loop's other half: a generator whose projections keep
-    getting refuted produces weaker hunches, one that keeps being confirmed
-    produces stronger ones. One verdict moves every future leap."""
-    wins, losses = _gen_record(db, project_id, generator)
-    s = BASE_STRENGTH + 0.05 * wins - 0.08 * losses
+def _family(prop: str) -> str:
+    """The KIND of claim, for calibration: prefers_*, wants_*, uses_*.
+    Crude on purpose -- the first token names the speech family well enough
+    to notice that guesses about preferences keep landing while guesses
+    about tooling keep missing, and crude-but-stated beats clever-but-
+    unexplainable in a number that adjusts behaviour."""
+    return (prop[4:] if prop.startswith("not:") else prop).split("_", 1)[0]
+
+
+def _family_records(db, project_id: str) -> dict:
+    out: dict = {}
+    for r in db.execute("SELECT proposition, status FROM hypotheses WHERE "
+                        "project_id=? AND status IN ('supported','refuted')",
+                        (project_id,)):
+        fam = _family(r["proposition"])
+        w, l = out.get(fam, (0, 0))
+        out[fam] = (w + (1 if r["status"] == "supported" else 0),
+                    l + (1 if r["status"] == "refuted" else 0))
+    return out
+
+
+def _birth_strength(gen_rec: tuple, fam_rec: tuple) -> float:
+    """The learning loop's other half, now with self-knowledge: a generator
+    whose projections keep getting refuted produces weaker hunches, and so
+    does a FAMILY of claim OMEM has learned it guesses badly. Metacognition
+    as arithmetic: the system knows what it is good at guessing, and its
+    boldness follows its record."""
+    gw, gl = gen_rec
+    fw, fl = fam_rec
+    s = BASE_STRENGTH + 0.05 * gw - 0.08 * gl + 0.03 * fw - 0.05 * fl
     return round(max(STRENGTH_FLOOR, min(STRENGTH_CEILING, s)), 2)
+
+
+def calibration(db, project_id: str) -> dict:
+    """What OMEM knows about its own guessing: per claim-family and per
+    generator, how the verdicts have gone. Read-only self-knowledge; the
+    same numbers already feed birth strength."""
+    fams = {fam: {"supported": w, "refuted": l,
+                  "rate": round(w / (w + l), 2) if (w + l) else None}
+            for fam, (w, l) in sorted(_family_records(db, project_id).items())}
+    gens = {}
+    for r in db.execute("SELECT generator, wins, losses FROM leap_generators "
+                        "WHERE project_id=? ORDER BY generator", (project_id,)):
+        t = r["wins"] + r["losses"]
+        gens[r["generator"]] = {"supported": r["wins"], "refuted": r["losses"],
+                                "rate": round(r["wins"] / t, 2) if t else None}
+    return {"families": fams, "generators": gens}
 
 
 def leap(p, db, about: str | None = None) -> dict:
@@ -175,6 +279,13 @@ def leap(p, db, about: str | None = None) -> dict:
     it ended -- the fingerprint is spent forever."""
     T = p.now()
     profs = _profiles(db, p, T)
+    all_props = sorted({x for pa in profs.values() for x in pa[0]})
+    rep_of = _prop_clusters(all_props)
+    weights = _feature_weights(profs, rep_of)
+    fam_recs = _family_records(db, p.id)
+    gen_recs = {r["generator"]: (r["wins"], r["losses"]) for r in db.execute(
+        "SELECT generator, wins, losses FROM leap_generators WHERE project_id=?",
+        (p.id,))}
     result = {"examined": 0, "leapt": [], "skipped_spent": 0, "refused": []}
     spent = {r["fp"] for r in db.execute(
         "SELECT fp FROM hypotheses WHERE project_id=?", (p.id,))}
@@ -191,11 +302,12 @@ def leap(p, db, about: str | None = None) -> dict:
         if tgt not in profs:
             continue
         result["examined"] += 1
+        tgt_reps = {rep_of.get(x, x) for x in profs[tgt][0]}
         neighbors = []
         for other in sorted(profs):
             if other == tgt or _kind(other) != _kind(tgt):
                 continue
-            score, why = _similarity(profs[tgt], profs[other])
+            score, why = _similarity(profs[tgt], profs[other], rep_of, weights)
             if score >= MIN_SIMILARITY:
                 neighbors.append((-score, other, why))
         neighbors.sort()
@@ -208,6 +320,8 @@ def leap(p, db, about: str | None = None) -> dict:
                 prop = a.proposition
                 if prop.startswith("rel_") or prop in profs[tgt][0]:
                     continue
+                if rep_of.get(prop, prop) in tgt_reps:
+                    continue  # the target holds a sibling of this claim
                 if (tgt, prop) in claimed:
                     continue  # the claim already has its case file
                 state = p.engine.proposition_state([tgt], prop, T)
@@ -218,7 +332,8 @@ def leap(p, db, about: str | None = None) -> dict:
                     result["skipped_spent"] += 1
                     continue
                 generator = nb
-                strength = _birth_strength(db, p.id, generator)
+                strength = _birth_strength(gen_recs.get(generator, (0, 0)),
+                                           fam_recs.get(_family(prop), (0, 0)))
                 because = (f"{nb} holds {prop}; {tgt} resembles {nb} "
                            f"({'; '.join(why[:4])})")
                 docket = {"supports": [{"kind": "leapt_from", "assertion": a.id,
@@ -349,6 +464,43 @@ def interrogate(p, db) -> dict:
                                 "proposition": prop})
     db.commit()
     return result
+
+
+def answer(p, db, record, mint, hypothesis_id: str, response: str,
+           agent: str) -> dict:
+    """A person (or another agent) answers an open question, and the answer
+    is EVIDENCE, not a status flip: yes records the claim as an ordinary
+    assertion under the answerer's name, no records its negation, and then
+    interrogation reaches the verdict the normal way -- through reality. The
+    asking loop closes without ever giving anyone a lever that marks a hunch
+    true by decree."""
+    row = db.execute("SELECT * FROM hypotheses WHERE project_id=? AND id=?",
+                     (p.id, hypothesis_id)).fetchone()
+    if row is None:
+        return {"error": "not_found"}
+    if row["status"] not in ("open", "asking"):
+        return {"error": "already_decided", "status": row["status"]}
+    if response not in ("yes", "no"):
+        return {"error": "refused",
+                "reason": "answer must be 'yes' or 'no'; an answer is "
+                          "evidence, and evidence takes a side"}
+    prop = row["proposition"]
+    if response == "no":
+        prop = prop[4:] if prop.startswith("not:") else "not:" + prop
+    aid = mint("a")
+    record(p, "assert", {"id": aid, "agent": agent,
+                         "subjects": [row["subject"]], "proposition": prop,
+                         "assertion_time": p.tick(),
+                         "label": f"answer to OMEM's question about "
+                                  f"{row['subject']}"})
+    verdicts = interrogate(p, db)
+    after = db.execute("SELECT status FROM hypotheses WHERE project_id=? AND "
+                       "id=?", (p.id, hypothesis_id)).fetchone()
+    return {"hypothesis": hypothesis_id, "answered": response,
+            "recorded": aid, "verdict": after["status"],
+            "note": "the answer became an ordinary assertion under the "
+                    "answerer's name; the verdict came from interrogation, "
+                    "not decree"}
 
 
 def expects(p, db, about: str | None = None, status: str | None = None) -> list[dict]:

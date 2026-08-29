@@ -321,7 +321,16 @@ support or refute it -- look-alikes just move strength. Verdicts teach: a
 source whose leaps keep being confirmed generates stronger hunches, one
 that keeps being wrong generates weaker ones, and a refuted leap is never
 made again from the same evidence. A case that will not resolve starts
-asking, with the question it needs written in its file.
+asking, and the question lands on the dashboard where a yes or no becomes
+real evidence under your name -- the verdict still comes from
+interrogation, never by decree.
+
+Resemblance works the way human analogy does: one rare shared trait binds
+harder than three common ones, differently-worded experience counts as the
+same experience when an embedding model is configured, and shared context
+weighs less than shared character. And `mem.calibration()` is the
+metacognition: OMEM knows which kinds of claims it guesses well, and its
+boldness follows its record.
 
 ## What changed while you were gone
 

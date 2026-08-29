@@ -40,10 +40,16 @@ export default function Proposals() {
     queryFn: () => api.tensions(project), refetchInterval: 8000,
     enabled: !!project,
   });
+  const { data: questionData } = useQuery({
+    queryKey: ["expectations-asking", project],
+    queryFn: () => api.expectations(project, "asking"), refetchInterval: 8000,
+    enabled: !!project,
+  });
 
   function refresh() {
     qc.invalidateQueries({ queryKey: ["merge-proposals", project] });
     qc.invalidateQueries({ queryKey: ["tensions", project] });
+    qc.invalidateQueries({ queryKey: ["expectations-asking", project] });
     qc.invalidateQueries({ queryKey: ["entities", project] });
   }
 
@@ -64,6 +70,9 @@ export default function Proposals() {
     act(`keep-${id}-${keep}`, () => api.tensionResolve(project, id, keep));
   const dismissTension = (id: string) =>
     act(`dismiss-${id}`, () => api.tensionDismiss(project, id));
+  const answerQ = (id: string, answer: "yes" | "no") =>
+    act(`answer-${id}-${answer}`, () => api.answerExpectation(project, id, answer));
+  const questions = questionData?.data ?? [];
 
   const rows = data?.data ?? [];
   const open = rows.filter(p => p.status === "open");
@@ -155,6 +164,40 @@ export default function Proposals() {
               </div>
             ))}
           </div>}
+
+      {questions.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-1 text-sm font-medium">Questions</h2>
+          <p className="mb-3 max-w-lg text-2xs text-muted">
+            Hunches OMEM could not settle on its own. Your answer becomes real
+            evidence under your name — the verdict still comes from interrogation,
+            never by decree.
+          </p>
+          <div className="space-y-3">
+            {questions.map(h => (
+              <div key={h.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
+                <div className="min-w-0">
+                  <div className="text-sm">{h.docket.gaps[0] ?? h.because}</div>
+                  <div className="mt-1.5 text-2xs text-faint">
+                    strength {h.strength} · {h.docket.supports.length} supporting ·{" "}
+                    {h.docket.undermines.length} undermining
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button size="sm" variant="secondary" disabled={busy !== null}
+                    onClick={() => answerQ(h.id, "yes")}>
+                    {busy === `answer-${h.id}-yes` ? "…" : "Yes"}
+                  </Button>
+                  <Button size="sm" variant="danger" disabled={busy !== null}
+                    onClick={() => answerQ(h.id, "no")}>
+                    {busy === `answer-${h.id}-no` ? "…" : "No"}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {openTensions.length > 0 && (
         <section className="mt-8">

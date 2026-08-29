@@ -324,6 +324,15 @@ export interface CheckReport {
   raised: { tension: string; relation: string; entity: string; between: string[] }[];
   lapsed: { tension: string; reason: string }[];
 }
+/** A hunch with its case file. Never a belief: believes() is unaffected,
+ *  and answering records real evidence under the answerer's name. */
+export interface Hypothesis {
+  id: string; subject: string; proposition: string;
+  born_from: string; generator: string; because: string;
+  strength: number; status: string; passes: number;
+  docket: { supports: unknown[]; undermines: unknown[]; gaps: string[] };
+  created: number; decided: number | null;
+}
 
 export type AuthMode = "local" | "password";
 export interface SignupResult { token: string; email: string; existing: boolean; org?: { id: string; name: string }; project?: { id: string; name: string; env: string }; api_key?: ApiKey; }
@@ -505,6 +514,12 @@ export const api = {
   tensionDismiss: (p: string, id: string) =>
     req<{ tension: string; status: string }>(
       "POST", `/v1/memory/tensions/${enc(id)}/dismiss?project=${enc(p)}`, {}),
+  expectations: (p: string, status?: string) =>
+    req<{ data: Hypothesis[]; count: number }>(
+      "GET", `/v1/memory/expectations?project=${enc(p)}${status ? `&status=${enc(status)}` : ""}`),
+  answerExpectation: (p: string, id: string, answer: "yes" | "no") =>
+    req<{ hypothesis: string; answered: string; recorded: string; verdict: string }>(
+      "POST", `/v1/memory/expectations/${enc(id)}/answer?project=${enc(p)}`, { answer }),
   gmailRescan: (p: string, opts?: { connector_id?: string; window_days?: 7 | 30 | 90 | 365 }) =>
     req<GmailRescanResult>("POST", `/v1/memory/gmail-rescan?project=${enc(p)}`, opts ?? {}),
   memoryQuality: (p: string) => req<MemoryQuality>("GET", `/v1/memory/quality?project=${enc(p)}`),
