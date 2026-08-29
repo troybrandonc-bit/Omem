@@ -110,6 +110,19 @@ about a minute either way. Two differences worth knowing:
   does not, so the server prints "dashboard not bundled" until you run
   `cd web && OMEM_STATIC=1 npm run build`. The API is identical either way.
 
+**Option 3: Docker.**
+
+```bash
+docker run -p 127.0.0.1:8787:8787 -p 127.0.0.1:3000:3000 \
+  -v omem-data:/app/server/data ghcr.io/troybrandonc-bit/omem
+```
+
+API on 8787, dashboard on 3000, data in the named volume. The ports are
+published to loopback on purpose: the container runs in local mode, which has
+no passwords, so reachability is the access control. Putting it on a network
+means setting `OMEM_AUTH=password` and `OMEM_MASTER_KEY` first, and
+`docker-compose.yml` in this repo shows that shape.
+
 ## Self-healing
 
 OMEM records what breaks and repairs it under policy. This is infrastructure for
