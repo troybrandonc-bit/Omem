@@ -789,6 +789,9 @@ STORE.db.executescript(_constraints.CONSTRAINTS_SCHEMA)
 STORE.db.commit()
 import beliefdiff as _bdiff
 import confidence as _confidence
+import hypotheses as _hypo
+STORE.db.executescript(_hypo.HYPOTHESES_SCHEMA)
+STORE.db.commit()
 
 
 def _consolidate_all_projects():
@@ -811,6 +814,14 @@ def _consolidate_all_projects():
             pass
         try:
             _constraints.check(p, STORE.db)
+        except Exception:
+            pass
+        # The intuition layer rides last: leap over settled state, then
+        # interrogate what was leapt before. Doubt follows the leap in the
+        # same pass, so a hunch never lives a full cycle uninspected.
+        try:
+            _hypo.leap(p, STORE.db)
+            _hypo.interrogate(p, STORE.db)
         except Exception:
             pass
 
@@ -2374,6 +2385,22 @@ class Handler(BaseHTTPRequestHandler):
             status = qs.get("status", [None])[0]
             data = _constraints.list_tensions(STORE.db, p.id, status=status)
             return self._send(200, {"data": data, "count": len(data)})
+
+        # ── expectations: the hunches, each wearing its case file. Not
+        # beliefs, and clearly so: strength-capped, docketed, and absent
+        # from recall, conflicts, and every engine query.
+        if parts == ["v1", "memory", "expectations"]:
+            pid = qs.get("project", [None])[0]
+            p = PROJECTS.get(pid)
+            if not p:
+                return self._send(404, {"error": "project not found"})
+            data = _hypo.expects(p, STORE.db,
+                                 about=qs.get("about", [None])[0],
+                                 status=qs.get("status", [None])[0])
+            return self._send(200, {"data": data, "count": len(data),
+                                    "note": "expectations are hunches with "
+                                            "case files, never beliefs; "
+                                            "believes() is unaffected by them"})
 
         # ── the belief diff: what changed since a logical time. The delta an
         # agent wants at session start, computed from the same as_of machinery
@@ -4004,6 +4031,33 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"id": parts[2], "active": False,
                                     "note": "its open tensions lapse on the "
                                             "next check"})
+
+        # ── the intuition layer: leap (project a look-alike's beliefs onto a
+        # target as hypotheses) and interrogate (work every open case against
+        # everything held). Hypotheses never enter the engine; expects() is
+        # the only surface they speak through, and believes() never sees one.
+        if parts == ["v1", "memory", "leap"]:
+            p = self._proj(qs)
+            if p is None:
+                return self._err(404, "not_found", "project not found")
+            result = _hypo.leap(p, STORE.db, about=body.get("about"))
+            ENT.audit("memory.leapt", org_id=self._org_of_project(p.id),
+                      metadata={"examined": result["examined"],
+                                "leapt": len(result["leapt"]),
+                                "skipped_spent": result["skipped_spent"]},
+                      correlation_id=self._corr())
+            return self._send(200, result)
+
+        if parts == ["v1", "memory", "interrogate"]:
+            p = self._proj(qs)
+            if p is None:
+                return self._err(404, "not_found", "project not found")
+            result = _hypo.interrogate(p, STORE.db)
+            ENT.audit("memory.interrogated", org_id=self._org_of_project(p.id),
+                      metadata={k: len(v) for k, v in result.items()
+                                if isinstance(v, list)},
+                      correlation_id=self._corr())
+            return self._send(200, result)
 
         if parts == ["v1", "memory", "check"]:
             p = self._proj(qs)

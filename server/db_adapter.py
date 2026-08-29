@@ -60,6 +60,9 @@ _UPSERT_PK = {
     # declared relation constraints + the tensions they detect
     "relation_constraints": ["project_id", "id"],
     "constraint_tensions": ["project_id", "id"],
+    # the intuition layer: hypotheses + per-generator learning record
+    "hypotheses": ["project_id", "id"],
+    "leap_generators": ["project_id", "generator"],
 }
 
 
@@ -191,6 +194,10 @@ _columns_of = {
     "constraint_tensions": ["id", "project_id", "constraint_id", "relation",
                             "entity", "holders", "fp", "status", "created",
                             "decided", "decided_by", "kept"],
+    "hypotheses": ["id", "project_id", "subject", "proposition", "born_from",
+                   "generator", "because", "strength", "status", "docket",
+                   "passes", "fp", "created", "decided"],
+    "leap_generators": ["project_id", "generator", "wins", "losses"],
 }
 
 

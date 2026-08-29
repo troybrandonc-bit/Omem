@@ -398,6 +398,36 @@ class Memory:
         return self._req("POST", f"/v1/memory/tensions/{tension_id}/dismiss",
                          {"agent": agent})
 
+    # -- the intuition layer: leap, doubt, interrogate --
+    def leap(self, about=None):
+        """One bounded leap pass: project the beliefs of look-alike entities
+        onto targets as HYPOTHESES. One similar case is enough -- that is
+        the point -- and every hypothesis is born suspect, with a docket.
+        Nothing here touches belief state."""
+        return self._req("POST", "/v1/memory/leap", {"about": about})
+
+    def interrogate(self):
+        """The skeptic pass: work every open hypothesis against everything
+        OMEM holds. Reality about the target supports or refutes; the
+        source case dying lapses; look-alikes only move strength. Verdicts
+        teach: a generator whose leaps keep failing produces weaker ones."""
+        return self._req("POST", "/v1/memory/interrogate", {})
+
+    def expects(self, about=None, status=None):
+        """What OMEM suspects, as distinct from what it believes. Each
+        expectation carries its strength, why it was leapt, and its live
+        case file (supports, undermines, open questions). believes() never
+        returns a hunch and expects() never returns a belief; humans
+        conflate the two, and that is the one human trait this layer
+        refuses to inherit."""
+        q = []
+        if about:
+            q.append(f"about={about}")
+        if status:
+            q.append(f"status={status}")
+        qs = ("?" + "&".join(q)) if q else ""
+        return self._req("GET", f"/v1/memory/expectations{qs}").get("data", [])
+
     def changes(self, since, viewer=None, user=None):
         """What changed since a logical time -- the delta an agent wants at
         session start instead of the whole pack again. `since` is any earlier
