@@ -1,0 +1,37 @@
+{
+  "name": "cascade",
+  "title": "Retract the premise; the conclusion falls with it",
+  "why": "A declared rule concluded something from two facts. One of the facts is then retracted. A conclusion that outlives its premises is a memory asserting something nothing supports any more, which is fabrication with extra steps. Systems that cannot declare rules report the derivation probes as unsupported; the staleness probe about the retracted ownership applies to everyone.",
+  "events": [
+    {"op": "tell", "id": "e1", "speaker": "agent:witness_a",
+     "text": "Marco Ruiz works at BetaCorp.",
+     "subjects": ["person:cas_marco", "company:cas_beta"], "claim": "rel_works_at_cas_beta"},
+    {"op": "tell", "id": "e2", "speaker": "agent:witness_a",
+     "text": "Acme owns BetaCorp.",
+     "subjects": ["company:cas_acme", "company:cas_beta"], "claim": "rel_owns_cas_beta"},
+    {"op": "rule", "id": "e3", "speaker": "agent:witness_a",
+     "text": "Rule: whoever works at a company Acme owns is involved with Acme.",
+     "when": [["works_at", "fwd"], ["owns", "rev"]], "then": ["involves", "rev"]},
+    {"op": "probe_checkpoint", "id": "c1"},
+    {"op": "retract", "id": "e4", "speaker": "agent:witness_a", "refers_to": "e2",
+     "text": "Acme has sold BetaCorp. The ownership no longer holds."}
+  ],
+  "checkpoint_probes": [
+    {"id": "c1p1", "axis": "rules", "about": ["company:cas_acme", "person:cas_marco"],
+     "claim": "rel_involves_cas_marco",
+     "question": "The declared rule concluded, before the retraction",
+     "expect_state": "BELIEVED"}
+  ],
+  "probes": [
+    {"id": "p1", "axis": "cascade", "about": ["company:cas_acme", "person:cas_marco"],
+     "claim": "rel_involves_cas_marco",
+     "question": "After the premise died, the conclusion must be gone",
+     "expect_state": "NOT_HELD"},
+    {"id": "p2", "axis": "staleness", "about": "company:cas_acme",
+     "question": "The retracted ownership itself must not be asserted",
+     "forbid": ["owns_cas_beta"]},
+    {"id": "p3", "axis": "retention", "about": "person:cas_marco",
+     "question": "The untouched employment still stands",
+     "expect": ["works_at_cas_beta"]}
+  ]
+}

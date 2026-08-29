@@ -1,0 +1,21 @@
+{
+  "name": "supersession",
+  "title": "An update replaces the present without erasing the past",
+  "why": "She lived in Berlin, then moved to Paris. Current holdings asserting Berlin are stale; a history that has lost Berlin ever happened has been silently rewritten. Both failures matter and they are different failures.",
+  "events": [
+    {"op": "tell", "id": "e1", "speaker": "agent:witness_a",
+     "text": "Ines Weber lives in Berlin.",
+     "subjects": ["person:sup_ines"], "claim": "lives_in_berlin"},
+    {"op": "update", "id": "e2", "speaker": "agent:witness_a", "refers_to": "e1",
+     "text": "Update: Ines Weber has moved. She now lives in Paris.",
+     "subjects": ["person:sup_ines"], "claim": "lives_in_paris"}
+  ],
+  "probes": [
+    {"id": "p1", "axis": "staleness", "about": "person:sup_ines",
+     "question": "Where does she live now?",
+     "expect": ["paris"], "forbid": ["berlin"]},
+    {"id": "p2", "axis": "history", "about": "person:sup_ines",
+     "question": "Did she ever live in Berlin?",
+     "expect": ["berlin"]}
+  ]
+}
