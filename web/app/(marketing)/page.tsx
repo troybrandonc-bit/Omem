@@ -343,11 +343,50 @@ await mem.believes({ about: "customer:alice",
         </div>
       </Section>
 
-      {/* ── 06 the honesty section ────────────────────────────────────── */}
+      {/* ── 06 the proofs ─────────────────────────────────────────────────
+          Nothing in this section is a feature. Each item is a sentence the
+          project says about itself that has been made executable, with the
+          file that would go red named on the page. The ledger guards the
+          rest, and tests_claims_ledger.py guards the ledger. */}
+      <Section className="section-y">
+        <SectionHead n="06" title="Marketing that cannot fail is indistinguishable from marketing that is false.">
+          So the load-bearing sentences here are executable. Each one names
+          the test that goes red the moment it stops being true, and those
+          tests run on every commit.
+        </SectionHead>
+        <ul className="mt-10 grid gap-x-14 gap-y-9 sm:grid-cols-2">
+          {([
+            ["The Witness benchmark",
+             "Memory benchmarks measure recall. Witness measures testimony: no asserting what nobody said, retraction honoured, disagreement kept visible, two people with one name kept apart, conclusions dying with their premises. OMEM's card is asserted in CI. Adapters for Mem0 and Graphiti are included and run with your keys, because this repo publishes no numbers it did not run.",
+             "benchmarks/witness/README.md"],
+            ["It phones home to nobody",
+             "A guard installed under the socket layer, then a full working session: identity, contradiction, a rule cascade, recall, hunches. One outbound connection or DNS lookup that is not loopback fails the build with the address in hand.",
+             "server/tests_airgap.py"],
+            ["Upgrades never rewrite your past",
+             "An ops log frozen on 2026-08-29 replays on every commit and must produce a byte-identical state digest. The suite also tampers with one op and requires the digest to move, so the check is proven able to fail.",
+             "server/tests_upgrade_stability.py"],
+            ["The claims ledger",
+             "Sixteen load-bearing sentences mapped to the test behind each. The ledger is itself guarded: a row whose file goes missing fails CI. A claim with no row is opinion.",
+             "CLAIMS.md"],
+          ] as const).map(([k, d, path]) => (
+            <li key={k}>
+              <h3 className="text-note font-semibold">{k}</h3>
+              <p className="mt-1.5 text-note text-muted">{d}</p>
+              <a className="mono mt-2 inline-block text-caption text-faint underline decoration-[color:var(--line-strong)] underline-offset-4 hover:text-[color:var(--fg)]"
+                 href={`https://github.com/troybrandonc-bit/Omem/blob/main/${path}`}
+                 target="_blank" rel="noreferrer">
+                {path}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      {/* ── 07 the honesty section ────────────────────────────────────── */}
       <Section className="section-y">
         <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
           <div>
-            <SectionHead n="06" title="This is early software, and the second list matters as much as the first.">
+            <SectionHead n="07" title="This is early software, and the second list matters as much as the first.">
               OMEM is free while it is in beta, and it is missing things you would
               need before putting it somewhere serious. They are written down
               rather than discovered during a security review.
