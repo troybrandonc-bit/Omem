@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -34,16 +35,10 @@ import { Sun, Moon, Menu, X } from "lucide-react";
 function Wordmark({ className }: { className?: string }) {
   return (
     <Link href="/" className={cn("flex items-center gap-2.5 rounded", className)}>
-      {/* The memory-node glyph the design system specifies and the product never
-          drew: one filled node deriving two others. It was a stock `Share2`
-          icon, which is the "share" affordance from every toolbar on the web
-          and says nothing about what this is. */}
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6 shrink-0">
-        <path d="M8 8 L16 5.5 M8 8 L16 16.5" stroke="var(--line-strong)" strokeWidth="1.25" fill="none" />
-        <circle cx="8" cy="8" r="3.25" fill="var(--accent)" />
-        <circle cx="17" cy="5.5" r="2.25" fill="none" stroke="var(--accent)" strokeWidth="1.5" />
-        <circle cx="17" cy="17" r="2.25" fill="none" stroke="var(--accent)" strokeWidth="1.5" />
-      </svg>
+      {/* The actual OMEM mark, not a drawn stand-in. Served at 256px so it
+          stays sharp on retina at this 24px display size. */}
+      <Image src="/omem-mark.png" alt="" width={24} height={24} unoptimized
+             className="h-6 w-6 shrink-0" />
       <span className="text-lg font-semibold tracking-[-0.02em]">OMEM</span>
       <span className="sr-only">— home</span>
     </Link>
