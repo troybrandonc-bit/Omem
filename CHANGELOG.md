@@ -3,6 +3,25 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.2.17 - 29 Aug 2026
+
+**A pullable image, and the mark everywhere the product shows its face.**
+
+- **Docker, published.** Every release now pushes
+  `ghcr.io/troybrandonc-bit/omem` (versioned and `latest`): API on 8787,
+  dashboard on 3000, data in a named volume, running as a non-root user.
+  The README's install Option 3 covers it, including why the example
+  publishes ports to loopback: the container runs in local mode, where
+  reachability is the access control.
+- **The OMEM mark ships in the product.** The dashboard bundled into the
+  wheel now carries the mark as its favicon and apple-touch icon, and in
+  the sidebar and sign-in card where a placeholder glyph used to stand.
+  Self-hosted installs get the brand in the browser tab, not just the
+  marketing site.
+- The site gains a `/guides` section (LangGraph long-term memory, an MCP
+  memory server for Claude, agent memory in Python), a sitemap, and a
+  robots.txt that keeps crawlers out of the dashboard routes.
+
 ## 0.2.16 - 29 Aug 2026
 
 **Three claims stop being sentences, a benchmark for testimony, and a
