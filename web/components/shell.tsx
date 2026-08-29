@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -178,12 +179,8 @@ function Sidebar({ path, className, dense = true }: { path: string; className?: 
       {dense && (
         <div className="mb-6 flex items-center gap-2.5 px-2">
           <Link href="/" aria-label="OMEM home" className="shrink-0">
-            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6">
-              <path d="M8 8 L16 5.5 M8 8 L16 16.5" stroke="var(--line-strong)" strokeWidth="1.25" fill="none" />
-              <circle cx="8" cy="8" r="3.25" fill="var(--accent)" />
-              <circle cx="17" cy="5.5" r="2.25" fill="none" stroke="var(--accent)" strokeWidth="1.5" />
-              <circle cx="17" cy="17" r="2.25" fill="none" stroke="var(--accent)" strokeWidth="1.5" />
-            </svg>
+            <Image src="/omem-mark.png" alt="" width={24} height={24}
+                   unoptimized className="h-6 w-6" />
           </Link>
           <div className="relative min-w-0 flex-1">
             <label htmlFor="project-select" className="sr-only">Current project</label>
@@ -523,12 +520,8 @@ function SignIn({ onDone }: { onDone: () => void }) {
     <div className="grid min-h-screen place-items-center px-5 py-10">
       <form onSubmit={submit} className="w-full max-w-sm">
         <div className="mb-8 flex items-center gap-2.5">
-          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6">
-            <path d="M8 8 L16 5.5 M8 8 L16 16.5" stroke="var(--line-strong)" strokeWidth="1.25" fill="none" />
-            <circle cx="8" cy="8" r="3.25" fill="var(--accent)" />
-            <circle cx="17" cy="5.5" r="2.25" fill="none" stroke="var(--accent)" strokeWidth="1.5" />
-            <circle cx="17" cy="17" r="2.25" fill="none" stroke="var(--accent)" strokeWidth="1.5" />
-          </svg>
+          <Image src="/omem-mark.png" alt="" width={24} height={24}
+                 unoptimized className="h-6 w-6" />
           <span className="text-md font-semibold">OMEM</span>
         </div>
 
