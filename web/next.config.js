@@ -19,6 +19,20 @@
 //     /assertion?id=..., which needs no file per id.
 const isStatic = process.env.OMEM_STATIC === "1";
 
+// A static export is always served from the SAME ORIGIN as the API: the Python
+// server that bundles it, and on the marketing site the dashboard is unused. The
+// /api/omem rewrite below only exists under `npm run dev`, so in an export the
+// client must call /v1/... directly (BASE="" in lib/api.ts, gated on
+// NEXT_PUBLIC_OMEM_BUNDLED). Default that flag on for every static build unless
+// the operator set it explicitly. Without this, a bundled dashboard fetches
+// /api/omem/v1/health, which 404s on the Python server, and the UI reports "OMEM
+// not responding, start omem-server" while the server is in fact up. Setting it
+// here (before Next reads the environment) means neither the release build nor a
+// hand build has to remember the flag.
+if (isStatic && process.env.NEXT_PUBLIC_OMEM_BUNDLED === undefined) {
+  process.env.NEXT_PUBLIC_OMEM_BUNDLED = "1";
+}
+
 module.exports = {
   ...(isStatic ? { output: "export" } : {}),
   // Export has no image optimizer (that is a server feature), so the loader has

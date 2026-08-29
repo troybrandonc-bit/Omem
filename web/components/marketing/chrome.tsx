@@ -40,7 +40,7 @@ function Wordmark({ className }: { className?: string }) {
       <Image src="/omem-mark.png" alt="" width={24} height={24} unoptimized
              className="h-6 w-6 shrink-0" />
       <span className="text-lg font-semibold tracking-[-0.02em]">OMEM</span>
-      <span className="sr-only">— home</span>
+      <span className="sr-only">home</span>
     </Link>
   );
 }

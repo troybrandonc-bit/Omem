@@ -29,7 +29,7 @@ export default function Conflicts() {
       {isLoading ? <Skeleton className="h-40" /> :
         isError || !data ?
           <ErrorState title="Could not read conflicts"
-            body="This is a failed request, not a clean bill of health — there may or may not be contradictions."
+            body="This is a failed request, not a clean bill of health. There may or may not be contradictions."
             onRetry={() => refetch()} /> :
         data.conflicts.length === 0 ?
           <EmptyState icon={ShieldCheck} title="No conflicts" body="Every proposition has a consistent belief state at this point in time." /> :
