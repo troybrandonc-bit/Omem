@@ -345,6 +345,35 @@ weighs less than shared character. And `mem.calibration()` is the
 metacognition: OMEM knows which kinds of claims it guesses well, and its
 boldness follows its record.
 
+## Priors: what it learns about people in general
+
+A leap projects from one look-alike person. A prior projects from a
+regularity learned across many: "people who hold P tend to hold Q." OMEM
+mines these from what it already knows and uses them to interpret someone new
+from very little.
+
+```python
+mem.learn_priors()                      # mine regularities across everyone
+mem.priors()
+# -> holds likes_dashboards -> holds wants_pdf_invoices
+#    in_population: 4 of 5 held it   |   when_applied: supported 3, refuted 0
+```
+
+The point is that a prior never overrides a person. It fires only into a
+silence: if someone holds P but has said nothing about Q, OMEM leaps Q onto
+them as a hunch; the moment that person's own evidence speaks, the prior is
+refused, and if their evidence later contradicts an accepted hunch, the
+interrogate loop refutes it and the prior takes the loss. Two honest numbers
+travel with every prior: the rate it held in the population it was learned
+from, and its separate record when actually applied. A pattern seen on too
+few people is not allowed to fire at all.
+
+A prior stores counts, never a person. It is knowledge about people in
+general with no fact about anyone in it, which is what lets you read the
+whole set, or hand it to someone, without leaking a single subject. The
+general pattern always yields to the individual, by construction rather than
+by policy.
+
 ## What changed while you were gone
 
 The question every agent asks at session start, answered from the same as_of

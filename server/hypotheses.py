@@ -62,6 +62,16 @@ BASE_STRENGTH = 0.35     # a newborn hunch; deliberately below any evidence
 STRENGTH_CEILING = 0.6   # corroboration can raise a hunch only this far
 STRENGTH_FLOOR = 0.05
 
+# The priors tier: regularities that hold ACROSS people, not facts about one.
+# A prior is "entities that hold P tend to hold Q", learned by co-occurrence
+# and applied to a new person's SILENCE (never over what they are known to
+# be). Two numbers gate it, both honest: it may not fire from fewer than
+# PRIOR_FLOOR_N supporting subjects (no law of humanity from two examples),
+# and not below PRIOR_MIN_RATE (a pattern that barely holds is not a prior).
+PRIOR_FLOOR_N = 3
+PRIOR_MIN_RATE = 0.6
+PRIOR_MAX = 500          # a bound on how many priors one mining pass may hold
+
 HYPOTHESES_SCHEMA = """
 CREATE TABLE IF NOT EXISTS hypotheses(
   id TEXT NOT NULL, project_id TEXT NOT NULL,
@@ -75,6 +85,12 @@ CREATE TABLE IF NOT EXISTS leap_generators(
   project_id TEXT NOT NULL, generator TEXT NOT NULL,
   wins INTEGER NOT NULL, losses INTEGER NOT NULL,
   PRIMARY KEY(project_id, generator));
+CREATE TABLE IF NOT EXISTS priors(
+  id TEXT NOT NULL, project_id TEXT NOT NULL,
+  antecedent TEXT NOT NULL, consequent TEXT NOT NULL, context TEXT NOT NULL,
+  support INTEGER NOT NULL, refute INTEGER NOT NULL, subjects INTEGER NOT NULL,
+  updated REAL NOT NULL,
+  PRIMARY KEY(project_id, id));
 """
 
 
@@ -264,7 +280,124 @@ def calibration(db, project_id: str) -> dict:
         t = r["wins"] + r["losses"]
         gens[r["generator"]] = {"supported": r["wins"], "refuted": r["losses"],
                                 "rate": round(r["wins"] / t, 2) if t else None}
-    return {"families": fams, "generators": gens}
+    return {"families": fams, "generators": gens,
+            "priors": priors(db, project_id)}
+
+
+def _positive_clusters(profs: dict) -> dict:
+    """Cluster POSITIVE propositions only. Negations are handled by name, not
+    by embedding: the offline char-hash embedder scores "not:wants_pdf" and
+    "wants_pdf" as near-identical, so clustering them together would file a
+    subject's refutation as if it were support. Both the priors miner and the
+    priors leap read reps through here, so their vocabularies always agree."""
+    pos = sorted({x for pa in profs.values() for x in pa[0]
+                  if not x.startswith("not:")})
+    return _prop_clusters(pos) if pos else {}
+
+
+def learn_priors(p, db) -> dict:
+    """Mine the instance tier for regularities that transfer across people.
+
+    For every pair of positive property-clusters (P, Q), count the subjects
+    who hold P and also hold Q (support) versus those who hold P and OPPOSE Q
+    (refute -- they hold not:Q, or a positive claim declared contradictory to
+    Q). A pair that clears PRIOR_FLOOR_N support and PRIOR_MIN_RATE becomes a
+    prior P -> Q. The prior stores COUNTS, never a subject or a sentence: it
+    is knowledge about people in general, not a record of any person, which is
+    what makes it inspectable and portable without leaking anyone.
+
+    Absence is not counted against a prior. A subject who holds P but has no
+    stated position on Q is neither support nor refute -- they are precisely
+    the silence a prior later fills. The rate is honest about only what is
+    known.
+    """
+    T = p.now()
+    profs = _profiles(db, p, T)
+    rep_of = _positive_clusters(profs)
+    pos_holders: dict = {}                  # positive cluster rep -> subjects
+    neg_bare: dict = {}                     # bare prop -> subjects holding not:it
+    for s, pa in profs.items():
+        for x in pa[0]:
+            if x.startswith("not:"):
+                neg_bare.setdefault(x[4:], set()).add(s)
+            else:
+                pos_holders.setdefault(rep_of.get(x, x), set()).add(s)
+
+    def opposers(q_rep: str) -> set:
+        out = set()
+        for bare, subs in neg_bare.items():     # holders of not:<in cluster q>
+            if rep_of.get(bare, bare) == q_rep:
+                out |= subs
+        for opp in _declared_opposites(p, q_rep):   # positive declared opposites
+            if not opp.startswith("not:"):
+                out |= pos_holders.get(rep_of.get(opp, opp), set())
+        return out
+
+    context = "default"                     # per-context rates are phase 3
+    reps = sorted(pos_holders)
+    result = {"examined_pairs": 0, "learned": 0, "kept": 0}
+    kept = 0
+    for P in reps:
+        base = pos_holders[P]
+        if len(base) < PRIOR_FLOOR_N:
+            continue
+        for Q in reps:
+            if Q == P:
+                continue
+            result["examined_pairs"] += 1
+            support = len(base & pos_holders.get(Q, set()))
+            if support < PRIOR_FLOOR_N:
+                continue
+            refute = len(base & opposers(Q))
+            total = support + refute
+            if total == 0 or support / total < PRIOR_MIN_RATE:
+                continue
+            if kept >= PRIOR_MAX:
+                break
+            pid_ = "pr_" + hashlib.sha256(
+                f"{p.id}|{context}|{P}|{Q}".encode()).hexdigest()[:12]
+            db.execute(
+                "INSERT OR REPLACE INTO priors(id,project_id,antecedent,"
+                "consequent,context,support,refute,subjects,updated) "
+                "VALUES(?,?,?,?,?,?,?,?,?)",
+                (pid_, p.id, P, Q, context, support, refute, len(base),
+                 time.time()))
+            kept += 1
+            result["learned"] += 1
+    result["kept"] = kept
+    db.commit()
+    return result
+
+
+def priors(db, project_id: str) -> list[dict]:
+    """The learned regularities, each with TWO honest rates: how the pattern
+    held in the population it was mined from, and how it has fared when
+    actually projected onto someone's silence (its verdict record, the same
+    ledger every generator keeps). A prior that has never been applied has no
+    track record yet, and says so."""
+    gens = {r["generator"]: (r["wins"], r["losses"]) for r in db.execute(
+        "SELECT generator, wins, losses FROM leap_generators WHERE project_id=?",
+        (project_id,))}
+    out = []
+    for r in db.execute("SELECT * FROM priors WHERE project_id=? ORDER BY "
+                        "support DESC, id", (project_id,)):
+        total = r["support"] + r["refute"]
+        gw, gl = gens.get("prior:" + r["id"], (0, 0))
+        vt = gw + gl
+        out.append({
+            "id": r["id"],
+            "pattern": f'holds {r["antecedent"]} -> holds {r["consequent"]}',
+            "antecedent": r["antecedent"], "consequent": r["consequent"],
+            "context": r["context"],
+            "in_population": {"support": r["support"], "refute": r["refute"],
+                             "subjects": r["subjects"],
+                             "rate": round(r["support"] / total, 2) if total else None},
+            "when_applied": {"supported": gw, "refuted": gl,
+                             "rate": round(gw / vt, 2) if vt else None},
+            "fires": (r["support"] >= PRIOR_FLOOR_N and total > 0
+                      and r["support"] / total >= PRIOR_MIN_RATE),
+        })
+    return out
 
 
 def leap(p, db, about: str | None = None) -> dict:
@@ -351,6 +484,72 @@ def leap(p, db, about: str | None = None) -> dict:
                 result["leapt"].append({"hypothesis": hid, "subject": tgt,
                                         "proposition": prop, "strength": strength,
                                         "because": because})
+
+    # Priors: the same leap, but the generator is a learned regularity rather
+    # than a look-alike person. A prior fires ONLY into a silence (the target
+    # has no state on the consequent), so a general pattern can never overrule
+    # what this person is actually known to be. It fills a gap, and the next
+    # interrogate pass settles it against reality like any other hunch; the
+    # prior's own record (as generator "prior:<id>") takes the win or the loss.
+    prior_rows = [dict(r) for r in db.execute(
+        "SELECT * FROM priors WHERE project_id=?", (p.id,))]
+    # Positives-only reps, the same vocabulary the miner used, so a stored
+    # antecedent/consequent lines up with what a target actually holds.
+    prep = _positive_clusters(profs) if prior_rows else {}
+    for tgt in targets:
+        if tgt not in profs or not prior_rows:
+            continue
+        held_reps = {prep.get(x, x) for x in profs[tgt][0]
+                     if not x.startswith("not:")}
+        for pr in prior_rows:
+            if len(result["leapt"]) >= MAX_NEW_PER_RUN:
+                break
+            total = pr["support"] + pr["refute"]
+            if pr["support"] < PRIOR_FLOOR_N or total == 0 \
+                    or pr["support"] / total < PRIOR_MIN_RATE:
+                continue
+            ant, cons = pr["antecedent"], pr["consequent"]
+            if ant not in held_reps:
+                continue                      # target doesn't hold the antecedent
+            if prep.get(cons, cons) in held_reps:
+                continue                      # already holds the consequent (or kin)
+            if (tgt, cons) in claimed:
+                continue
+            if p.engine.proposition_state([tgt], cons, T) != "UNKNOWN":
+                continue                      # DEFEASIBLE: only ever fill a silence
+            born = None
+            for a in _open_beliefs(p, T):
+                if list(a.subjects) == [tgt] and not a.proposition.startswith("not:") \
+                        and prep.get(a.proposition, a.proposition) == ant:
+                    born = a
+                    break
+            if born is None:
+                continue
+            fp = _fp(p.id, tgt, cons, "prior:" + pr["id"])
+            if fp in spent:
+                result["skipped_spent"] += 1
+                continue
+            generator = "prior:" + pr["id"]
+            strength = _birth_strength(gen_recs.get(generator, (0, 0)),
+                                       fam_recs.get(_family(cons), (0, 0)))
+            rate = pr["support"] / total
+            because = (f"people who hold {ant} tend to hold {cons} "
+                       f"(held in {pr['support']} of {total}); {tgt} holds {ant}")
+            docket = {"supports": [{"kind": "prior", "prior": pr["id"],
+                                    "detail": f"{ant} -> {cons}, rate {rate:.2f}"}],
+                      "undermines": [],
+                      "gaps": [f"no direct evidence about {tgt} yet"]}
+            hid = "hy_" + fp[:12]
+            db.execute("INSERT OR IGNORE INTO hypotheses(id,project_id,subject,"
+                       "proposition,born_from,generator,because,strength,status,"
+                       "docket,passes,fp,created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                       (hid, p.id, tgt, cons, born.id, generator, because,
+                        strength, "open", json.dumps(docket), 0, fp, time.time()))
+            spent.add(fp)
+            claimed.add((tgt, cons))
+            result["leapt"].append({"hypothesis": hid, "subject": tgt,
+                                    "proposition": cons, "strength": strength,
+                                    "because": because, "from_prior": pr["id"]})
     db.commit()
     return result
 

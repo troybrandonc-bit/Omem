@@ -816,10 +816,12 @@ def _consolidate_all_projects():
             _constraints.check(p, STORE.db)
         except Exception:
             pass
-        # The intuition layer rides last: leap over settled state, then
-        # interrogate what was leapt before. Doubt follows the leap in the
-        # same pass, so a hunch never lives a full cycle uninspected.
+        # The intuition layer rides last: mine priors from settled state, leap
+        # (from look-alikes AND from those priors), then interrogate what was
+        # leapt before. Doubt follows the leap in the same pass, so a hunch
+        # never lives a full cycle uninspected.
         try:
+            _hypo.learn_priors(p, STORE.db)
             _hypo.leap(p, STORE.db)
             _hypo.interrogate(p, STORE.db)
         except Exception:
@@ -2411,6 +2413,16 @@ class Handler(BaseHTTPRequestHandler):
             if not p:
                 return self._send(404, {"error": "project not found"})
             return self._send(200, _hypo.calibration(STORE.db, p.id))
+
+        # ── the priors tier: regularities that transfer across people, each
+        # with the population it was mined from and its record when applied.
+        # Knowledge about people in general, holding no fact about any person.
+        if parts == ["v1", "memory", "priors"]:
+            pid = qs.get("project", [None])[0]
+            p = PROJECTS.get(pid)
+            if not p:
+                return self._send(404, {"error": "project not found"})
+            return self._send(200, {"data": _hypo.priors(STORE.db, p.id)})
 
         # ── the belief diff: what changed since a logical time. The delta an
         # agent wants at session start, computed from the same as_of machinery
@@ -4056,6 +4068,18 @@ class Handler(BaseHTTPRequestHandler):
                                 "leapt": len(result["leapt"]),
                                 "skipped_spent": result["skipped_spent"]},
                       correlation_id=self._corr())
+            return self._send(200, result)
+
+        # ── mine the priors tier now, rather than waiting for the scheduled
+        # pass. Reads settled state, writes only priors (counts, no instance
+        # data); the next leap projects them onto silences.
+        if parts == ["v1", "memory", "priors", "learn"]:
+            p = self._proj(qs)
+            if p is None:
+                return self._err(404, "not_found", "project not found")
+            result = _hypo.learn_priors(p, STORE.db)
+            ENT.audit("memory.priors_learned", org_id=self._org_of_project(p.id),
+                      metadata=result, correlation_id=self._corr())
             return self._send(200, result)
 
         # ── answering an open question: the answer becomes an ordinary

@@ -206,6 +206,16 @@ export default function Home() {
               under the answerer&apos;s name, and a calibration record keeps the
               boldness of new leaps honest about the record of old ones.
             </p>
+            <p className="mt-5 max-w-read text-body text-muted">
+              And it generalizes. From what it has seen across many people OMEM
+              learns priors, regularities of the form &ldquo;people who hold P
+              tend to hold Q&rdquo;, and uses them to read someone new from very
+              little. A prior fires only into a silence and yields the instant
+              that person&apos;s own evidence disagrees, so a general pattern
+              never overrides an individual. Each prior stores counts, never a
+              person, so the learned model of people carries no fact about
+              anyone.
+            </p>
             <ButtonLink href="/docs" variant="quiet" className="mt-5">
               How the intuition layer works
             </ButtonLink>
@@ -226,9 +236,10 @@ mem.believes(about="customer:gamma",
              claim="wants_pdf_invoices")
 # "UNKNOWN"  - a hunch is never a belief
 
-mem.calibration()
-# wants-family: 2 supported, 1 refuted
-# boldness follows the record`}
+mem.priors()         # what it learned about people in general
+# holds P -> holds Q
+#   in_population: 4 of 5    when_applied: 3-0
+#   fires only into a silence, yields to the person`}
           />
         </div>
       </Section>

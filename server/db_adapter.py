@@ -63,6 +63,8 @@ _UPSERT_PK = {
     # the intuition layer: hypotheses + per-generator learning record
     "hypotheses": ["project_id", "id"],
     "leap_generators": ["project_id", "generator"],
+    # the priors tier: learned regularities that transfer across people
+    "priors": ["project_id", "id"],
 }
 
 
@@ -198,6 +200,8 @@ _columns_of = {
                    "generator", "because", "strength", "status", "docket",
                    "passes", "fp", "created", "decided"],
     "leap_generators": ["project_id", "generator", "wins", "losses"],
+    "priors": ["id", "project_id", "antecedent", "consequent", "context",
+               "support", "refute", "subjects", "updated"],
 }
 
 

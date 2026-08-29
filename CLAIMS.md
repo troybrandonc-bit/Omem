@@ -18,6 +18,7 @@ false. Everything below can fail.
 | Retracting a fact withdraws every conclusion resting on it, in the same request | `server/tests_inference_rules.py`, `scripts/demo_reasoning.py` |
 | A shared name is not a shared identity, and a split a person makes is final for the machine | `server/tests_identity_resolution.py` |
 | A hunch is never allowed to quietly become a belief: it is proven, refuted, or escalated to a human | `server/tests_hypotheses.py` |
+| Priors learned about people in general fire only into a silence and yield to a person's own evidence; a pattern seen on too few people cannot fire | `server/tests_priors.py` |
 | The Witness card: no fabrication, retraction honoured, disagreement visible, identities kept apart, conclusions die with premises, every memory sourced | `benchmarks/witness/harness.py`, `server/tests_witness_benchmark.py` |
 | It phones home to nobody: a socket guard proves a full working session performs zero outbound connections or lookups | `server/tests_airgap.py` |
 | Upgrades never rewrite your past: a log frozen on 2026-08-29 must replay to a byte-identical state digest in every future version | `server/testdata/golden_log_v1.json`, `server/tests_upgrade_stability.py` |
