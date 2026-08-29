@@ -548,9 +548,15 @@ textarea:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
    Tracking is 0.04em rather than 0.06 — at 0.06 the letters stop reading as a
    word and start reading as separate letters, which is the look this whole pass
    is trying to get away from. The public pages no longer use it at all. */
+/* The region label. It named a region in UPPERCASE with tracked micro-type,
+   which is the single most common tell of a generated interface and the exact
+   pattern flagged in the design brief. A region label should be quiet, not
+   shouted: sentence case at a legible size, in the faint ink, doing its job of
+   naming a group without competing with the content inside it. This one change
+   calms the sidebar rail, every stat label, and the "as of" control at once. */
 .tech-label {
-  font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em;
-  text-transform: uppercase; color: var(--faint);
+  font-size: 0.75rem; font-weight: 500; letter-spacing: -0.006em;
+  color: var(--faint);
 }
 .sec-num { font-size: 0.6875rem; font-weight: 500; color: var(--faint); font-variant-numeric: tabular-nums; }
 p, .prose { text-wrap: pretty; }

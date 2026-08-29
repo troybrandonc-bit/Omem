@@ -2,7 +2,6 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { Check, Circle } from "lucide-react";
 import { useApp } from "@/components/providers";
 import { Skeleton, StateBadge } from "@/components/ui/primitives";
 import { cn } from "@/lib/cn";
@@ -27,24 +26,24 @@ export default function Overview() {
 
   return (
     <div className="space-y-5">
-      {onb && onb.completed < onb.total && (
-        <section className="panel overflow-hidden">
-          <header className="flex items-center justify-between border-b px-4 py-2.5">
-            <h2 className="text-sm font-semibold">Getting started</h2>
-            <span className="num text-2xs text-muted">{onb.completed}/{onb.total}</span>
-          </header>
-          <div className="grid gap-x-6 gap-y-2 px-4 py-3 sm:grid-cols-2">
-            {onb.steps.map(s_ => (
-              <div key={s_.id} className="flex items-center gap-2.5 text-sm">
-                {s_.done
-                  ? <Check className="h-3.5 w-3.5 text-believed" />
-                  : <Circle className="h-3 w-3 text-faint" />}
-                <span className={s_.done ? "text-muted line-through decoration-line-strong" : ""}>{s_.label}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Getting set up, without the onboarding-checklist cliche. A grid of
+          check marks, hollow circles and struck-through labels over an "3/8"
+          progress count is the template every generated dashboard ships. This
+          says the same thing in one quiet line: the next milestone, and how
+          many remain, with a way to see them all. */}
+      {onb && onb.completed < onb.total && (() => {
+        const next = onb.steps.find(s => !s.done);
+        const left = onb.total - onb.completed;
+        return (
+          <section className="panel flex flex-wrap items-center gap-x-2.5 gap-y-1 px-4 py-2.5 text-sm">
+            <span className="font-medium">Getting set up.</span>
+            {next && <span className="text-muted">Next up: {next.label.toLowerCase()}.</span>}
+            <Link href="/onboarding" className="link-underline ml-auto text-xs text-muted">
+              {left} {left === 1 ? "step" : "steps"} left
+            </Link>
+          </section>
+        );
+      })()}
       {/* The state of the record.
           Six identical boxes gave every number the same voice, so nothing led
           and the eye had nowhere to go. There is one question on this screen.

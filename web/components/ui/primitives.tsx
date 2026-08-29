@@ -142,7 +142,10 @@ export function Table({ children, caption }: { children: React.ReactNode; captio
   );
 }
 export function Th({ children, className, scope = "col" }: { children?: React.ReactNode; className?: string; scope?: "col" | "row" }) {
-  return <th scope={scope} className={cn("border-b bg-raised px-3 py-2 text-left text-2xs font-semibold uppercase tracking-[0.06em] text-faint", className)}>{children}</th>;
+  // Sentence case, not uppercase: a tracked all-caps column header is the same
+  // generated-interface tell as the region label, and a data grid reads better
+  // with headers set like the words they are.
+  return <th scope={scope} className={cn("border-b bg-raised px-3 py-2 text-left text-xs font-semibold text-faint", className)}>{children}</th>;
 }
 export function Td({ children, className }: { children?: React.ReactNode; className?: string }) {
   return <td className={cn("border-b border-[color:var(--border)]/70 px-3 py-2 align-middle", className)}>{children}</td>;
