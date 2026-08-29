@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     template: "%s / OMEM",
   },
   description:
-    "OMEM tracks what each agent believes, when it learned it, and why. Contradictions are surfaced rather than overwritten. Self-hosted, MIT, no dependencies.",
+    "OMEM tracks what each agent believes, when it learned it, and why. It forms hunches from single examples, doubts them, and takes back conclusions when the facts under them die. Self-hosted, MIT, no dependencies.",
   applicationName: "OMEM",
   formatDetection: { telephone: false },
 };
