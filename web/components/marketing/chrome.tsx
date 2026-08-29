@@ -52,6 +52,7 @@ function Wordmark({ className }: { className?: string }) {
 
 const NAV = [
   { label: "Docs", href: "/docs" },
+  { label: "Compare", href: "/compare" },
   { label: "Pricing", href: "/pricing" },
   { label: "Security", href: "/security" },
   { label: "Changelog", href: "/changelog" },
@@ -198,6 +199,7 @@ const FOOTER = [
   { group: "Product", items: [
     { label: "Pricing", href: "/pricing" },
     { label: "Security", href: "/security" },
+    { label: "Compare", href: "/compare" },
     { label: "Changelog", href: "/changelog" },
   ]},
   { group: "Run it", items: [
