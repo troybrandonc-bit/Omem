@@ -301,6 +301,28 @@ your name, and anything the rules engine concluded from them falls in the
 same request), or dismiss it, which is permanent for exactly that evidence.
 The machine never nags twice about a question a person already answered.
 
+## Hunches with case files
+
+Humans learn from one example by leaping to conclusions. That reflex is also
+why human memory confabulates. OMEM keeps the speed and drops the
+confabulation: it leaps, and then it doubts the leap harder than you would.
+
+```python
+mem.leap()                              # one similar case is enough
+mem.expects(about="customer:gamma")
+# -> wants_pdf_invoices, strength 0.35, "beta holds it; gamma resembles
+#    beta (both prefer annual billing, both use crm)", docket attached
+mem.interrogate()                       # the skeptic works every open case
+```
+
+A hypothesis is never a belief. It never enters the engine, `believes()`
+stays UNKNOWN however good the hunch, and only reality about the target can
+support or refute it -- look-alikes just move strength. Verdicts teach: a
+source whose leaps keep being confirmed generates stronger hunches, one
+that keeps being wrong generates weaker ones, and a refuted leap is never
+made again from the same evidence. A case that will not resolve starts
+asking, with the question it needs written in its file.
+
 ## What changed while you were gone
 
 The question every agent asks at session start, answered from the same as_of

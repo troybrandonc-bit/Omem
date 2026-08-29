@@ -3,6 +3,44 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## Unreleased
+
+### Added
+
+- **The intuition layer: OMEM leaps to conclusions, then doubts them hard.**
+  Humans learn from almost nothing because they generalize from one example
+  -- and that same reflex is why human memory confabulates. Every other
+  memory system resolves the tension by refusing to leap. OMEM leaps,
+  because it is the one system that can afford to: a store with retraction
+  cascades, provenance and declared conflicts has landing gear, so a guess
+  is cheap to take back.
+
+  `mem.leap()` projects a look-alike's beliefs onto a new entity as
+  HYPOTHESES after one similar case (resemblance is deterministic and
+  quotable: shared beliefs, shared relations). `mem.expects(about=...)`
+  serves the hunches, each wearing a live case file: strength, why it
+  leapt, what supports it, what undermines it, what is still unknown.
+  `mem.interrogate()` is the skeptic pass that works every open case
+  against everything OMEM holds -- and only reality about the TARGET gives
+  verdicts. The claim becoming believed is SUPPORTED; a declared opposite
+  becoming believed is REFUTED; the source case dying is LAPSED; look-alike
+  corroboration and counter-examples move strength, never verdicts. A case
+  that will not resolve starts ASKING, with the question it needs in its
+  docket.
+
+  Verdicts teach. Each entity that generates leaps has a record:
+  confirmations make its future projections stronger, refutations make
+  them weaker, and a refuted fingerprint is never leapt again. One
+  observation tunes the whole intuition base -- that is where "learns
+  quickly from very little" lives.
+
+  The discipline that keeps it safe: a hypothesis is never a belief. It
+  never enters the engine (zero ops -- asserted in the tests), `believes()`
+  stays UNKNOWN however good the hunch, strength is capped below any
+  evidenced confidence, and `expects()` and `believes()` are different
+  verbs on purpose. Humans conflate them; that is the one human trait this
+  layer refuses to inherit.
+
 ## 0.2.13 - 28 Aug 2026
 
 **Sharper instruments: one relation vocabulary that cannot drift, a
