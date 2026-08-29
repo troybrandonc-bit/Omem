@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, formatWhen } from "@/lib/api";
 import { useApp } from "@/components/providers";
 import { Skeleton, StateBadge } from "@/components/ui/primitives";
 import { cn } from "@/lib/cn";
@@ -128,7 +128,8 @@ export default function Overview() {
                 <Link key={b.id} href={`/assertion?id=${encodeURIComponent(b.id)}`}
                   className="flex items-center justify-between gap-3 py-2 transition-colors hover:bg-raised">
                   <span className="truncate text-sm font-medium">{b.label || b.proposition}</span>
-                  <span className="num shrink-0 text-2xs text-faint">t={b.assertion_time}</span>
+                  {(() => { const w = formatWhen(b.recorded_at, b.assertion_time);
+                    return <span className="shrink-0 text-2xs text-faint" title={w.title}>{w.text}</span>; })()}
                 </Link>
               ))}
             </div>

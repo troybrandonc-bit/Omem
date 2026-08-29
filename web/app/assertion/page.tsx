@@ -17,7 +17,7 @@ import { Suspense, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { api, isGrounded, type WhyResult } from "@/lib/api";
+import { api, isGrounded, formatWhen, type WhyResult } from "@/lib/api";
 import { useApp } from "@/components/providers";
 import { StateBadge, Badge, Card, Skeleton, IntervalStrip, Button } from "@/components/ui/primitives";
 import { ProvenanceDAG } from "@/components/viz/provenance-dag";
@@ -62,8 +62,9 @@ function AssertionDetailInner() {
           className="font-medium text-fg hover:text-accent">{why.subjects[0]?.label || why.subjects[0]?.id || "unknown"}</Link></span>
         <span>asserted by <Link href={`/agent?id=${encodeURIComponent(a.agent)}`}
           className="font-medium text-fg hover:text-accent">{why.agent?.label || a.agent}</Link></span>
-        <span>at <span className="num text-fg">t={a.assertion_time}</span></span>
-        {a.confidence !== null && <span>source confidence <span className="num text-fg">{a.confidence}</span></span>}
+        {(() => { const w = formatWhen(a.recorded_at, a.assertion_time);
+          return w.text ? <span title={w.title}>recorded <span className="text-fg">{w.text}</span></span> : null; })()}
+        {a.confidence !== null && <span>source confidence <span className="num text-fg">{Math.round(a.confidence * 100)}%</span></span>}
         <span className={isGrounded(why.grounded) ? "text-believed" : "text-unknown"}>
           {isGrounded(why.grounded) ? "grounded in an event" : "not grounded"}
         </span>

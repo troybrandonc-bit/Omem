@@ -1277,8 +1277,13 @@ if os.environ.get("OMEM_SEED_DEMO", "0") == "1":
 
 
 # ── Response shaping (assembles frozen-query results; no new semantics) ──────
-def shape_assertion(p: Project, aid: str, T: int | None = None) -> dict:
-    """Assemble a UI assertion object entirely from the engine's own records."""
+def shape_assertion(p: Project, aid: str, T: int | None = None,
+                    recorded_at: float | None = None) -> dict:
+    """Assemble a UI assertion object entirely from the engine's own records.
+
+    recorded_at is the real wall-clock moment this was written (from the op
+    log), passed in by callers that built the map once for a whole list. It is
+    display-only: the engine still reasons in the logical assertion_time."""
     e = p.engine
     a = e.store.assertion(aid)
     if a is None:
@@ -1302,6 +1307,7 @@ def shape_assertion(p: Project, aid: str, T: int | None = None) -> dict:
         "grounded": grounded,
         "provenance_count": len(prov_ids),
         "is_retraction": a.proposition == RETRACTED,
+        "recorded_at": recorded_at,
         "object": "assertion",
     }
 
@@ -2803,6 +2809,7 @@ class Handler(BaseHTTPRequestHandler):
             if _err:
                 return
             open_only = qs.get("open", [None])[0] == "true"
+            ts_map = STORE.assert_timestamps(p.id)   # real recorded time, once
             rows = []
             for a in e.store.assertions():
                 if subj and subj not in a.subjects:
@@ -2813,7 +2820,7 @@ class Handler(BaseHTTPRequestHandler):
                     continue
                 if open_only and not e.ledger.is_open_at(a, T):
                     continue
-                rows.append(shape_assertion(p, a.id, T))
+                rows.append(shape_assertion(p, a.id, T, recorded_at=ts_map.get(a.id)))
             rows.sort(key=lambda r: r["assertion_time"])
             return self._send(200, {"as_of": T, "data": rows})
 
@@ -2825,7 +2832,8 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if not _viewer_scope_ok(p.id, parts[2], _v, qs.get("user", [None])[0]):
                 return self._err(404, "not_found", "assertion not found")
-            sa = shape_assertion(p, parts[2], T)
+            sa = shape_assertion(p, parts[2], T,
+                                 recorded_at=STORE.assert_timestamps(p.id).get(parts[2]))
             return self._send(200, sa) if sa else self._err(404, "not_found", "assertion not found")
 
         # /v1/assertions/{id}/why - the signature explanation, all from frozen queries
@@ -2877,7 +2885,8 @@ class Handler(BaseHTTPRequestHandler):
                             for r in _consol.reinforcement_rows(STORE.db, p.id, aid)})
             _cscore, _cwhy = _confidence.effective(a.confidence, _support)
             return self._send(200, {
-                "assertion": shape_assertion(p, aid, T),
+                "assertion": shape_assertion(p, aid, T,
+                                             recorded_at=STORE.assert_timestamps(p.id).get(aid)),
                 "as_of": T,
                 "state": state,
                 "confidence": {"score": _cscore, "because": _cwhy},

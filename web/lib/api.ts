@@ -23,6 +23,32 @@ export interface Assertion {
   proposition: string; assertion_time: number; event_time: number | null;
   confidence: number | null; belief_interval: BeliefInterval; open: boolean;
   grounded: string | boolean; provenance_count: number; is_retraction: boolean;
+  // Real wall-clock seconds this was written, for a human-readable "when".
+  // assertion_time above is the LOGICAL clock the engine reasons in.
+  recorded_at?: number | null;
+}
+
+/** A real timestamp, read the way a person reads a feed: the clock for today,
+ *  a relative age for the last week, a date before that. Falls back to the
+ *  logical tick only when no wall-clock is known (older records). Returns the
+ *  short text plus a full timestamp for the title attribute. */
+export function formatWhen(recordedAt?: number | null, tick?: number): { text: string; title: string } {
+  if (recordedAt == null || !isFinite(recordedAt)) {
+    return { text: tick != null ? `t${tick}` : "", title: "logical time" };
+  }
+  const ms = recordedAt * 1000;
+  const d = new Date(ms);
+  const title = d.toLocaleString();
+  const diff = Date.now() - ms;
+  const day = 86_400_000;
+  if (diff >= 0 && diff < day && d.getDate() === new Date().getDate()) {
+    return { text: d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }), title };
+  }
+  if (diff >= 0 && diff < 7 * day) {
+    const days = Math.max(1, Math.round(diff / day));
+    return { text: `${days}d ago`, title };
+  }
+  return { text: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }), title };
 }
 export interface Entity { id: string; type?: string; label?: string | null; }
 export interface Agent { id: string; kind?: string; label?: string | null; recorded_existence?: number; claims?: Assertion[]; }

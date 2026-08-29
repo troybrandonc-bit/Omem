@@ -1,7 +1,7 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { api, isGrounded, type Assertion } from "@/lib/api";
+import { api, isGrounded, formatWhen, type Assertion } from "@/lib/api";
 import { useApp } from "@/components/providers";
 import { Badge, Skeleton, EmptyState, IntervalStrip } from "@/components/ui/primitives";
 import { Brain, ShieldCheck, ShieldAlert, Bot, User, ScanSearch } from "lucide-react";
@@ -81,8 +81,15 @@ export default function Memory() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="display text-lg">Memory</h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="display text-lg">Memory</h1>
+          <p className="mt-1 max-w-2xl text-sm text-muted">
+            Each row is one belief: what an agent claims, who it is about, when
+            it was recorded, and whether it is grounded in evidence. Open the row
+            to see the source and the full chain of why it is believed.
+          </p>
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filter by subject, proposition, source…"
             className="w-64 rounded-md border bg-panel px-3 py-1.5 text-sm outline-none focus:border-accent" />
@@ -137,6 +144,7 @@ function FilterPill({ children, active, onClick }:
 function MemoryRow({ a, now, role }: { a: Assertion; now: number; role: string | null }) {
   const src = saidBy(a.agent);
   const closed = !a.open;
+  const when = formatWhen(a.recorded_at, a.assertion_time);
   return (
     <div className="px-4 py-3 hover:bg-[color:var(--border)]/20">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -157,10 +165,10 @@ function MemoryRow({ a, now, role }: { a: Assertion; now: number; role: string |
               </span>
               <span className="flex items-center gap-1">
                 {src.kind === "human" ? <User className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
-                {src.label}
+                said by {src.label}
               </span>
-              <span>T{a.assertion_time}</span>
-              {a.confidence != null && <span>conf {a.confidence}</span>}
+              {when.text && <span title={when.title}>{when.text}</span>}
+              {a.confidence != null && <span>{Math.round(a.confidence * 100)}% confidence</span>}
             </div>
           </Link>
         </div>

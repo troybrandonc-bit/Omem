@@ -764,6 +764,23 @@ class Store:
         return [{"kind": r["kind"], "args": json.loads(decrypt_content(r["args"])),
                  "clock": r["clock"]} for r in rows]
 
+    def assert_timestamps(self, project_id: str) -> dict:
+        """The real wall-clock time each record was first written, from the op
+        log. The engine's assertion_time is a LOGICAL clock (a tick, so replay
+        is deterministic); this is the actual moment it was recorded, which is
+        the 'when' a person reading the dashboard wants. Keyed by the id in each
+        op's args, earliest wins. O(ops); callers build it once per request."""
+        out: dict = {}
+        for r in self.db.execute(
+                "SELECT args, ts FROM ops WHERE project_id=? ORDER BY seq", (project_id,)):
+            try:
+                aid = json.loads(decrypt_content(r["args"])).get("id")
+            except Exception:
+                continue
+            if aid and aid not in out:
+                out[aid] = r["ts"]
+        return out
+
     # ── api keys ─────────────────────────────────────────────────────
     def create_key(self, project_id: str, name: str, role: str = "developer",
                    ttl_days: int | None = None, agent_id: str | None = None) -> dict:

@@ -30,11 +30,19 @@ const KIND_ORDER = ["agent", "assertion", "entity", "event"] as const;
 
 type Pos = Record<string, { x: number; y: number }>;
 
+const NODE_H = 30;
+function nodeWidth(n: { label?: string | null; proposition?: string; id: string }): number {
+  const label = (n.label || n.proposition || n.id).slice(0, 26);
+  return Math.max(66, Math.min(240, label.length * 7 + 42));
+}
+
 function layout(nodes: GraphData["nodes"], edges: GraphData["edges"]): Pos {
   const n = nodes.length;
   const pos: Pos = {};
   if (!n) return pos;
-  const R = Math.max(240, Math.sqrt(n) * 82);
+  const w: Record<string, number> = {};
+  nodes.forEach(nd => { w[nd.id] = nodeWidth(nd); });
+  const R = Math.max(280, Math.sqrt(n) * 96);
   nodes.forEach((nd, i) => {
     const a = (i / n) * Math.PI * 2;
     pos[nd.id] = { x: Math.cos(a) * R, y: Math.sin(a) * R };
@@ -44,22 +52,43 @@ function layout(nodes: GraphData["nodes"], edges: GraphData["edges"]): Pos {
     (adj[e.from] = adj[e.from] || []).push(e.to);
     (adj[e.to] = adj[e.to] || []).push(e.from);
   });
-  for (let pass = 0; pass < 70; pass++) {
+  // Rectangle-aware separation: pills are wide, so a circular repulsion let
+  // long labels overlap. Two chips that overlap in BOTH axes are pushed apart
+  // along the axis of least penetration, which resolves the collision exactly
+  // without exploding the layout.
+  const separate = () => {
+    let moved = 0;
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      const a = pos[nodes[i].id], b = pos[nodes[j].id];
+      const dx = a.x - b.x, dy = a.y - b.y;
+      const needX = (w[nodes[i].id] + w[nodes[j].id]) / 2 + 34;
+      const needY = NODE_H + 30;
+      const ox = needX - Math.abs(dx), oy = needY - Math.abs(dy);
+      if (ox > 0 && oy > 0) {
+        if (ox < oy) { const s = (ox / 2) * (dx < 0 ? -1 : 1); a.x += s; b.x -= s; }
+        else { const s = (oy / 2) * (dy < 0 ? -1 : 1); a.y += s; b.y -= s; }
+        moved++;
+      }
+    }
+    return moved;
+  };
+  // Springs pull connected nodes together; separation keeps chips off each
+  // other. They fight, so springs run first.
+  for (let pass = 0; pass < 120; pass++) {
     nodes.forEach(nd => {
       const nb = adj[nd.id];
       if (!nb || !nb.length) return;
       let cx = 0, cy = 0;
       nb.forEach(id => { if (pos[id]) { cx += pos[id].x; cy += pos[id].y; } });
       cx /= nb.length; cy /= nb.length;
-      pos[nd.id].x += (cx - pos[nd.id].x) * 0.08;
-      pos[nd.id].y += (cy - pos[nd.id].y) * 0.08;
+      pos[nd.id].x += (cx - pos[nd.id].x) * 0.055;
+      pos[nd.id].y += (cy - pos[nd.id].y) * 0.055;
     });
-    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
-      const a = pos[nodes[i].id], b = pos[nodes[j].id];
-      const dx = a.x - b.x, dy = a.y - b.y, d = Math.hypot(dx, dy) || 1;
-      if (d < 165) { const f = ((165 - d) / d) * 0.5; a.x += dx * f; a.y += dy * f; b.x -= dx * f; b.y -= dy * f; }
-    }
+    separate();
   }
+  // Then separation alone until nothing overlaps (or a cap), so the FINAL
+  // positions a person sees have no collisions, whatever the springs wanted.
+  for (let pass = 0; pass < 200 && separate() > 0; pass++) { /* settle */ }
   return pos;
 }
 
@@ -233,8 +262,8 @@ export default function Graph() {
               const p = pos[n.id]; if (!p) return null;
               const kind = KIND[n.kind] || KIND.assertion;
               const label = (n.label || n.proposition || n.id).slice(0, 26);
-              const w = Math.max(66, Math.min(240, label.length * 7 + 42));
-              const h = 30;
+              const w = nodeWidth(n);
+              const h = NODE_H;
               const clickable = n.kind === "assertion";
               return (
                 <g key={n.id} transform={`translate(${p.x},${p.y})`}
