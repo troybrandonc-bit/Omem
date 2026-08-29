@@ -211,6 +211,41 @@ jobs:
             gh release create "v$V" dist/* --title "v$V" --notes-file notes.md
           fi
 
+  # CI builds this image on every PR and then ships it nowhere, so `docker run`
+  # was documented as "build it yourself". Publishing to GHCR makes it a
+  # one-liner and one more surface where people find things. Deliberately NOT
+  # `needs: publish`: an image publish must not be blocked by a PyPI hiccup,
+  # and vice versa; both gate on the same verified, tested build.
+  image:
+    name: publish the image to GHCR
+    needs: build
+    if: github.event_name == 'push' || inputs.dry_run == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Build and push
+        # Version from pyproject, not the ref: works identically for a tag
+        # push and a manual dispatch from main, and verify has already proven
+        # pyproject agrees with the tag when there is one.
+        run: |
+          V=$(grep -m1 '^version = ' sdk/python/pyproject.toml | cut -d'"' -f2)
+          IMG=ghcr.io/troybrandonc-bit/omem
+          docker build \
+            --label org.opencontainers.image.source=https://github.com/troybrandonc-bit/Omem \
+            --label org.opencontainers.image.description="Memory for AI agents that tracks what is believed, when, and why" \
+            --label org.opencontainers.image.licenses=MIT \
+            -t "$IMG:$V" -t "$IMG:latest" .
+          docker push "$IMG:$V"
+          docker push "$IMG:latest"
+
   # Must run after PyPI, not alongside it. The registry verifies ownership by
   # fetching the package description from PyPI and matching the mcp-name line,
   # so a registry publish that beats PyPI fails with "Package validation
