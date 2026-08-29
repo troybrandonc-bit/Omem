@@ -3,7 +3,10 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
-## Unreleased
+## 0.2.14 - 29 Aug 2026
+
+**The release where OMEM gets intuition: it learns from one example the way
+a person does, and then doubts the leap the way a person should.**
 
 ### Added
 
