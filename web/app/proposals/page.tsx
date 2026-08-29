@@ -132,7 +132,7 @@ export default function Proposals() {
                   <span className="mono">{r.pair[0]}</span>
                   <span className="text-faint">×</span>
                   <span className="mono">{r.pair[1]}</span>
-                  <span className="text-faint">— {r.reason}</span>
+                  <span className="text-faint">· {r.reason}</span>
                 </div>
               ))}
             </div>
@@ -170,8 +170,8 @@ export default function Proposals() {
           <h2 className="mb-1 text-sm font-medium">Questions</h2>
           <p className="mb-3 max-w-lg text-2xs text-muted">
             Hunches OMEM could not settle on its own. Your answer becomes real
-            evidence under your name — the verdict still comes from interrogation,
-            never by decree.
+            evidence under your name, and the verdict still comes from
+            interrogation, never by decree.
           </p>
           <div className="space-y-3">
             {questions.map(h => (
@@ -203,8 +203,9 @@ export default function Proposals() {
         <section className="mt-8">
           <h2 className="mb-1 text-sm font-medium">Tensions</h2>
           <p className="mb-3 max-w-lg text-2xs text-muted">
-            Live relations break a declared shape. Keep the one that is current — the
-            others are retracted under your name — or dismiss if both are genuinely true.
+            Live relations break a declared shape. Keep the one that is current,
+            and the others are retracted under your name, or dismiss if both are
+            genuinely true.
           </p>
           <div className="space-y-3">
             {openTensions.map(t => (

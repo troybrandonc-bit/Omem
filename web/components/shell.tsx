@@ -254,6 +254,16 @@ function TopBar({ onSearch, onMenu }: { onSearch: () => void; onMenu: () => void
           <Menu className="h-5 w-5" />
         </button>
 
+        {/* The brand in the header. On a phone the sidebar (which also carries
+            the mark) is hidden, so this is the only logo on screen; on wider
+            screens the wordmark joins it. */}
+        <Link href="/" aria-label="OMEM home"
+          className="mr-1 flex shrink-0 items-center gap-2 rounded">
+          <Image src="/omem-mark.png" alt="" width={24} height={24}
+                 unoptimized className="h-6 w-6" />
+          <span className="hidden text-sm font-semibold tracking-[-0.02em] sm:inline">OMEM</span>
+        </Link>
+
         <button onClick={onSearch}
           className="panel panel-link flex h-9 min-w-0 flex-1 items-center gap-2 px-3 text-left text-xs text-faint sm:max-w-md">
           <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
