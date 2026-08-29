@@ -370,6 +370,21 @@ type, so no plan and no prompt widens what is permitted.
 Every refusal in it is asserted and it exits non-zero if one stops happening,
 so it runs in CI. A demo that can quietly become untrue is worse than none.
 
+## The Witness benchmark
+
+Memory benchmarks measure recall. [Witness](benchmarks/witness/) measures
+the opposite duty: does a memory system assert things nobody told it, keep
+repeating what was withdrawn, silently resolve disagreements, merge two
+people who share a name, or hold on to conclusions whose premises died?
+
+Six scenarios, ten axes, deterministic scoring, no LLM judges. Adapters are
+included for OMEM, Mem0 and Graphiti; each system is fed through its own
+native path, and a probe a system cannot express reports as unsupported
+rather than passed or failed. This repository publishes no numbers it did
+not run: OMEM's card, every probe passing on every axis, is asserted by
+`server/tests_witness_benchmark.py` against a live server on every commit.
+Run the others with your own keys and read your own card.
+
 ## Proving the state follows from the log
 
 Memory is rebuilt by replaying an append-only log. That is easy to claim and

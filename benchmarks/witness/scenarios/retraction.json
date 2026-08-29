@@ -1,0 +1,27 @@
+{
+  "name": "retraction",
+  "title": "A retracted fact stops being asserted",
+  "why": "The speaker takes a statement back. From that moment, repeating it is testimony about nothing. The probe also checks the untouched fact survived: forgetting everything is not a retraction mechanism.",
+  "events": [
+    {"op": "tell", "id": "e1", "speaker": "agent:witness_a",
+     "text": "Viktor Hansen works at Helios Biotech.",
+     "subjects": ["person:ret_viktor"], "claim": "works_at_helios_biotech"},
+    {"op": "tell", "id": "e2", "speaker": "agent:witness_a",
+     "text": "Viktor Hansen speaks Danish.",
+     "subjects": ["person:ret_viktor"], "claim": "speaks_danish"},
+    {"op": "retract", "id": "e3", "speaker": "agent:witness_a", "refers_to": "e1",
+     "text": "Correction: Viktor Hansen never worked at Helios Biotech. Withdraw that entirely."}
+  ],
+  "probes": [
+    {"id": "p1", "axis": "retraction", "about": "person:ret_viktor",
+     "question": "Is the withdrawn employment still asserted?",
+     "forbid": ["helios"]},
+    {"id": "p2", "axis": "retraction", "about": "person:ret_viktor",
+     "claim": "works_at_helios_biotech",
+     "question": "Direct state check: the withdrawn claim must not be believed",
+     "expect_state": "NOT_HELD"},
+    {"id": "p3", "axis": "retention", "about": "person:ret_viktor",
+     "question": "The untouched fact still stands",
+     "expect": ["danish"]}
+  ]
+}

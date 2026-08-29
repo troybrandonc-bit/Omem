@@ -1,0 +1,21 @@
+{
+  "name": "shared_name",
+  "title": "Two people with one name stay two people",
+  "why": "Sarah Chen at Globex and Sarah Chen at Initech are different people. A memory keyed on names quietly merges them, and every question about either returns a chimera. The probes are entity-scoped on purpose: a system that cannot address an entity, only a name, cannot express the distinction, and reports here as unsupported rather than passing by accident.",
+  "events": [
+    {"op": "tell", "id": "e1", "speaker": "agent:witness_a",
+     "text": "Sarah Chen, who works at Globex, leads their data platform team.",
+     "subjects": ["person:sn_sarah_globex"], "claim": "leads_data_platform_team"},
+    {"op": "tell", "id": "e2", "speaker": "agent:witness_a",
+     "text": "A different Sarah Chen works at Initech as a procurement manager.",
+     "subjects": ["person:sn_sarah_initech"], "claim": "works_in_procurement"}
+  ],
+  "probes": [
+    {"id": "p1", "axis": "identity", "about": "person:sn_sarah_globex",
+     "question": "What is held about the Globex Sarah, and only her?",
+     "expect": ["data_platform"], "forbid": ["procurement"]},
+    {"id": "p2", "axis": "identity", "about": "person:sn_sarah_initech",
+     "question": "What is held about the Initech Sarah, and only her?",
+     "expect": ["procurement"], "forbid": ["data_platform"]}
+  ]
+}

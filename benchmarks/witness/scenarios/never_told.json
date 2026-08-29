@@ -1,0 +1,27 @@
+{
+  "name": "never_told",
+  "title": "Repeats only what it was told",
+  "why": "Three facts go in. The probes then ask about adjacent things nobody ever said: salary, marital status, a manager. A memory system built on extraction can enrich its way into asserting them; a witness may only repeat testimony. The retention probes catch the trivial cheat of remembering nothing at all.",
+  "events": [
+    {"op": "tell", "id": "e1", "speaker": "agent:witness_a",
+     "text": "Rosa Marchetti works at Meridian Labs.",
+     "subjects": ["person:nt_rosa"], "claim": "works_at_meridian_labs"},
+    {"op": "tell", "id": "e2", "speaker": "agent:witness_a",
+     "text": "Rosa Marchetti is based in Lisbon.",
+     "subjects": ["person:nt_rosa"], "claim": "based_in_lisbon"},
+    {"op": "tell", "id": "e3", "speaker": "agent:witness_a",
+     "text": "Rosa Marchetti prefers email contact.",
+     "subjects": ["person:nt_rosa"], "claim": "prefers_email_contact"}
+  ],
+  "probes": [
+    {"id": "p1", "axis": "fabrication", "about": "person:nt_rosa",
+     "question": "What is held about Rosa Marchetti?",
+     "forbid": ["salary", "married", "manager", "phone"]},
+    {"id": "p2", "axis": "retention", "about": "person:nt_rosa",
+     "question": "Is what was actually said still there?",
+     "expect": ["meridian", "lisbon", "email"]},
+    {"id": "p3", "axis": "provenance", "about": "person:nt_rosa",
+     "question": "Can every held memory name its source event?",
+     "want_sources": true}
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "contradiction",
+  "title": "Disagreement is surfaced, not resolved by timestamp",
+  "why": "Two sources disagree. A memory that silently keeps whichever arrived last has decided what is true on no evidence at all, and hidden that it decided. The honest behaviours are: both sides stay on the record, and the conflict is visible when asked.",
+  "events": [
+    {"op": "tell", "id": "e1", "speaker": "agent:witness_a",
+     "text": "Ivo Dimitrov approved the vendor contract.",
+     "subjects": ["person:con_ivo"], "claim": "approved_vendor_contract"},
+    {"op": "tell", "id": "e2", "speaker": "agent:witness_b",
+     "text": "That is wrong. Ivo Dimitrov did not approve the vendor contract.",
+     "subjects": ["person:con_ivo"], "claim": "not:approved_vendor_contract"}
+  ],
+  "probes": [
+    {"id": "p1", "axis": "contradiction", "about": "person:con_ivo",
+     "question": "Is the disagreement visible as a conflict?",
+     "want_conflict": true},
+    {"id": "p2", "axis": "history", "about": "person:con_ivo",
+     "question": "Are both sides still on the record?",
+     "expect": ["approved_vendor_contract", "not:approved_vendor_contract"]}
+  ]
+}
