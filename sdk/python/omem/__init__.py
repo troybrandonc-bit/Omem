@@ -428,6 +428,22 @@ class Memory:
         qs = ("?" + "&".join(q)) if q else ""
         return self._req("GET", f"/v1/memory/expectations{qs}").get("data", [])
 
+    def answer_expectation(self, hypothesis_id, answer, agent=None):
+        """Answer one of OMEM's open questions with 'yes' or 'no'. The
+        answer becomes an ordinary assertion under the answering agent's
+        name; the hypothesis then gets its verdict from interrogation, the
+        same way reality always settles a case. Nobody gets a lever that
+        marks a hunch true by decree."""
+        return self._req("POST",
+                         f"/v1/memory/expectations/{hypothesis_id}/answer",
+                         {"answer": answer, "agent": agent})
+
+    def calibration(self):
+        """What OMEM knows about its own guessing: per claim-family and per
+        generator, how the verdicts have gone. The same record feeds how
+        bold new leaps are born."""
+        return self._req("GET", "/v1/memory/calibration")
+
     def changes(self, since, viewer=None, user=None):
         """What changed since a logical time -- the delta an agent wants at
         session start instead of the whole pack again. `since` is any earlier

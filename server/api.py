@@ -2402,6 +2402,16 @@ class Handler(BaseHTTPRequestHandler):
                                             "case files, never beliefs; "
                                             "believes() is unaffected by them"})
 
+        # ── metacognition: what OMEM knows about its own guessing, per
+        # claim-family and per generator. The same numbers feed birth
+        # strength, so boldness follows the record.
+        if parts == ["v1", "memory", "calibration"]:
+            pid = qs.get("project", [None])[0]
+            p = PROJECTS.get(pid)
+            if not p:
+                return self._send(404, {"error": "project not found"})
+            return self._send(200, _hypo.calibration(STORE.db, p.id))
+
         # ── the belief diff: what changed since a logical time. The delta an
         # agent wants at session start, computed from the same as_of machinery
         # every query already uses. Read-only, scope-safe, deterministic.
@@ -4045,6 +4055,43 @@ class Handler(BaseHTTPRequestHandler):
                       metadata={"examined": result["examined"],
                                 "leapt": len(result["leapt"]),
                                 "skipped_spent": result["skipped_spent"]},
+                      correlation_id=self._corr())
+            return self._send(200, result)
+
+        # ── answering an open question: the answer becomes an ordinary
+        # assertion under the answerer's name, and the verdict then comes
+        # from interrogation, never by decree.
+        if len(parts) == 5 and parts[:3] == ["v1", "memory", "expectations"] \
+                and parts[4] == "answer":
+            p = self._proj(qs)
+            if p is None:
+                return self._err(404, "not_found", "project not found")
+            _agent, _err = self._effective_agent(auth, body.get("agent"))
+            if _err:
+                return
+            if not _agent and "user" in auth:
+                try:
+                    _agent = "user:" + (auth["user"]["email"] or auth["user"]["id"])
+                except Exception:
+                    _agent = None
+            if not _agent:
+                return self._err(422, "invalid_request",
+                                 "an answering agent is required: the answer "
+                                 "is evidence recorded under their name")
+            if _agent not in p.labels:
+                record(p, "agent", {"id": _agent, "kind": "user",
+                                    "label": _agent.split(":", 1)[-1]})
+            result = _hypo.answer(p, STORE.db, record, _mint_global,
+                                  parts[3], body.get("answer"), _agent)
+            if result.get("error") == "not_found":
+                return self._err(404, "not_found", "hypothesis not found")
+            if result.get("error") == "refused":
+                return self._err(422, "invalid_request", result.get("reason"))
+            if result.get("error"):
+                return self._err(409, "conflict",
+                                 f"hypothesis already {result.get('status')}")
+            ENT.audit("memory.question_answered", org_id=self._org_of_project(p.id),
+                      resource=parts[3], metadata=result,
                       correlation_id=self._corr())
             return self._send(200, result)
 

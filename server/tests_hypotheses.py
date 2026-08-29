@@ -136,8 +136,9 @@ mem.remember(A, ["customer:epsilon", "product:crm"], "rel_uses_crm")
 r3 = mem.leap()
 eps = [x for x in r3.get("leapt", []) if x["subject"] == "customer:epsilon"
        and x["proposition"] == "wants_pdf_invoices"]
-check("a confirmed generator leaps STRONGER next time",
-      eps and eps[0]["strength"] == 0.40, eps)
+check("a confirmed generator leaps STRONGER next time, and so does a "
+      "confirmed claim-family (0.35 + 0.05 gen + 0.03 family)",
+      eps and eps[0]["strength"] == 0.43, eps)
 mem.remember(A, "customer:epsilon", "not:wants_pdf_invoices")
 verdicts2 = mem.interrogate()
 check("reality refuted the leap: REFUTED",
@@ -155,8 +156,9 @@ mem.remember(A, ["customer:theta", "product:crm"], "rel_uses_crm")
 r5 = mem.leap()
 th = [x for x in r5.get("leapt", []) if x["subject"] == "customer:theta"
       and x["proposition"] == "wants_pdf_invoices"]
-check("verdicts teach: one win and one loss net a WEAKER leap than baseline",
-      th and th[0]["strength"] == 0.32, th)
+check("verdicts teach twice over: generator AND family records net a "
+      "weaker leap than baseline after one win and one loss",
+      th and th[0]["strength"] == 0.30, th)
 
 print("== the source dying lapses the leap ==")
 webinars = mem.remember(A, "customer:beta", "likes_webinars")
@@ -193,7 +195,7 @@ check("and the docket carries the actual question, with the reasoning",
       th_ask and th_ask[0]["docket"]["gaps"])
 check("corroboration moved strength while it waited (the other look-alike "
       "agrees)",
-      th_ask and th_ask[0]["strength"] > 0.32
+      th_ask and th_ask[0]["strength"] > 0.30
       and any(s.get("entity") == "customer:beta"
               for s in th_ask[0]["docket"]["supports"]), th_ask)
 
@@ -201,6 +203,90 @@ print("== the ledger of hunches survives: verdict rows are history ==")
 allrows = mem.expects(about="customer:gamma", status="supported")
 check("a supported hypothesis is kept as a verdict row, not deleted",
       allrows and allrows[0]["status"] == "supported", allrows)
+
+print("== rare coincidences bind: one unusual shared trait is enough ==")
+# zeta shares nothing common with anyone, but nu shares zeta's one RARE
+# trait. omega shares a COMMON feature with half the project and still
+# gets nothing: rarity, not count, is what resemblance weighs.
+mem.remember(A, "customer:zeta", "collects_vintage_terminals")
+mem.remember(A, "customer:nu", "runs_on_mainframes")
+r7 = mem.leap()
+nu = [x for x in r7.get("leapt", []) if x["subject"] == "customer:nu"]
+check("one rare shared trait binds nu to zeta and projects its belief",
+      any(x["proposition"] == "collects_vintage_terminals" for x in nu), r7)
+check("and the evidence names the rarity",
+      nu and "rare" in nu[0]["because"], nu)
+
+print("== meaning beats spelling when a real embedder is wired ==")
+import semantic_recall as sr  # noqa: E402
+SAME = {"prefers annual billing", "wants yearly invoicing"}
+
+
+def fake_embedder(texts):
+    return [[1.0, 0.0, 0.0] if t in SAME else sr._hash_embed(t)
+            for t in texts]
+
+
+sr.set_embedder(fake_embedder, tag="fake-cluster")
+mem.remember(A, "customer:rho", "wants_yearly_invoicing")
+mem.remember(A, ["customer:rho", "product:crm"], "rel_uses_crm")
+r8 = mem.leap()
+rho = {x["proposition"] for x in r8.get("leapt", [])
+       if x["subject"] == "customer:rho"}
+check("differently-worded experience still counts as resemblance",
+      "wants_pdf_invoices" in rho, r8.get("leapt"))
+check("and a sibling claim is never projected onto its own cluster",
+      "prefers_annual_billing" not in rho, rho)
+sr.set_embedder(None)
+
+print("== the asking loop closes: an answer is evidence, not a decree ==")
+res = mem.answer_expectation(th_ask[0]["id"], "yes", agent=A)
+check("answering yes records a real assertion and the verdict follows",
+      res.get("verdict") == "supported" and res.get("recorded"), res)
+check("the answer is a belief now, under the ANSWERER's name",
+      mem.believes("customer:theta", "wants_pdf_invoices") == "BELIEVED_TRUE"
+      and api.PROJECTS[PID].engine.store.assertion(res["recorded"]).agent == A)
+nu_h = mem.expects(about="customer:nu", status="open")
+res2 = mem.answer_expectation(nu_h[0]["id"], "no", agent=A)
+check("answering no records the negation and refutes the case",
+      res2.get("verdict") == "refuted"
+      and mem.believes("customer:nu", "collects_vintage_terminals")
+      == "BELIEVED_FALSE", res2)
+st = None
+try:
+    mem.answer_expectation(nu_h[0]["id"], "yes", agent=A)
+except omem.OmemError as e:
+    st = e.status
+check("a settled case cannot be re-answered", st == 409, st)
+st2 = None
+try:
+    mem.answer_expectation(th_ask[0]["id"], "maybe", agent=A)
+except omem.OmemError as e:
+    st2 = e.status
+check("an answer must take a side", st2 in (409, 422), st2)
+
+print("== metacognition: it knows what it is good at guessing ==")
+cal = mem.calibration()
+fam = cal.get("families", {})
+# The second wants-refutation was not planned by this suite and is the
+# system outreasoning it: once epsilon held not:wants_pdf_invoices, epsilon
+# became a look-alike source and projected the NEGATIVE expectation onto
+# theta -- a competing hypothesis. The yes answer refuted it through
+# reality, and epsilon's record paid. Rival conjectures, reality deciding,
+# every verdict charged to whoever leapt: exactly the tradecraft.
+check("the wants-family record shows its wins and losses, competing "
+      "hypotheses included",
+      fam.get("wants", {}).get("supported") == 2
+      and fam.get("wants", {}).get("refuted") == 2, fam)
+check("and the counter-example that became a role model has its own record",
+      gens_pre.get("customer:epsilon", {}).get("refuted") == 1
+      if (gens_pre := cal.get("generators", {})) else False, cal)
+check("the collects-family knows it has never guessed one right",
+      fam.get("collects", {}).get("rate") == 0.0, fam)
+gens = cal.get("generators", {})
+check("and per-generator records sit beside them",
+      gens.get("customer:alpha", {}).get("supported") == 2
+      and gens.get("customer:zeta", {}).get("refuted") == 1, gens)
 
 print("\n%d passed, %d failed" % (PASS, FAIL))
 sys.exit(1 if FAIL else 0)

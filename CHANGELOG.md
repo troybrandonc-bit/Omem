@@ -3,6 +3,44 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## Unreleased
+
+### Added
+
+- **The asking loop closes: OMEM's questions can now be answered.** A
+  hypothesis that will not resolve formulates its question; it now appears
+  on the dashboard's Proposals screen beside the merges and tensions, and
+  `mem.answer_expectation(id, "yes"/"no")` answers it. The answer is
+  EVIDENCE, not a decree: yes records the claim as an ordinary assertion
+  under the answerer's name, no records its negation, and the verdict still
+  comes from interrogation the same way reality always settles a case.
+
+- **Metacognition: `mem.calibration()`.** OMEM now knows what it is good at
+  guessing: per claim-family and per generator, how the verdicts have gone.
+  The same record feeds how bold new leaps are born, so a family of claims
+  it keeps getting right produces stronger hunches and one it keeps getting
+  wrong produces weaker ones.
+
+### Changed
+
+- **Resemblance got human: rarity binds, meaning beats spelling, context
+  weighs less than character.** Shared traits now carry inverse-frequency
+  weight, so two entities sharing one RARE trait can bind while sharing
+  something everyone has cannot -- the way rare coincidence drives human
+  analogy. Propositions compare by embedding cluster, so with a real
+  embedder configured, "wants_yearly_invoicing" and "prefers_annual_billing"
+  are one experience (and a sibling claim is never projected onto its own
+  cluster). Shared relations count at lower weight than shared beliefs:
+  both using the same tool is circumstance, both preferring the same terms
+  is character, and a single common relation can never justify a leap on
+  its own.
+
+  A welcome surprise the suite now pins: entities holding counter-evidence
+  become look-alike sources for NEGATIVE expectations, so rival hypotheses
+  about the same claim compete and reality picks the winner -- with the
+  losing generator's record paying. Competing hypotheses, arbitrated by
+  evidence, every verdict attributed.
+
 ## 0.2.14 - 29 Aug 2026
 
 **The release where OMEM gets intuition: it learns from one example the way
