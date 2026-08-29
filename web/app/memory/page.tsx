@@ -79,6 +79,19 @@ export default function Memory() {
     return [...seen].sort();
   }, [data, roleOf]);
 
+  // Grouped by who the belief is about, so everything known about one customer
+  // sits together instead of scattered through the log by time.
+  const groups = useMemo(() => {
+    const m = new Map<string, { key: string; label: string; items: Assertion[] }>();
+    for (const a of rows) {
+      const key = a.subjects[0] || "unknown";
+      const g = m.get(key) ?? { key, label: subjectLabel(key), items: [] };
+      g.items.push(a);
+      m.set(key, g);
+    }
+    return [...m.values()].sort((x, y) => x.label.localeCompare(y.label));
+  }, [rows]);
+
   return (
     <div className="mx-auto max-w-6xl space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -123,8 +136,21 @@ export default function Memory() {
         rows.length === 0 ?
           <EmptyState icon={Brain} title={q || roleFilter ? "No matching memories" : "No beliefs yet"}
             body={q || roleFilter ? "Try a different filter." : "Record your first memory from the Playground, or connect Gmail in Sources."} /> :
-          <div className="panel divide-y overflow-hidden">
-            {rows.map(a => <MemoryRow key={a.id} a={a} now={now} role={a.subjects.map(s => roleOf.get(s)).find(Boolean) ?? null} />)}
+          <div className="space-y-5">
+            {groups.map(g => (
+              <section key={g.key}>
+                <div className="mb-1.5 flex items-baseline gap-2 px-1">
+                  <h2 className="text-sm font-semibold">{g.label}</h2>
+                  <span className="text-2xs text-faint">
+                    {g.items.length} {g.items.length === 1 ? "belief" : "beliefs"}
+                  </span>
+                </div>
+                <div className="panel divide-y overflow-hidden">
+                  {g.items.map(a => <MemoryRow key={a.id} a={a} now={now} primary={g.key}
+                    role={a.subjects.map(s => roleOf.get(s)).find(Boolean) ?? null} />)}
+                </div>
+              </section>
+            ))}
           </div>}
     </div>
   );
@@ -141,10 +167,13 @@ function FilterPill({ children, active, onClick }:
   );
 }
 
-function MemoryRow({ a, now, role }: { a: Assertion; now: number; role: string | null }) {
+function MemoryRow({ a, now, role, primary }: { a: Assertion; now: number; role: string | null; primary?: string }) {
   const src = saidBy(a.agent);
   const closed = !a.open;
   const when = formatWhen(a.recorded_at, a.assertion_time);
+  // The group header already names the primary subject; a row only adds the
+  // OTHER subjects it touches (a relation's counterparty), if any.
+  const others = a.subjects.filter(s => s !== primary);
   return (
     <div className="px-4 py-3 hover:bg-[color:var(--border)]/20">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -156,13 +185,15 @@ function MemoryRow({ a, now, role }: { a: Assertion; now: number; role: string |
               {closed && <Badge tone="closed">no longer believed</Badge>}
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-2xs text-muted">
-              <span>About{" "}
-                {a.subjects.map((s, i) => (
-                  <span key={s} className="font-semibold text-ink">
-                    {i > 0 && ", "}{subjectLabel(s)}
-                  </span>
-                ))}
-              </span>
+              {others.length > 0 && (
+                <span>with{" "}
+                  {others.map((s, i) => (
+                    <span key={s} className="font-semibold text-ink">
+                      {i > 0 && ", "}{subjectLabel(s)}
+                    </span>
+                  ))}
+                </span>
+              )}
               <span className="flex items-center gap-1">
                 {src.kind === "human" ? <User className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
                 said by {src.label}

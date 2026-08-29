@@ -81,10 +81,7 @@ function AssertionDetailInner() {
             <header className="border-b px-4 py-2.5"><div className="tech-label">Belief over time</div></header>
             <div className="px-4 py-3">
               <IntervalStrip start={a.belief_interval.start} end={a.belief_interval.end} now={now} min={0} max={Math.max(now, a.belief_interval.start + 1)} />
-              <div className="mono mt-1.5 text-2xs text-muted">
-                [{a.belief_interval.start}, {a.belief_interval.end ?? "open"})
-              </div>
-              <p className="mt-2 text-2xs leading-relaxed text-faint">
+              <p className="mt-3 text-2xs leading-relaxed text-faint">
                 {(() => { const w = formatWhen(a.recorded_at, a.belief_interval.start);
                   return <>Believed since {w.text}{a.belief_interval.end === null
                     ? ", still open, with no end recorded."
@@ -118,7 +115,12 @@ function AssertionDetailInner() {
             </div>
             {why.provenance.nodes.length > 0
               ? <ProvenanceDAG nodes={why.provenance.nodes} edges={why.provenance.edges} rootId={a.id} />
-              : <div className="py-6 text-center text-sm text-muted">No derivations recorded. This belief was asserted directly, without cited evidence.</div>}
+              : <div className="py-6 text-center text-sm leading-relaxed text-muted">
+                  Asserted directly by <span className="font-medium text-fg">{why.agent?.label || a.agent}</span>
+                  {(() => { const w = formatWhen(a.recorded_at, a.assertion_time);
+                    return w.text ? <>, <span className="text-fg">{w.text}</span></> : null; })()}.
+                  <br />No source event is cited behind it, so this belief is ungrounded.
+                </div>}
           </Card>
 
           {/* contradictions */}
