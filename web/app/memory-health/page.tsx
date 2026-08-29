@@ -426,7 +426,7 @@ function FilterChip({ children, active, onClick }:
   { children: React.ReactNode; active: boolean; onClick: () => void }) {
   return (
     <button onClick={onClick} aria-pressed={active}
-      className={cn("tap inline-flex h-7 items-center rounded-sm border px-2.5 text-2xs font-semibold uppercase tracking-[0.05em] transition-colors duration-1 ease-out",
+      className={cn("tap inline-flex h-7 items-center rounded-sm border px-2.5 text-2xs font-semibold capitalize transition-colors duration-1 ease-out",
         active ? "border-accent bg-accentBg text-accent" : "border-line-strong text-muted hover:text-ink")}>
       {children}
     </button>

@@ -51,7 +51,7 @@ export default function Jobs() {
             {jobs.data.map(j => (
               <div key={j.id} className="flex items-center gap-4 px-4 py-2.5">
                 <span className="num w-10 text-2xs text-faint">#{j.id}</span>
-                <span className={cn("w-24 text-2xs font-semibold uppercase tracking-[0.04em]", STATE_TONE[j.state] ?? "text-muted")}>
+                <span className={cn("w-24 text-2xs font-semibold capitalize", STATE_TONE[j.state] ?? "text-muted")}>
                   {j.state.replace("_", " ")}
                 </span>
                 <span className="flex-1 truncate text-2xs text-muted">

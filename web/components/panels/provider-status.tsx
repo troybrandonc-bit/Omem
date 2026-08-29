@@ -84,7 +84,7 @@ export function ProviderStatus() {
                   <div className="mono mt-0.5 text-2xs text-faint">{r.dns.addresses.slice(0, 2).join(", ")}</div>
                 )}
               </div>
-              <span className={"shrink-0 rounded-sm border px-2 py-px text-2xs font-semibold uppercase " +
+              <span className={"shrink-0 rounded-sm border px-2 py-px text-2xs font-semibold " +
                 (r.state === "unset" ? "text-muted" : ok ? "text-believed" : "text-conflict")}
                 style={{ borderColor: "currentColor" }}>
                 {r.state === "unset" ? "not set" : ok ? "working" : r.dns?.ok === false ? "unreachable" : "rejected"}

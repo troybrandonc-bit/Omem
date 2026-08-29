@@ -174,7 +174,7 @@ function SourceCard({ c, busy, act }: { c: Connector; busy: string | null; act: 
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className={cn("rounded-sm border px-2 py-px text-2xs font-semibold uppercase tracking-[0.04em]", TONE[status] ?? "text-muted")}
+          <span className={cn("rounded-sm border px-2 py-px text-2xs font-semibold capitalize", TONE[status] ?? "text-muted")}
             style={{ borderColor: "currentColor" }}>{status.replace("_", " ")}</span>
           {status === "NEEDS_REAUTH" && (
             <button onClick={() => act(c.id + "re", async () => {

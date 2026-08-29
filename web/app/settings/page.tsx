@@ -153,21 +153,21 @@ function IdentitySettings() {
         becomes a memory about <em>your company</em>, never about a customer.
       </p>
       <div>
-        <div className="text-2xs uppercase tracking-wide text-faint">Company name</div>
+        <div className="text-2xs text-faint">Company name</div>
         <input value={current.company_name}
           onChange={e => setForm({ ...current, company_name: e.target.value })}
           placeholder="Acme Ltd"
           className="mt-1 w-full max-w-sm rounded-md border bg-panel px-3 py-1.5 text-sm outline-none focus:border-accent" />
       </div>
       <div>
-        <div className="text-2xs uppercase tracking-wide text-faint">Domains (comma-separated)</div>
+        <div className="text-2xs text-faint">Domains (comma-separated)</div>
         <input value={current.domains}
           onChange={e => setForm({ ...current, domains: e.target.value })}
           placeholder="acme.com, acme.io"
           className="mono mt-1 w-full max-w-sm rounded-md border bg-panel px-3 py-1.5 text-sm outline-none focus:border-accent" />
       </div>
       <div>
-        <div className="text-2xs uppercase tracking-wide text-faint">Extra addresses (comma-separated)</div>
+        <div className="text-2xs text-faint">Extra addresses (comma-separated)</div>
         <input value={current.emails}
           onChange={e => setForm({ ...current, emails: e.target.value })}
           placeholder="info@acme.com, sales@acme.com"

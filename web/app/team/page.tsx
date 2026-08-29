@@ -33,7 +33,7 @@ export default function Team() {
             {data.data.map(m => (
               <div key={m.user_id} className="flex items-center justify-between px-4 py-2.5">
                 <span className="text-sm font-medium">{m.email}</span>
-                <span className="rounded-sm border border-line-strong px-2 py-px text-2xs font-semibold uppercase text-muted">{m.role}</span>
+                <span className="rounded-sm border border-line-strong px-2 py-px text-2xs font-semibold capitalize text-muted">{m.role}</span>
               </div>
             ))}
           </div>
