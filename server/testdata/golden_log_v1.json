@@ -1,0 +1,317 @@
+{
+ "counts": {
+  "agents": 3,
+  "assertions": 13,
+  "entities": 6,
+  "events": 0,
+  "logical_time": 13,
+  "propositions": 13
+ },
+ "digest": "cdf69d44230c54365fb5352f83f1edf876e01a8255d7cefd1ac481ef7f1b1f2a",
+ "generated_with": "0.2.15",
+ "ops": [
+  {
+   "args": {
+    "id": "agent:scout",
+    "kind": "system",
+    "label": null,
+    "recorded_existence": 0
+   },
+   "clock": 0,
+   "kind": "agent"
+  },
+  {
+   "args": {
+    "id": "person:ada",
+    "label": null,
+    "type": "thing"
+   },
+   "clock": 0,
+   "kind": "entity"
+  },
+  {
+   "args": {
+    "agent": "agent:scout",
+    "assertion_time": 1,
+    "confidence": null,
+    "event_time": null,
+    "id": "a_f3114a1155",
+    "label": null,
+    "proposition": "prefers_annual_billing",
+    "subjects": [
+     "person:ada"
+    ]
+   },
+   "clock": 1,
+   "kind": "assert"
+  },
+  {
+   "args": {
+    "agent": "agent:scout",
+    "assertion_time": 2,
+    "confidence": null,
+    "event_time": null,
+    "id": "a_f0c4d2b58a",
+    "label": null,
+    "proposition": "based_in_turin",
+    "subjects": [
+     "person:ada"
+    ]
+   },
+   "clock": 2,
+   "kind": "assert"
+  },
+  {
+   "args": {
+    "id": "agent:archivist",
+    "kind": "system",
+    "label": null,
+    "recorded_existence": 0
+   },
+   "clock": 2,
+   "kind": "agent"
+  },
+  {
+   "args": {
+    "agent": "agent:archivist",
+    "assertion_time": 3,
+    "confidence": null,
+    "event_time": null,
+    "id": "a_3e981e35bc",
+    "label": null,
+    "proposition": "not:prefers_annual_billing",
+    "subjects": [
+     "person:ada"
+    ]
+   },
+   "clock": 3,
+   "kind": "assert"
+  },
+  {
+   "args": {
+    "id": "company:tabulate",
+    "label": null,
+    "type": "thing"
+   },
+   "clock": 3,
+   "kind": "entity"
+  },
+  {
+   "args": {
+    "agent": "agent:scout",
+    "assertion_time": 4,
+    "confidence": null,
+    "event_time": null,
+    "id": "a_3ee75df193",
+    "label": null,
+    "proposition": "rel_works_at_tabulate",
+    "subjects": [
+     "person:ada",
+     "company:tabulate"
+    ]
+   },
+   "clock": 4,
+   "kind": "assert"
+  },
+  {
+   "args": {
+    "id": "company:kernelworks",
+    "label": null,
+    "type": "thing"
+   },
+   "clock": 4,
+   "kind": "entity"
+  },
+  {
+   "args": {
+    "agent": "agent:scout",
+    "assertion_time": 5,
+    "confidence": null,
+    "event_time": null,
+    "id": "a_0db78b81a9",
+    "label": null,
+    "proposition": "rel_owns_tabulate",
+    "subjects": [
+     "company:kernelworks",
+     "company:tabulate"
+    ]
+   },
+   "clock": 5,
+   "kind": "assert"
+  },
+  {
+   "args": {
+    "id": "agent:omem-rules",
+    "kind": "system",
+    "label": "OMEM inference rules"
+   },
+   "clock": 5,
+   "kind": "agent"
+  },
+  {
+   "args": {
+    "agent": "agent:omem-rules",
+    "assertion_time": 6,
+    "confidence": null,
+    "id": "a_17975cdaa7",
+    "label": "kernelworks involves ada (concluded)",
+    "proposition": "rel_involves_ada",
+    "subjects": [
+     "company:kernelworks",
+     "person:ada"
+    ]
+   },
+   "clock": 6,
+   "kind": "assert"
+  },
+  {
+   "args": {
+    "antecedents": [
+     "a_3ee75df193",
+     "a_0db78b81a9"
+    ],
+    "consequent": "a_17975cdaa7",
+    "dkind": "inference",
+    "id": "d_43d664f3ec"
+   },
+   "clock": 6,
+   "kind": "derive"
+  },
+  {
+   "args": {
+    "agent": "agent:scout",
+    "assertion_time": 7,
+    "did": "d_64fa50710f",
+    "id": "a_94a327d0cb",
+    "old": "a_0db78b81a9",
+    "subjects": [
+     "company:kernelworks",
+     "company:tabulate"
+    ]
+   },
+   "clock": 7,
+   "kind": "retract"
+  },
+  {
+   "args": {
+    "agent": "agent:omem-rules",
+    "assertion_time": 8,
+    "did": "d_cd1e5728dd",
+    "id": "a_6e927b1e71",
+    "old": "a_17975cdaa7",
+    "subjects": [
+     "company:kernelworks",
+     "person:ada"
+    ]
+   },
+   "clock": 8,
+   "kind": "retract"
+  },
+  {
+   "args": {
+    "id": "person:grace",
+    "label": null,
+    "type": "thing"
+   },
+   "clock": 8,
+   "kind": "entity"
+  },
+  {
+   "args": {
+    "agent": "agent:scout",
+    "assertion_time": 9,
+    "confidence": null,
+    "event_time": null,
+    "id": "a_98219dbbca",
+    "label": null,
+    "proposition": "lives_in_berlin",
+    "subjects": [
+     "person:grace"
+    ]
+   },
+   "clock": 9,
+   "kind": "assert"
+  },
+  {
+   "args": {
+    "agent": "agent:scout",
+    "assertion_time": 10,
+    "confidence": null,
+    "did": "d_a80744f4b1",
+    "id": "a_4490ba170a",
+    "label": null,
+    "olds": [
+     "a_98219dbbca"
+    ],
+    "proposition": "lives_in_paris",
+    "subjects": [
+     "person:grace"
+    ]
+   },
+   "clock": 10,
+   "kind": "supersede"
+  },
+  {
+   "args": {
+    "id": "customer:c1",
+    "label": null,
+    "type": "thing"
+   },
+   "clock": 10,
+   "kind": "entity"
+  },
+  {
+   "args": {
+    "id": "customer:c2",
+    "label": null,
+    "type": "thing"
+   },
+   "clock": 10,
+   "kind": "entity"
+  },
+  {
+   "args": {
+    "agent": "agent:scout",
+    "assertion_time": 11,
+    "entity_a": "customer:c1",
+    "entity_b": "customer:c2",
+    "id": "cor_989205ce92"
+   },
+   "clock": 11,
+   "kind": "corefer"
+  },
+  {
+   "args": {
+    "agent": "agent:scout",
+    "assertion_time": 12,
+    "cor": "cor_989205ce92",
+    "did": "d_d737d3666a",
+    "id": "a_79161b60d5"
+   },
+   "clock": 12,
+   "kind": "split"
+  },
+  {
+   "args": {
+    "agent": "agent:archivist",
+    "assertion_time": 13,
+    "did": "d_90be053dbf",
+    "id": "a_cbd5331067",
+    "old": "a_f3114a1155",
+    "subjects": [
+     "person:ada"
+    ]
+   },
+   "clock": 13,
+   "kind": "retract"
+  }
+ ],
+ "project_row": {
+  "env": "development",
+  "id": "proj_cdc02ca2eb2e",
+  "is_demo": 0,
+  "name": "My first project",
+  "org_id": "org_c1fb66b48593"
+ },
+ "version": 1
+}
