@@ -385,6 +385,22 @@ not run: OMEM's card, every probe passing on every axis, is asserted by
 `server/tests_witness_benchmark.py` against a live server on every commit.
 Run the others with your own keys and read your own card.
 
+## The claims ledger
+
+Marketing that cannot fail is indistinguishable from marketing that is
+false. [CLAIMS.md](CLAIMS.md) maps every load-bearing sentence this project
+says about itself to the executable statement that would go red if it
+stopped being true, and the ledger is itself guarded in CI: a row whose
+file goes missing fails the build.
+
+Two rows worth calling out because nobody else in this niche can write
+them. *It phones home to nobody*: `tests_airgap.py` installs a guard under
+the socket layer, then drives every major feature through a live server and
+fails on a single outbound connection or DNS lookup that is not loopback.
+*Upgrades never rewrite your past*: a log frozen on 2026-08-29 replays to a
+byte-identical state digest on every commit, so no future version can
+quietly reinterpret a history you already recorded.
+
 ## Proving the state follows from the log
 
 Memory is rebuilt by replaying an append-only log. That is easy to claim and
