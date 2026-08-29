@@ -3,6 +3,40 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.2.16 - 29 Aug 2026
+
+**Three claims stop being sentences, a benchmark for testimony, and a
+ledger over all of it.**
+
+- **The Witness benchmark** (`benchmarks/witness/`). Memory benchmarks
+  measure recall; Witness measures the duties a witness swears to: assert
+  nothing you were not told, stop repeating what was withdrawn, keep
+  disagreement visible, keep two people with one name apart, and let
+  conclusions die with their premises. Six scenarios, ten axes,
+  deterministic scoring, no LLM judges. OMEM's card, every probe passing
+  on every axis, is asserted in CI on every commit. Adapters for Mem0 and
+  Graphiti are included and run with your own keys: this repository
+  publishes no numbers it did not run.
+- **It phones home to nobody, provably.** `tests_airgap.py` installs a
+  guard under the socket layer, then drives a full session through
+  identity, contradiction, a rule cascade, semantic recall and hunches.
+  A single outbound connection or non-loopback DNS lookup fails the
+  build with the address in hand. The guard must first catch a
+  deliberate external connect before its silence is believed.
+- **Upgrades never rewrite your past.** A golden ops log frozen on
+  2026-08-29 replays on every commit and must produce a byte-identical
+  state digest. The suite also tampers with one op and requires the
+  digest to move, so the check is proven able to fail. A deliberate
+  semantic change gets a v2 fixture beside v1; it cannot be quiet.
+- **The claims ledger** (`CLAIMS.md`). Sixteen load-bearing sentences,
+  each mapped to the executable statement that would go red. The ledger
+  is itself guarded in CI: a row whose file goes missing fails the
+  build.
+- The landing page carries the reasoning arc, the animated demo terminal
+  (now SMIL, so it plays inside `<img>` too), hunches with case files,
+  the proofs section, and comparison pages for Mem0, Zep and Letta that
+  are fair or absent.
+
 ## 0.2.15 - 29 Aug 2026
 
 **The intuition layer grows senses, ears, and self-knowledge: rare
