@@ -535,6 +535,9 @@ store.get(("memories", "alice"), "pref").value
 Pass it to `create_react_agent(..., store=store)` or any LangGraph graph, the
 same as `InMemoryStore`.
 
+<img src=".github/omem-langgraph-ad.gif" width="720"
+     alt="26-second animation: two store.put calls on the same key erase the first value in a key-value store; through OmemStore the same calls supersede instead, the old value stays on the record, and mem.why answers where the memory came from.">
+
 The difference from the built-in stores is what happens on the second write.
 They overwrite, and `delete` erases. Here a `put` over an existing key
 **supersedes**: the previous value stays on the record with the moment it

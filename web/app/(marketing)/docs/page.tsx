@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { CodeBlock, ButtonLink, SpecList } from "@/components/marketing/ui";
 import { ArrowRight } from "lucide-react";
 
@@ -55,6 +56,21 @@ export default function DocsIntro() {
         The TypeScript SDK does not yet cover the whole Python surface; the gap
         is tracked in <code className="mono text-fg">CONTRIBUTING.md</code>.
       </p>
+
+      {/* The LangGraph difference in 26 seconds. A GIF rather than a video
+          element: it autoplays everywhere, weighs half a megabyte, and is
+          rendered by distribution/ad/make_ad.py in the same palette as the
+          rest of the site, so it reads as product, not marketing. */}
+      <figure className="my-8">
+        <Image src="/omem-langgraph-ad.gif" width={960} height={540}
+               alt="Two store.put calls on the same key erase the first value in a key-value store. Through OmemStore the same calls supersede instead: the old value stays on the record and mem.why answers where the memory came from."
+               unoptimized
+               className="lift-lg block h-auto w-full max-w-[46rem] rounded-lg" />
+        <figcaption className="mt-3 text-caption text-faint">
+          What the second write does, side by side. The old value survives it
+          here.
+        </figcaption>
+      </figure>
 
       <h2>What you get</h2>
       <SpecList items={WHAT} tone="fg" />
