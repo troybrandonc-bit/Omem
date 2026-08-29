@@ -3,7 +3,12 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
-## Unreleased
+## 0.2.15 - 29 Aug 2026
+
+**The intuition layer grows senses, ears, and self-knowledge: rare
+coincidences bind, meaning beats spelling, questions get answered as
+evidence rather than decree, and OMEM's boldness now follows its own
+record.**
 
 ### Added
 
