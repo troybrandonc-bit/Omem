@@ -17,7 +17,7 @@ import { Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, formatWhen } from "@/lib/api";
 import { useApp } from "@/components/providers";
 import { Card, Skeleton, Badge } from "@/components/ui/primitives";
 import { ArrowLeft, Bot } from "lucide-react";
@@ -43,7 +43,7 @@ function AgentDetailInner() {
                 <div className="text-sm font-medium">{c.label || c.proposition}</div>
                 <Badge tone={c.open ? "believed" : "closed"}>{c.open ? "open" : "closed"}</Badge>
               </div>
-              <div className="mt-0.5 text-2xs text-muted">t={c.assertion_time}</div>
+              {(() => { const w = formatWhen(c.recorded_at, c.assertion_time); return w.text ? <div className="mt-0.5 text-2xs text-muted" title={w.title}>{w.text}</div> : null; })()}
             </Card>
           </Link>
         ))}

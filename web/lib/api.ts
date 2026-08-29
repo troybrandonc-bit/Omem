@@ -32,7 +32,7 @@ export interface Assertion {
  *  a relative age for the last week, a date before that. Falls back to the
  *  logical tick only when no wall-clock is known (older records). Returns the
  *  short text plus a full timestamp for the title attribute. */
-export function formatWhen(recordedAt?: number | null, tick?: number): { text: string; title: string } {
+export function formatWhen(recordedAt?: number | null, tick?: number | null): { text: string; title: string } {
   if (recordedAt == null || !isFinite(recordedAt)) {
     return { text: tick != null ? `t${tick}` : "", title: "logical time" };
   }
@@ -52,7 +52,7 @@ export function formatWhen(recordedAt?: number | null, tick?: number): { text: s
 }
 export interface Entity { id: string; type?: string; label?: string | null; }
 export interface Agent { id: string; kind?: string; label?: string | null; recorded_existence?: number; claims?: Assertion[]; }
-export interface EventPrim { id: string; kind?: string; label?: string | null; event_time?: number | null; }
+export interface EventPrim { id: string; kind?: string; label?: string | null; event_time?: number | null; recorded_at?: number | null; }
 export interface ProvNode { id: string; kind: string; root?: boolean; label?: string | null; }
 export interface ProvEdge { from: string; to: string; kind: string; }
 export interface EvidenceRecord { assertion_id: string; source_record_id: string | null; evidence: string | null; confidence: number | null; extractor: string | null; created: number; }

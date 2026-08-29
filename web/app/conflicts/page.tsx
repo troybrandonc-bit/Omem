@@ -1,7 +1,7 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { api, isGrounded } from "@/lib/api";
+import { api, isGrounded, formatWhen } from "@/lib/api";
 import { useApp } from "@/components/providers";
 import { Skeleton, EmptyState, ErrorState } from "@/components/ui/primitives";
 import { ShieldCheck } from "lucide-react";
@@ -48,7 +48,7 @@ export default function Conflicts() {
                       <div className="mt-1 text-2xs text-muted">{a.proposition}</div>
                       <dl className="mt-4 space-y-1 text-2xs text-muted">
                         <div className="flex gap-2"><dt className="w-14">agent</dt><dd className="mono text-fg/80">{a.agent}</dd></div>
-                        <div className="flex gap-2"><dt className="w-14">asserted</dt><dd className="mono text-fg/80">t={a.assertion_time}</dd></div>
+                        <div className="flex gap-2"><dt className="w-14">asserted</dt><dd className="text-fg/80" title={formatWhen(a.recorded_at, a.assertion_time).title}>{formatWhen(a.recorded_at, a.assertion_time).text}</dd></div>
                         <div className="flex gap-2"><dt className="w-14">evidence</dt>
                           <dd className={isGrounded(a.grounded) ? "font-medium text-believed" : "text-unknown"}>
                             {isGrounded(a.grounded) ? "grounded" : "ungrounded"}</dd></div>

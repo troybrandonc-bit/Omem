@@ -1328,12 +1328,12 @@ def shape_agent(p: Project, aid: str) -> dict:
             "object": "agent"} if ag else None
 
 
-def shape_event(p: Project, vid: str) -> dict:
+def shape_event(p: Project, vid: str, recorded_at: float | None = None) -> dict:
     lbl = p.labels.get(vid, {})
     ev = p.engine.store.event(vid)
     return {"id": vid, "kind": getattr(ev, "kind", lbl.get("event_kind")),
             "label": lbl.get("label"), "event_time": getattr(ev, "event_time", None),
-            "object": "event"} if ev else None
+            "recorded_at": recorded_at, "object": "event"} if ev else None
 
 
 # ── HTTP handler ─────────────────────────────────────────────────────────────
@@ -2851,6 +2851,7 @@ class Handler(BaseHTTPRequestHandler):
             prov_ids, grounded = e.provenance(aid)
             state = e.proposition_state(list(a.subjects), a.proposition, T)
             chain = e.revision_chain(aid)
+            tsm = STORE.assert_timestamps(p.id)   # real recorded times, once
             # contradictions: open assertions conflicting with THIS assertion at
             # T. Use the P7 narrow query (only aid's neighbourhood) instead of
             # the full O(n²) engine.conflicts(T) - byte-identical for pairs
@@ -2866,7 +2867,7 @@ class Handler(BaseHTTPRequestHandler):
                 other = [x for x in pair if x != aid][0]
                 if not _viewer_scope_ok(p.id, other, _v, qs.get("user", [None])[0]):
                     continue
-                contradictory.append(shape_assertion(p, other, T))
+                contradictory.append(shape_assertion(p, other, T, recorded_at=tsm.get(other)))
             prov_nodes = []
             for pid in prov_ids:
                 kind = ("event" if e.store.event(pid) else
@@ -2885,14 +2886,13 @@ class Handler(BaseHTTPRequestHandler):
                             for r in _consol.reinforcement_rows(STORE.db, p.id, aid)})
             _cscore, _cwhy = _confidence.effective(a.confidence, _support)
             return self._send(200, {
-                "assertion": shape_assertion(p, aid, T,
-                                             recorded_at=STORE.assert_timestamps(p.id).get(aid)),
+                "assertion": shape_assertion(p, aid, T, recorded_at=tsm.get(aid)),
                 "as_of": T,
                 "state": state,
                 "confidence": {"score": _cscore, "because": _cwhy},
                 "grounded": grounded == "GROUNDED",
                 "provenance": {"nodes": prov_nodes, "edges": edges},
-                "revision_chain": [shape_assertion(p, c, T) for c in chain],
+                "revision_chain": [shape_assertion(p, c, T, recorded_at=tsm.get(c)) for c in chain],
                 "evidence": INGEST.evidence_for(p.id, aid),
                 "source": (lambda sr: {
                     "id": sr["id"], "external_id": sr["external_id"],
@@ -2986,7 +2986,9 @@ class Handler(BaseHTTPRequestHandler):
             if _err:
                 return
             _u = qs.get("user", [None])[0]
-            claims = [shape_assertion(p, a.id, T) for a in e.store.assertions()
+            tsm = STORE.assert_timestamps(p.id)
+            claims = [shape_assertion(p, a.id, T, recorded_at=tsm.get(a.id))
+                      for a in e.store.assertions()
                       if a.agent == parts[2] and _viewer_scope_ok(p.id, a.id, _v, _u)]
             sa["claims"] = claims
             return self._send(200, sa)
@@ -2998,7 +3000,9 @@ class Handler(BaseHTTPRequestHandler):
         # /v1/timeline
         if parts == ["v1", "timeline"]:
             ids = e.timeline(T)
-            return self._send(200, {"as_of": T, "events": [shape_event(p, i) for i in ids]})
+            tsm = STORE.assert_timestamps(p.id)
+            return self._send(200, {"as_of": T,
+                "events": [shape_event(p, i, recorded_at=tsm.get(i)) for i in ids]})
 
         # /v1/conflicts
         if parts == ["v1", "conflicts"]:
@@ -3021,6 +3025,7 @@ class Handler(BaseHTTPRequestHandler):
                 _pairs = _cn.conflicts_for(e, _open_ids, T, pview=_pview)
             except Exception:
                 _pairs = e.conflicts(T)
+            tsm = STORE.assert_timestamps(p.id)
             for pair in _pairs:
                 a, b = tuple(pair)
                 # a conflict pair is only visible if the caller may see BOTH
@@ -3029,7 +3034,8 @@ class Handler(BaseHTTPRequestHandler):
                 if not (_viewer_scope_ok(p.id, a, _v, _u)
                         and _viewer_scope_ok(p.id, b, _v, _u)):
                     continue
-                out.append({"pair": [shape_assertion(p, a, T), shape_assertion(p, b, T)]})
+                out.append({"pair": [shape_assertion(p, a, T, recorded_at=tsm.get(a)),
+                                     shape_assertion(p, b, T, recorded_at=tsm.get(b))]})
             return self._send(200, {"as_of": T, "conflicts": out})
 
         # /v1/coreference/partition

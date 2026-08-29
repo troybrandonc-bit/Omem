@@ -1,4 +1,4 @@
-import { Inter, Inter_Tight, JetBrains_Mono } from "next/font/google";
+import { Inter, Inter_Tight, Spline_Sans_Mono } from "next/font/google";
 
 /* Fonts are self-hosted at build time, not fetched from Google at runtime.
  *
@@ -48,12 +48,15 @@ export const display = Inter_Tight({
   fallback: ["system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
 });
 
-/** Identifiers, propositions, timestamps, code.
- *  JetBrains Mono has a taller x-height than most monos, which is what lets it
- *  sit next to Inter at the same nominal size without looking like a different
- *  document. Its zero is slashed and its brackets are heavy — both matter when
- *  the thing being set is `not:prefers_email_over_phone` rather than prose. */
-export const mono = JetBrains_Mono({
+/** Identifiers, propositions, code.
+ *  Was JetBrains Mono, whose slashed zero and slab-ish terminals read as a
+ *  coder's typewriter next to Inter's clean humanist text. Spline Sans Mono is
+ *  a humanist monospace built as a companion to a modern sans: it keeps the
+ *  fixed advance a token needs for `not:prefers_email_over_phone`, but the
+ *  letterforms are Inter's world, not a terminal's, so an id set in it reads as
+ *  part of the same sleek document rather than a machine printout. Variable,
+ *  like the other two faces. */
+export const mono = Spline_Sans_Mono({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-mono",

@@ -1,6 +1,6 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, formatWhen } from "@/lib/api";
 import { useApp } from "@/components/providers";
 import { Card, Skeleton, EmptyState, ErrorState } from "@/components/ui/primitives";
 import { Clock } from "lucide-react";
@@ -21,7 +21,7 @@ export default function Timeline() {
             <div key={e.id} className="relative mb-4">
               <span className="led accent absolute -left-[15px] top-2" />
               <Card className="p-3">
-                <div className="flex items-center justify-between"><div className="text-sm font-medium">{e.label || e.id}</div><span className="text-2xs text-faint">t={e.event_time}</span></div>
+                <div className="flex items-center justify-between"><div className="text-sm font-medium">{e.label || e.id}</div>{(() => { const w = formatWhen(e.recorded_at, e.event_time); return <span className="text-2xs text-faint" title={w.title}>{w.text}</span>; })()}</div>
                 <div className="mt-0.5 text-2xs text-muted">{e.kind}</div>
               </Card>
             </div>

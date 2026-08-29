@@ -85,8 +85,10 @@ function AssertionDetailInner() {
                 [{a.belief_interval.start}, {a.belief_interval.end ?? "open"})
               </div>
               <p className="mt-2 text-2xs leading-relaxed text-faint">
-                Half-open interval: believed from t={a.belief_interval.start}
-                {a.belief_interval.end === null ? " with no end recorded." : ` until t=${a.belief_interval.end}.`}
+                {(() => { const w = formatWhen(a.recorded_at, a.belief_interval.start);
+                  return <>Believed since {w.text}{a.belief_interval.end === null
+                    ? ", still open, with no end recorded."
+                    : `, until it was superseded.`}</>; })()}
               </p>
             </div>
             {why.subjects.length > 1 && (
@@ -111,8 +113,8 @@ function AssertionDetailInner() {
             <div className="mb-2 flex items-center justify-between">
               <div className="tech-label">Supporting evidence / provenance</div>
               {isGrounded(why.grounded)
-                ? <Badge tone="believed">reaches an event</Badge>
-                : <Badge tone="unknown">no event root</Badge>}
+                ? <Badge tone="believed">grounded in an event</Badge>
+                : <Badge tone="unknown">not grounded in an event</Badge>}
             </div>
             {why.provenance.nodes.length > 0
               ? <ProvenanceDAG nodes={why.provenance.nodes} edges={why.provenance.edges} rootId={a.id} />
@@ -130,7 +132,8 @@ function AssertionDetailInner() {
                   className="mb-2 flex items-center justify-between rounded-md border border-[color:var(--conflict)]/30 bg-[color:var(--conflict)]/5 px-3 py-2 hover:bg-[color:var(--conflict)]/10">
                   <div>
                     <div className="text-sm font-medium">{c.label || c.proposition}</div>
-                    <div className="text-2xs text-faint">by {c.agent} / t={c.assertion_time}</div>
+                    {(() => { const w = formatWhen(c.recorded_at, c.assertion_time);
+                      return <div className="text-2xs text-faint" title={w.title}>by {c.agent.replace(/^agent:/, "")}{w.text ? ` · ${w.text}` : ""}</div>; })()}
                   </div>
                   <Badge tone="conflict">opposing</Badge>
                 </Link>
@@ -156,7 +159,8 @@ function AssertionDetailInner() {
                     </div>
                     <Link href={`/assertion?id=${encodeURIComponent(r.id)}`} className="flex-1 py-1 hover:text-accent">
                       <div className="text-sm">{r.is_retraction ? <span className="text-conflict">retracted</span> : (r.label || r.proposition)}</div>
-                      <div className="text-2xs text-faint">t={r.assertion_time} {r.id === a.id && "· viewing"}</div>
+                      {(() => { const w = formatWhen(r.recorded_at, r.assertion_time);
+                        return <div className="text-2xs text-faint" title={w.title}>{w.text}{r.id === a.id && " · viewing"}</div>; })()}
                     </Link>
                   </div>
                 ))}

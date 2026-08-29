@@ -93,7 +93,7 @@ export default function Playground() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm">
                         <StatePill state={why.state} />
-                        <span className="text-2xs text-faint">{why.grounded ? "grounded: reaches an event root" : "ungrounded"}</span>
+                        <span className="text-2xs text-faint">{why.grounded ? "grounded in a source event" : "ungrounded"}</span>
                       </div>
                       <ProvChain why={why} />
                     </div>
