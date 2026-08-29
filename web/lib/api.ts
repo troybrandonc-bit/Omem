@@ -64,6 +64,7 @@ export interface SourceView {
 export interface SourceRef { id: string; external_id: string; connector_id: string; received: number; payload: Record<string, unknown>; view?: SourceView; }
 export interface WhyResult {
   assertion: Assertion; as_of: number; state: PropositionState; grounded: boolean;
+  confidence?: { score: number; because: string[] };
   provenance: { nodes: ProvNode[]; edges: ProvEdge[] };
   revision_chain: Assertion[]; contradictions: Assertion[];
   subjects: (Entity | null)[]; agent: Agent | null;

@@ -3,8 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { api, isGrounded, formatWhen, type Assertion } from "@/lib/api";
 import { useApp } from "@/components/providers";
-import { Badge, Skeleton, EmptyState, IntervalStrip } from "@/components/ui/primitives";
-import { Brain, ShieldCheck, ShieldAlert, Bot, User, ScanSearch } from "lucide-react";
+import { cn } from "@/lib/cn";
+import { Badge, Skeleton, EmptyState, IntervalStrip, StateBadge } from "@/components/ui/primitives";
+import { Brain, ShieldCheck, ShieldAlert, Bot, User, ScanSearch, ChevronRight, AlertTriangle } from "lucide-react";
 import { useMemo, useState } from "react";
 
 // The memory list answers, per row: WHAT is believed, WHO it is about, WHO
@@ -174,44 +175,98 @@ function MemoryRow({ a, now, role, primary }: { a: Assertion; now: number; role:
   // The group header already names the primary subject; a row only adds the
   // OTHER subjects it touches (a relation's counterparty), if any.
   const others = a.subjects.filter(s => s !== primary);
+  const [open, setOpen] = useState(false);
   return (
-    <div className="px-4 py-3 hover:bg-[color:var(--border)]/20">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <Link href={`/assertion?id=${encodeURIComponent(a.id)}`} className="group block">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="num text-sm font-medium group-hover:text-accent">{a.proposition}</span>
-              {role && <Badge tone={role === "CUSTOMER" ? "believed" : role === "MARKETING" || role === "IGNORE" ? "conflict" : "accent"}>{role.replace(/_/g, " ")}</Badge>}
-              {closed && <Badge tone="closed">no longer believed</Badge>}
-            </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-2xs text-muted">
-              {others.length > 0 && (
-                <span>with{" "}
-                  {others.map((s, i) => (
-                    <span key={s} className="font-semibold text-ink">
-                      {i > 0 && ", "}{subjectLabel(s)}
-                    </span>
-                  ))}
-                </span>
-              )}
-              <span className="flex items-center gap-1">
-                {src.kind === "human" ? <User className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
-                said by {src.label}
+    <div className="hover:bg-[color:var(--border)]/20">
+      <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
+        <button onClick={() => setOpen(o => !o)} aria-expanded={open}
+          className="group min-w-0 text-left">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="num text-sm font-medium group-hover:text-accent">{a.proposition}</span>
+            {role && <Badge tone={role === "CUSTOMER" ? "believed" : role === "MARKETING" || role === "IGNORE" ? "conflict" : "accent"}>{role.replace(/_/g, " ")}</Badge>}
+            {closed && <Badge tone="closed">no longer believed</Badge>}
+          </div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-2xs text-muted">
+            {others.length > 0 && (
+              <span>with{" "}
+                {others.map((s, i) => (
+                  <span key={s} className="font-semibold text-ink">
+                    {i > 0 && ", "}{subjectLabel(s)}
+                  </span>
+                ))}
               </span>
-              {when.text && <span title={when.title}>{when.text}</span>}
-              {a.confidence != null && <span>{Math.round(a.confidence * 100)}% confidence</span>}
-            </div>
-          </Link>
-        </div>
+            )}
+            <span className="flex items-center gap-1">
+              {src.kind === "human" ? <User className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
+              said by {src.label}
+            </span>
+            {when.text && <span title={when.title}>{when.text}</span>}
+            {a.confidence != null && <span>{Math.round(a.confidence * 100)}% confidence</span>}
+          </div>
+        </button>
         <div className="flex shrink-0 items-center gap-3">
           {isGrounded(a.grounded)
             ? <Badge tone="believed"><ShieldCheck className="h-3 w-3" />grounded</Badge>
             : <Badge tone="unknown"><ShieldAlert className="h-3 w-3" />ungrounded</Badge>}
           <div className="w-32"><IntervalStrip start={a.belief_interval.start} end={a.belief_interval.end} now={now} min={0} max={Math.max(now, a.belief_interval.start + 1)} /></div>
-          <Link href={`/assertion?id=${encodeURIComponent(a.id)}`}
-            className="text-2xs font-semibold text-accent hover:underline">View evidence →</Link>
+          <button onClick={() => setOpen(o => !o)} aria-expanded={open}
+            className="flex items-center gap-0.5 text-2xs font-semibold text-accent hover:underline">
+            Why <ChevronRight className={cn("h-3.5 w-3.5 transition-transform duration-1 ease-out", open && "rotate-90")} />
+          </button>
         </div>
       </div>
+      {open && <WhyPanel id={a.id} />}
+    </div>
+  );
+}
+
+/** The engine's answer to "why do you believe this", inline. The same
+ *  /why the detail page uses, so nobody has to leave the list to see whether
+ *  a belief is grounded, what it rests on, and what contradicts it. */
+function WhyPanel({ id }: { id: string }) {
+  const { project, asOf } = useApp();
+  const { data: why, isLoading } = useQuery({
+    queryKey: ["why", project, id, asOf],
+    queryFn: () => api.why(project, id, asOf ?? "now"),
+  });
+  if (isLoading || !why) return <div className="border-t bg-raised/50 px-4 py-3 text-2xs text-muted">Reading the evidence…</div>;
+  const grounded = isGrounded(why.grounded);
+  const w = formatWhen(why.assertion.recorded_at, why.assertion.assertion_time);
+  const conf = why.confidence?.score;
+  return (
+    <div className="border-t bg-raised/50 px-4 py-3.5 text-2xs">
+      <div className="mb-2.5 flex flex-wrap items-center gap-x-5 gap-y-1.5">
+        <span className="flex items-center gap-1.5"><span className="text-faint">state</span><StateBadge state={why.state} size="sm" /></span>
+        {conf != null && <span className="text-muted"><span className="text-faint">confidence </span><span className="font-medium text-fg">{Math.round(conf * 100)}%</span></span>}
+      </div>
+      <div className="leading-relaxed text-muted">
+        {grounded
+          ? "Grounded: this belief traces through provenance to a recorded source event."
+          : <>Asserted directly by <span className="font-medium text-fg">{why.agent?.label || why.assertion.agent}</span>
+              {w.text ? <>, {w.text}</> : null}. No source event is cited behind it, so it is ungrounded.</>}
+      </div>
+      {why.provenance.nodes.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-faint">rests on</span>
+          {why.provenance.nodes.slice(0, 6).map(n => (
+            <span key={n.id} className="rounded-sm border px-1.5 py-px text-fg/80">{n.label || n.id}</span>
+          ))}
+        </div>
+      )}
+      {why.contradictions?.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-conflict">
+          <span className="flex items-center gap-1"><AlertTriangle className="h-3 w-3" />contradicted by</span>
+          {why.contradictions.map(c => <span key={c.id} className="num font-medium">{c.proposition}</span>)}
+        </div>
+      )}
+      {why.source?.view?.snippet && (
+        <blockquote className="mt-2.5 border-l-2 pl-2.5 text-muted">
+          &ldquo;{why.source.view.snippet}&rdquo;
+          <span className="ml-1 text-faint">— {why.source.view.from_name || why.source.view.from || "source"}</span>
+        </blockquote>
+      )}
+      <Link href={`/assertion?id=${encodeURIComponent(id)}`}
+        className="mt-2.5 inline-block font-semibold text-accent hover:underline">Open full detail →</Link>
     </div>
   );
 }
