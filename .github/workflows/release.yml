@@ -127,7 +127,12 @@ jobs:
       # "dashboard not bundled", which is a quiet way to ship a worse product.
       - name: Build the bundled dashboard
         working-directory: web
-        run: npm ci && OMEM_STATIC=1 npm run build
+        # NEXT_PUBLIC_OMEM_BUNDLED=1 makes the client call /v1/... at the same
+        # origin the Python server serves from, instead of the dev-only
+        # /api/omem rewrite. next.config.js now defaults this on for any static
+        # export, but set it explicitly here too: a wheel whose dashboard cannot
+        # reach its own server is the kind of break worth being loud about.
+        run: npm ci && OMEM_STATIC=1 NEXT_PUBLIC_OMEM_BUNDLED=1 npm run build
 
       - name: Build sdist and wheel
         run: pipx run build --sdist --wheel --outdir dist/ sdk/python

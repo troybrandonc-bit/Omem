@@ -1855,8 +1855,24 @@ class Handler(BaseHTTPRequestHandler):
         self._send(204)
 
     # ---- GET ----
+    def _dealias_path(self):
+        """Strip a leading /api/omem, the dev-only rewrite prefix.
+
+        `npm run dev` proxies /api/omem/* to the server; a static export served
+        by this server does not, so the client calls /v1/... directly. A
+        dashboard mis-built without that flag (older published wheels did this)
+        keeps calling /api/omem/v1/..., which routes nowhere here, so the UI
+        reports the server down while it is up. Renaming the path fixes those
+        dashboards without a rebuild. Same origin, so this is a rename, not a
+        proxy, and it runs before any routing sees the path."""
+        if self.path.startswith("/api/omem/"):
+            self.path = self.path[len("/api/omem"):]
+        elif self.path == "/api/omem":
+            self.path = "/"
+
     def do_GET(self):
         self._req_start = time.perf_counter(); self._metrics_recorded = False
+        self._dealias_path()
         u = urlparse(self.path)
         parts = [x for x in u.path.split("/") if x]
         qs = parse_qs(u.query)
@@ -3110,6 +3126,7 @@ class Handler(BaseHTTPRequestHandler):
         one that goes stale.
         """
         self._req_start = time.perf_counter(); self._metrics_recorded = False
+        self._dealias_path()
         u = urlparse(self.path)
         parts = [x for x in u.path.split("/") if x]
         if not any(len(parts) == 3 and parts[:2] == r for r in self._DELETE_ROUTES):
@@ -3122,6 +3139,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         self._req_start = time.perf_counter(); self._metrics_recorded = False
+        self._dealias_path()
         u = urlparse(self.path)
         parts = [x for x in u.path.split("/") if x]
         qs = parse_qs(u.query)

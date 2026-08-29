@@ -3,6 +3,31 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.2.18 - 29 Aug 2026
+
+**Fixes the bundled dashboard reporting the server as down while it is up,
+and adds the priors tier.**
+
+- **Dashboard fix.** The wheel's dashboard was built without the flag that
+  points its API calls at the same origin the server runs on, so it called
+  a dev-only `/api/omem` path that routes nowhere and every request 404'd.
+  The UI read that as "OMEM not responding, start omem-server" even with the
+  server up. Static exports now default to same-origin automatically, the
+  release build sets the flag explicitly, and the server also strips a stray
+  `/api/omem` prefix so an older or hand-built dashboard reaches the API too.
+  If you saw the not-responding message on 0.2.17 or earlier, upgrade.
+- **Priors tier.** OMEM now learns regularities that transfer across people,
+  "people who hold P tend to hold Q", mined from what it knows and projected
+  onto someone new who holds P but has said nothing about Q. A prior fires
+  only into that silence and yields the instant the person's own evidence
+  disagrees, so a general pattern never overrides an individual; a pattern
+  seen on too few people cannot fire; and a prior stores counts, never a
+  person. `mem.priors()`, `mem.learn_priors()`, `GET /v1/memory/priors`.
+
+Note: the startup lines "google oauth not configured" and "stripe not
+configured" are informational, not errors. They report that those optional
+integrations are in fallback mode, which is the normal local default.
+
 ## 0.2.17 - 29 Aug 2026
 
 **A pullable image, and the mark everywhere the product shows its face.**

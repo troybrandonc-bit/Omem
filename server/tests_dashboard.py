@@ -101,6 +101,13 @@ check("/v1/health is the API, not a static file", st == 200 and b'"status"' in b
 check("  and _serve_dashboard refuses /v1 outright",
       api.Handler._serve_dashboard(object.__new__(api.Handler), "/v1/anything") is False)
 
+print("== the /api/omem dev prefix is de-aliased ==")
+# A dashboard built for `npm run dev` (or an older wheel built without the
+# bundled flag) calls /api/omem/v1/... The server strips that prefix so those
+# dashboards reach the API instead of 404ing and reporting the server down.
+st, _, body = get("/api/omem/v1/health")
+check("/api/omem/v1/health reaches the same API", st == 200 and b'"status"' in body, str(st))
+
 print("== path traversal ==")
 for probe in ["/../secret.txt", "/../../secret.txt", "/..%2fsecret.txt",
               "/memory/../../secret.txt"]:
