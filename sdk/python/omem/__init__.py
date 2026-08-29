@@ -441,8 +441,23 @@ class Memory:
     def calibration(self):
         """What OMEM knows about its own guessing: per claim-family and per
         generator, how the verdicts have gone. The same record feeds how
-        bold new leaps are born."""
+        bold new leaps are born. Includes the priors tier."""
         return self._req("GET", "/v1/memory/calibration")
+
+    def priors(self):
+        """The regularities OMEM has learned about people in general:
+        `holds P -> holds Q`, mined by co-occurrence across subjects. Each
+        carries the rate it held in the population it was learned from and,
+        separately, its record when projected onto someone's silence. A prior
+        holds counts, never a fact about any person. Read-only."""
+        return self._req("GET", "/v1/memory/priors").get("data", [])
+
+    def learn_priors(self):
+        """Mine the priors tier now instead of waiting for the scheduled pass.
+        Reads settled beliefs, writes only priors. The next leap() projects
+        them onto entities that hold an antecedent but have no state yet on the
+        consequent -- never over what a person is already known to be."""
+        return self._req("POST", "/v1/memory/priors/learn", {})
 
     def changes(self, since, viewer=None, user=None):
         """What changed since a logical time -- the delta an agent wants at
