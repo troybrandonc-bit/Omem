@@ -2,7 +2,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createContext, useContext, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { api, getSession, setSession, type Project, type AuthMode } from "@/lib/api";
+import { api, getSession, setSession, ApiError, type Project, type AuthMode } from "@/lib/api";
 import { isMarketingRoute } from "@/lib/routes";
 
 const qc = new QueryClient({ defaultOptions: { queries: { refetchOnWindowFocus: false, staleTime: 2000 } } });
@@ -85,28 +85,42 @@ export function Providers({ children }: { children: React.ReactNode }) {
       // 2. A session, before anything that needs one. Local mode provisions
       //    silently (no passwords, loopback only) which is what makes the
       //    quickstart a minute; password mode must ask.
+      const provision = async () => {
+        const res = await api.signup({ email: "local@omem.dev", project: "My workspace" });
+        setSession(res.token);
+      };
       if (!getSession()) {
         if (m === "password") { if (!cancelled) setBoot("signin"); return; }
+        try { await provision(); } catch { if (!cancelled) setBoot("unreachable"); return; }
+        if (cancelled) return;
+      }
+
+      // 3. Now the project. A 401 here is NOT "the server is down": a session
+      //    stored in localStorage goes stale when the server restarts (local
+      //    sessions do not survive a new process), and getSession() then hands
+      //    a dead token to this call. The old code assumed a 401 was impossible
+      //    "by construction" and reported the server unreachable, which is what
+      //    a returning user saw after restarting an up-and-healthy server. So a
+      //    401 means re-authenticate: drop the token, provision a fresh session
+      //    (local) or ask for one (password), and try the list once more.
+      const saved = localStorage.getItem("omem-project");
+      const listProjects = async () => (await api.projects()).data || [];
+      let list: Project[] = [];
+      try {
+        list = await listProjects();
+      } catch (e) {
+        const stale = e instanceof ApiError && e.code === 401;
+        if (!stale) { if (!cancelled) setBoot("unreachable"); return; }
+        setSession(null);
+        if (m === "password") { if (!cancelled) setBoot("signin"); return; }
         try {
-          const res = await api.signup({ email: "local@omem.dev", project: "My workspace" });
+          await provision();
           if (cancelled) return;
-          setSession(res.token);
+          list = await listProjects();
         } catch {
           if (!cancelled) setBoot("unreachable");
           return;
         }
-      }
-
-      // 3. Now, and only now, the project. A 401 here is no longer possible by
-      //    construction, so a failure is a real one and is reported as such
-      //    rather than silently leaving `project` empty.
-      const saved = localStorage.getItem("omem-project");
-      let list: Project[] = [];
-      try {
-        list = (await api.projects()).data || [];
-      } catch {
-        if (!cancelled) setBoot("unreachable");
-        return;
       }
       if (cancelled) return;
 

@@ -3,6 +3,20 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.2.19 - 29 Aug 2026
+
+**Fixes the dashboard reporting the server as down after a restart.**
+
+A local session is stored in the browser, and it does not survive the
+server restarting (a new process issues new sessions). On the next visit the
+dashboard handed that dead token to `GET /v1/projects`, got a 401, and
+reported "OMEM server isn't answering", even though the server was up and
+`/v1/health` returned ok. The bootstrap now treats a 401 there as
+"re-authenticate", not "server down": it drops the stale token, provisions a
+fresh local session (or asks for one in password mode), and lists projects
+again. If you saw the not-answering screen after restarting a healthy
+server, this is why.
+
 ## 0.2.18 - 29 Aug 2026
 
 **Fixes the bundled dashboard reporting the server as down while it is up,
