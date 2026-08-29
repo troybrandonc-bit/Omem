@@ -1,42 +1,39 @@
+import { readFileSync } from "fs";
+import { join } from "path";
 import { MarketingShell } from "@/components/marketing/chrome";
 import { Section, CodeBlock, ButtonLink, SpecList, HeroHeading } from "@/components/marketing/ui";
 import { BeliefInspector } from "@/components/marketing/belief-inspector";
 
+/* The reasoning replay is INLINED into the DOM rather than referenced as an
+ * image. Chrome freezes animation clocks inside SVG-as-<img> (we shipped an
+ * empty black terminal to the README before noticing), and an inline SVG's
+ * SMIL runs everywhere a browser does. Read at build time from the same file
+ * the README uses, so the two can never tell different stories. */
+const REASONING_SVG = readFileSync(
+  join(process.cwd(), "public", "demo-reasoning.svg"), "utf8");
+
 export const metadata = {
   title: "Memory for AI agents that refuses to decide what is true",
   description:
-    "OMEM tracks what each agent believes, when it learned it, and why. Contradictions are surfaced rather than overwritten, and no repair runs that nobody authorised. Self-hosted, MIT, no dependencies.",
+    "OMEM tracks what each agent believes, when it learned it, and why. It forms hunches from single examples, doubts them, and takes back conclusions when the facts under them die. Self-hosted, MIT, no dependencies.",
 };
 
 /* The landing page.
  *
- * CONTENT THESIS (unchanged, and still the right one): do not lead with memory.
- * Every framework ships a vector store, recall quality cannot be demonstrated in
- * a paragraph, and competing there is a race with no finish line. Lead with what
- * OMEM refuses to do, because that is the part a competitor cannot copy without
- * rebuilding their engine.
+ * CONTENT THESIS (updated at 0.2.15): still do not lead with memory as
+ * storage, every framework ships a vector store. Lead with the two things a
+ * competitor cannot copy without rebuilding their engine: the refusals, and
+ * now the reasoning that rests on them. The take-back and the intuition layer
+ * exist BECAUSE the engine can retract cleanly; that ordering is the page's
+ * argument.
  *
- * LAYOUT: the brief was sleek, precise, modern, and the previous version was
- * none of those because of three habits, all of which are gone:
- *
- * - NO LABEL ABOVE ANYTHING. Every block opened with uppercase micro-type
- *   naming what you were about to read. That is chrome introducing content, and
- *   it was usually a restatement of the heading directly under it.
- *
- * - NO NUMBERED SECTIONS. `01 —— WHAT IT REFUSES TO DO` reads as a slide deck.
- *   A hairline does the same structural job without the furniture.
- *
- * - NOTHING BESIDE THE HEADLINE. Text-left/card-right is the most templated
- *   arrangement there is. The statement owns the first screen; the demo follows
- *   as a full-width figure, which is also the only way it is big enough to read.
- *
- * The measure is wider than a document's throughout — this is a landing page,
- * not an article, and 34em of lede under a 68px headline looked like a column
- * that had lost its other column.
- *
- * Nothing here is a claim the product cannot back. The belief inspector is the
- * real demo project the API serves. The refusal transcript is the real shape of
- * a denied plan. The last list is what OMEM does NOT do.
+ * LAYOUT rules carried over from the redesign, still in force:
+ * - No label above anything, no numbered furniture, nothing beside the
+ *   headline. Sections open with a hairline and a heading.
+ * - Figures are real: the belief inspector is the live demo project, the
+ *   terminal replay is verbatim output of a CI-asserted test. Nothing here is
+ *   a claim the product cannot back, and both figures say where they came
+ *   from in their captions.
  */
 
 const REFUSALS = [
@@ -46,6 +43,13 @@ const REFUSALS = [
         OMEM never reads two sentences and concludes they disagree, because that
         judgement is what would stop the same question having the same answer a
         year from now.`,
+  },
+  {
+    k: "It will not let a hunch pass as a belief",
+    d: `The intuition layer guesses eagerly and is never allowed to lie about
+        it. expects() and believes() are different verbs: a hypothesis carries
+        its case file, its strength stays below any evidenced confidence, and
+        the engine's UNKNOWN stays UNKNOWN however good the hunch.`,
   },
   {
     k: "It will not run what nobody authorised",
@@ -67,6 +71,10 @@ const FEATURES = [
    "Every claim carries an interval. Ask what was believed last Tuesday and get last Tuesday's answer, not today's."],
   ["Provenance you can follow",
    "Ask why something is believed and get the chain of assertions and evidence that led there."],
+  ["What changed while you were gone",
+   "changes(since) returns the delta an agent wants at session start: what appeared, what closed and how, which conflicts opened, who merged."],
+  ["A judgment queue, not a guessing engine",
+   "When two records look like one person, or a declared rule is violated, the question waits for a human. Approvals are recorded under the approver's name, and a dismissed question is never asked twice."],
   ["Private by default",
    "Memory belongs to an agent unless you share it with a team or the project."],
   ["The dashboard is included",
@@ -82,23 +90,6 @@ const NOT_YET = [
   "One writer per database, so no high availability",
 ];
 
-/**
- * A section head.
- *
- * This used to be `01 —— WHAT IT REFUSES TO DO` above the heading: a monospace
- * ordinal, a rule, and an uppercase label, all before a single word of content.
- * Three pieces of chrome introducing one sentence. Numbered sections read as a
- * deck of generated slides, and the label was almost always a compressed
- * restatement of the heading directly beneath it — the reader parsed the idea
- * twice, in a harder setting first.
- *
- * What replaces it is a hairline the width of the column and the heading. The
- * rule still tells you a new argument started, which is the one job the number
- * was actually doing, and nothing is announced before it is said.
- *
- * `n` is kept in the signature and used as the anchor id, so the sections are
- * still individually linkable without the ordinal being visible furniture.
- */
 function SectionHead({ n, title, children }: {
   n: string; title: React.ReactNode; children?: React.ReactNode;
 }) {
@@ -114,32 +105,21 @@ function SectionHead({ n, title, children }: {
 export default function Home() {
   return (
     <MarketingShell>
-      {/* ── hero ──────────────────────────────────────────────────────────
-          Text left / card right is the single most templated arrangement on the
-          web, and the uppercase micro-label above the headline is the second.
-          Together they are the house style of a generated landing page, which is
-          most of why this screen did not look designed.
-
-          So: no label, and nothing beside the headline. The statement gets the
-          first screen to itself at the full measure, and the demo follows below
-          as a figure with its own caption — which is also the only way it gets
-          enough width to actually be read rather than skimmed as a thumbnail. */}
+      {/* ── hero ────────────────────────────────────────────────────────── */}
       <Section className="hero-y">
         <div className="max-w-[68rem]">
           <HeroHeading>
             Your agent should be able to say <em>why</em> it believes something.
           </HeroHeading>
-          {/* The lede is offset to a second column on wide screens rather than
-              sitting directly under the headline. A left edge shared by every
-              element down the page is what makes a layout read as a stack of
-              blocks; breaking that alignment once, deliberately, is what makes
-              it read as composed. */}
           <div className="mt-10 grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
             <p className="lede !max-w-none">
-              Most agent memory is a list of facts. When two of them conflict, one
-              silently overwrites the other and the history is gone. OMEM keeps
-              both, tracks which one is believed right now, and can reconstruct
-              what was believed at any point in the past.
+              Most agent memory is a list of facts. When two of them conflict,
+              one silently overwrites the other and the history is gone. OMEM
+              keeps both, tracks which one is believed right now, and can
+              reconstruct any past state. And on that footing it does what a
+              list never could: it leaps to conclusions from single examples,
+              doubts its own leaps, and takes conclusions back the moment the
+              facts under them die.
             </p>
             <div className="lg:pt-1">
               <div className="flex flex-wrap items-center gap-3">
@@ -157,18 +137,8 @@ export default function Home() {
         </div>
       </Section>
 
-      {/* ── the demo, as a figure ─────────────────────────────────────────
-          The real demo project, not a mockup: move the clock and the belief
-          state actually changes. It is the subject of the opening screen, so it
-          takes the one `lift-lg` on the site. */}
+      {/* ── the demo, as a figure ───────────────────────────────────────── */}
       <Section className="pb-24 sm:pb-32">
-        {/* Capped at 62rem, not full measure.
-            Stretched to the whole 1200px shell the two inner columns went
-            mostly empty — Contradictions is four short lines and it was being
-            given 600px to say them in. A demo that wide stops reading as an
-            object you are being shown and starts reading as a table that failed
-            to fill. Left-aligned rather than centred so it shares the headline's
-            edge; the asymmetry is the composition. */}
         <figure className="m-0 max-w-[62rem]">
           <div className="lift-lg rounded-lg">
             <BeliefInspector />
@@ -192,11 +162,82 @@ export default function Home() {
         </div>
       </Section>
 
-      {/* ── 02 the refusal, shown ─────────────────────────────────────── */}
+      {/* ── 02 the take-back ──────────────────────────────────────────────
+          The reasoning story, told by its own output. The figure is the same
+          asserted replay the README carries: every line is verbatim from
+          scripts/demo_reasoning.py, which runs in CI, so this screen cannot
+          quietly drift from the product. */}
+      <Section className="section-y">
+        <SectionHead n="02" title="It concludes things. And it can take them back.">
+          Declare a rule, and OMEM composes what it knows into conclusions that
+          carry their premises. The reason to want that is what happens on the
+          way down: retract one fact and every conclusion resting on it is
+          withdrawn in the same request, cascade included, with the whole chain
+          answerable to <span className="mono">why()</span>.
+        </SectionHead>
+        <figure className="m-0 mt-10 max-w-[45rem]">
+          <div
+            className="lift-lg overflow-hidden rounded-lg [&_svg]:block [&_svg]:h-auto [&_svg]:w-full"
+            dangerouslySetInnerHTML={{ __html: REASONING_SVG }}
+          />
+          <figcaption className="mt-5 flex flex-wrap items-baseline gap-x-3 text-caption text-faint">
+            <span aria-hidden="true" className="h-px w-8 shrink-0 bg-[color:var(--line-strong)]" />
+            Verbatim output of scripts/demo_reasoning.py. Every line is an
+            asserted test that runs in CI.
+          </figcaption>
+        </figure>
+      </Section>
+
+      {/* ── 03 the intuition layer ────────────────────────────────────── */}
       <Section className="section-y">
         <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
           <div>
-            <SectionHead n="02" title={<>A model proposed <span className="mono">exec_shell</span>. OMEM did not run it.</>}>
+            <SectionHead n="03" title="It learns from one example, then doubts itself harder than you would.">
+              Humans learn fast by leaping to conclusions, and confabulate for
+              the same reason. OMEM keeps the speed and drops the confabulation:
+              one similar case is enough to form an expectation, and every
+              expectation is born suspect, wearing a case file.
+            </SectionHead>
+            <p className="mt-5 max-w-read text-body text-muted">
+              A skeptic pass works each case against everything OMEM holds. Only
+              evidence about the target itself can support or refute; rival
+              hypotheses compete and reality picks the winner. A case that will
+              not resolve asks a question, the answer is recorded as evidence
+              under the answerer&apos;s name, and a calibration record keeps the
+              boldness of new leaps honest about the record of old ones.
+            </p>
+            <ButtonLink href="/docs" variant="quiet" className="mt-5">
+              How the intuition layer works
+            </ButtonLink>
+          </div>
+          <CodeBlock filename="hunches with case files" label="The intuition layer"
+            single={`mem.leap()      # one similar case is enough
+
+mem.expects(about="customer:gamma")
+# wants_pdf_invoices   strength 0.35
+#   because: beta holds it; gamma resembles beta
+#   supports: 1   undermines: 0
+#   gaps: no direct evidence about gamma yet
+
+mem.interrogate()    # the skeptic works every open case
+# verdicts come from reality, never from the model
+
+mem.believes(about="customer:gamma",
+             claim="wants_pdf_invoices")
+# "UNKNOWN"  - a hunch is never a belief
+
+mem.calibration()
+# wants-family: 2 supported, 1 refuted
+# boldness follows the record`}
+          />
+        </div>
+      </Section>
+
+      {/* ── 04 the refusal, shown ─────────────────────────────────────── */}
+      <Section className="section-y">
+        <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
+          <div>
+            <SectionHead n="04" title={<>A model proposed <span className="mono">exec_shell</span>. OMEM did not run it.</>}>
               OMEM records what breaks and repairs it under policy. The model is a
               reasoning component that may{" "}
               <em className="not-italic font-medium text-fg">propose</em> a plan;
@@ -230,9 +271,9 @@ result["decisions"]
         </div>
       </Section>
 
-      {/* ── 03 what a vector store cannot do ──────────────────────────── */}
+      {/* ── 05 what a vector store cannot do ──────────────────────────── */}
       <Section className="section-y">
-        <SectionHead n="03" title="Two agents disagree. Both are kept, one is believed, and you can ask why." />
+        <SectionHead n="05" title="Two agents disagree. Both are kept, one is believed, and you can ask why." />
         <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)] lg:gap-14">
           <CodeBlock label="Recording a contradiction"
             tabs={[
@@ -302,11 +343,11 @@ await mem.believes({ about: "customer:alice",
         </div>
       </Section>
 
-      {/* ── 04 the honesty section ────────────────────────────────────── */}
+      {/* ── 06 the honesty section ────────────────────────────────────── */}
       <Section className="section-y">
         <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
           <div>
-            <SectionHead n="04" title="This is early software, and the second list matters as much as the first.">
+            <SectionHead n="06" title="This is early software, and the second list matters as much as the first.">
               OMEM is free while it is in beta, and it is missing things you would
               need before putting it somewhere serious. They are written down
               rather than discovered during a security review.
