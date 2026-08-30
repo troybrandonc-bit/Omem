@@ -53,8 +53,8 @@ export default function Bank() {
       <div className="mx-auto max-w-2xl">
         <h1 className="display text-2xl">Intelligence bank</h1>
         <p className="mt-3 text-sm text-muted">
-          {error instanceof Error && /owner|permission|403/i.test(error.message)
-            ? "The bank reads only for this instance's owner, from a signed-in session."
+          {error instanceof Error && /operator|permission|403/i.test(error.message)
+            ? "The bank reads only for this instance's operator: the emails listed in OMEM_ADMIN_EMAILS, from a signed-in session."
             : "Could not read the bank."}
         </p>
       </div>

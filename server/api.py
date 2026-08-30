@@ -3117,8 +3117,15 @@ class Handler(BaseHTTPRequestHandler):
                 ip = self.client_address[0] if self.client_address else "unknown"
                 if not COMMONS_LIMITER.allow(f"dataset:{ip}"):
                     return self._err(429, "rate_limited", "Slow down and retry.")
-            elif not (isinstance(auth, dict) and "user" in auth):
-                return self._err(403, "permission", "session required")
+            elif not (isinstance(auth, dict) and "user" in auth
+                      and self._is_operator(auth)):
+                # "Only I can see it" means the instance OPERATOR, not any org
+                # owner: a public collector accepts signups, and a stranger's
+                # fresh org must not read the pool. Operators are the emails in
+                # OMEM_ADMIN_EMAILS.
+                return self._err(403, "permission",
+                                 "the dataset export is the instance operator's; "
+                                 "add your email to OMEM_ADMIN_EMAILS")
             contribs = _commons.latest_per_instance(STORE.db)
             rows = _commons.merged(_hypo.bank(STORE.db, list(PROJECTS.keys())), contribs)
             stats = _commons.analytics(rows, contribs, STORE.db)
@@ -3156,14 +3163,17 @@ class Handler(BaseHTTPRequestHandler):
             if "user" not in auth:
                 return self._err(403, "permission",
                                  "the bank is session-only; API keys are project-scoped")
-            owned = []
-            for r in STORE.projects_for_user(auth["user"]["id"]):
-                org = self._org_of_project(r["id"])
-                if org and self._require(auth, "bank.read", org, r["id"]):
-                    owned.append(r["id"])
-            if not owned:
+            # "Only I can see it" means the instance OPERATOR, not any org
+            # owner. A public collector accepts signups, and every signup mints
+            # its own org with its own owner; an owner-role check alone would
+            # hand the pooled contributions to any stranger who registered.
+            # Operators are the emails in OMEM_ADMIN_EMAILS, and the bank
+            # covers every project on the operator's own instance.
+            if not self._is_operator(auth):
                 return self._err(403, "permission",
-                                 "the intelligence bank is for the instance owner")
+                                 "the intelligence bank is the instance operator's; "
+                                 "add your email to OMEM_ADMIN_EMAILS")
+            owned = list(PROJECTS.keys())
             own = _hypo.bank(STORE.db, owned)
             contribs = _commons.latest_per_instance(STORE.db)
             patterns = _commons.merged(own, contribs)

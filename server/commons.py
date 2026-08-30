@@ -39,10 +39,11 @@ MAX_PATTERNS = 500          # one contribution's pattern cap
 MAX_INSTANCE_LEN = 64
 
 # Where contributions go when an operator says yes: the commons the OMEM
-# project runs. Overridable with OMEM_COMMONS_URL (a lab pooling its own
-# installs would point at its own collector); an override also counts as
-# consent, since setting it IS the operator's explicit act.
-DEFAULT_COMMONS_URL = "https://commons.omem.dev"
+# project runs, on the project's own domain. Overridable with OMEM_COMMONS_URL
+# (a lab pooling its own installs would point at its own collector); an
+# override also counts as consent, since setting it IS the operator's
+# explicit act.
+DEFAULT_COMMONS_URL = "https://commons.omem-cloud.com"
 
 
 def get_choice(db) -> str | None:
