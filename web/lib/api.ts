@@ -368,6 +368,15 @@ export interface Hypothesis {
   created: number; decided: number | null;
 }
 
+/** A regularity OMEM mined across subjects: holds P -> holds Q, with the rate it
+ *  held in the population it was learned from. Counts, never a person. */
+export interface Prior {
+  id: string; pattern: string; antecedent: string; consequent: string; context: string;
+  in_population: { support: number; refute: number; subjects: number; rate: number };
+  when_applied: { supported: number; refuted: number; rate: number | null };
+  fires: boolean;
+}
+
 export type AuthMode = "local" | "password";
 export interface SignupResult { token: string; email: string; existing: boolean; org?: { id: string; name: string }; project?: { id: string; name: string; env: string }; api_key?: ApiKey; }
 
@@ -395,6 +404,9 @@ export const api = {
   ingestStats: (p: string) => req<IngestStats>("GET", `/v1/ingest/stats?project=${enc(p)}`),
   deadLetters: (p: string) => req<{ data: DeadLetter[] }>("GET", `/v1/ingest/dead-letters?project=${enc(p)}`),
   intelligence: (p: string) => req<Intelligence>("GET", `/v1/intelligence?project=${enc(p)}`),
+  /** The regularities OMEM has learned about subjects in general. (Hunches live
+   *  under `expectations`, defined below.) */
+  priors: (p: string) => req<{ data: Prior[] }>("GET", `/v1/memory/priors?project=${enc(p)}`),
   beginGmail: (p: string, name?: string) => req<{ connector_id: string; auth_url: string | null; real: boolean; note?: string; required_env?: string[] }>("POST", `/v1/oauth/gmail/begin?project=${enc(p)}`, { name }),
   gmailCallback: (
     p: string,
