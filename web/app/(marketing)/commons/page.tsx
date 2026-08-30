@@ -1,7 +1,7 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { MarketingShell } from "@/components/marketing/chrome";
+import { CommonsShell } from "@/components/marketing/commons-shell";
 import { Section, Eyebrow, HeroHeading, ButtonLink } from "@/components/marketing/ui";
 
 /* The public face of the commons -- what commons.omem-cloud.com shows a
@@ -31,7 +31,7 @@ export default function Commons() {
   const s = data?.stats;
 
   return (
-    <MarketingShell>
+    <CommonsShell>
       <Section className="pt-16 sm:pt-24">
         <Eyebrow>The OMEM commons</Eyebrow>
         <HeroHeading>What people are like, learned as counts, held by no one.</HeroHeading>
@@ -65,7 +65,7 @@ export default function Commons() {
         </Section>
       )}
 
-      <Section className="mt-16">
+      <Section id="how" className="mt-16">
         <div className="grid gap-8 sm:grid-cols-3">
           {[["Anonymous by construction",
              "A line is two behaviour tokens and the counts of people who held both. No name, no company, no message, no number can appear. It is refused at the door it enters and the door it leaves."],
@@ -81,7 +81,7 @@ export default function Commons() {
         </div>
       </Section>
 
-      <Section className="mt-16">
+      <Section id="dataset" className="mt-16">
         <div className="rounded-lg border bg-panel p-7 sm:p-9">
           <Eyebrow>For AI training</Eyebrow>
           {live && data?.dataset_public && data.patterns && data.patterns.length > 0 ? (
@@ -122,7 +122,7 @@ export default function Commons() {
         </div>
       </Section>
 
-      <Section className="mb-24 mt-16">
+      <Section id="contribute" className="mb-24 mt-16">
         <h2 className="display text-2xl">Feed it, and keep everything else on your own machine.</h2>
         <p className="lede mt-4 max-w-[52ch]">
           The commons grows from OMEM installations that choose to contribute.
@@ -133,6 +133,6 @@ export default function Commons() {
           <ButtonLink href="https://github.com/troybrandonc-bit/Omem" external>Run OMEM</ButtonLink>
         </div>
       </Section>
-    </MarketingShell>
+    </CommonsShell>
   );
 }
