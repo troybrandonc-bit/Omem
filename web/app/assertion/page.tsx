@@ -48,8 +48,13 @@ function AssertionDetailInner() {
       {/* Header: claim, state, and the facts that matter, one dense block. */}
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="display text-lg leading-tight">{titleOf(a)}</h1>
-          <div className="mono mt-1 text-2xs text-muted">{a.proposition}</div>
+          <h1 className="display text-lg leading-tight">
+            {why.subjects.length > 1
+              ? why.subjects.map(s => s?.label || s?.id).filter(Boolean).join(" + ")
+              : (why.subjects[0]?.label || why.subjects[0]?.id || "Unknown subject")}
+            <span className="text-faint"> &rarr; </span>
+            {a.proposition}
+          </h1>
         </div>
         <div className="flex items-center gap-2">
           {asOf !== null && <Badge tone="unknown">as of t={asOf}</Badge>}
@@ -82,10 +87,16 @@ function AssertionDetailInner() {
             <div className="px-4 py-3">
               <IntervalStrip start={a.belief_interval.start} end={a.belief_interval.end} now={now} min={0} max={Math.max(now, a.belief_interval.start + 1)} />
               <p className="mt-3 text-2xs leading-relaxed text-faint">
-                {(() => { const w = formatWhen(a.recorded_at, a.belief_interval.start);
-                  return <>Believed since {w.text}{a.belief_interval.end === null
-                    ? ", still open, with no end recorded."
-                    : `, until it was superseded.`}</>; })()}
+                {(() => {
+                  const start = formatWhen(a.recorded_at, a.belief_interval.start);
+                  const cAt = why.contradictions
+                    .map(c => c.recorded_at)
+                    .filter((x): x is number => x != null)
+                    .sort((p, q) => p - q)[0];
+                  if (cAt != null) return <>Believed since {start.text}. Contradicted {formatWhen(cAt).text}, and OMEM keeps both sides on the record.</>;
+                  if (a.belief_interval.end === null) return <>Believed since {start.text}, still open, with no end recorded.</>;
+                  return <>Believed since {start.text}, until it was superseded.</>;
+                })()}
               </p>
             </div>
             {why.subjects.length > 1 && (
@@ -178,13 +189,6 @@ function AssertionDetailInner() {
 // A readable title. Extraction labels are "<subject line> \u2192 <proposition>";
 // when the source had no subject line the label degrades to a bare arrow, so we
 // fall back to the proposition rather than rendering "\u2192 something".
-function titleOf(a: { label?: string | null; proposition: string }): string {
-  const raw = (a.label ?? "").trim();
-  const cleaned = raw.replace(/^[\u2192>\-\s]+/, "").trim();
-  if (!cleaned || cleaned === a.proposition) return a.proposition;
-  return cleaned;
-}
-
 // State explanation. Every branch maps exactly onto the frozen proposition_state
 // semantics, stated plainly, with nothing inferred beyond the query result.
 function explainState(why: { state: string; contradictions: unknown[]; assertion: { open: boolean }; grounded: boolean }): string {

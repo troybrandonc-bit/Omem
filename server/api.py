@@ -13,7 +13,7 @@ for the Next.js dev frontend.
 
 from __future__ import annotations
 
-from secrets_provider import decrypt_content  # noqa: E402
+from secrets_provider import decrypt_content, encrypt_content  # noqa: E402
 
 
 import hashlib
@@ -4375,10 +4375,20 @@ class Handler(BaseHTTPRequestHandler):
                 record(p, "agent", {"id": agent, "kind": "system", "label": agent})
 
             ident = _org_identity(p.id)
-            payload = {"subject": inter.get("topic") or source, "body": text,
+            # `source` may be a dict ({kind, external_id, title, ...}) or a bare
+            # id string. The extractor wants STRINGS: a dict reached
+            # `subject[:80]` as `dict[slice]`, which raised the opaque
+            # "slice(None, 80, None)" and made every observe look like the
+            # offline extractor could not run. Pull a title and an id out of it.
+            _src_title = (source.get("title") or source.get("subject")
+                          or source.get("external_id")) if isinstance(source, dict) else source
+            _src_id = (source.get("external_id") or source.get("id")
+                       or source.get("message_id")) if isinstance(source, dict) else source
+            _src_id = _src_id or _mint_global("obs")
+            payload = {"subject": inter.get("topic") or _src_title or "message", "body": text,
                        "from": speaker, "to": audience, "at": at,
                        "thread_id": inter.get("thread_id"),
-                       "message_id": source, "headers": {}}
+                       "message_id": _src_id, "headers": {}}
             if ENT.setting(p.id, "llm_enabled") == "1" and providers.llm_configured():
                 ext = _semantic_extractor_for(
                     {"project_id": p.id, "id": f"observe:{agent}"}, ident)
@@ -4431,7 +4441,8 @@ class Handler(BaseHTTPRequestHandler):
             # temporal-diversity policy depends on. For an explicit 'at', use it.
             _obs_event_T = p.tick() if at in ("now", None) else int(at)
             record(p, "event", {"id": ev, "ekind": "observation",
-                                "event_time": _obs_event_T, "label": source})
+                                "event_time": _obs_event_T,
+                                "label": _src_title or (text[:80] if text else "observation")})
             out = []
             for f in facts:
                 subj = f["subject"]
@@ -4518,6 +4529,21 @@ class Handler(BaseHTTPRequestHandler):
                 if f.get("relation") and isinstance(_rt, dict) and _rt.get("id"):
                     _graph.record_edge(STORE.db, p.id, aid, subj["id"],
                                        f["relation"], _rt["id"])
+                # Persist the phrase this memory was drawn from, so /why can
+                # quote the ACTUAL source text (never regenerated). The ingest
+                # pipeline records this for connector facts; observe formed the
+                # same grounded memory but skipped the row, so every observed
+                # belief reached the "why" surface with nothing to show and read
+                # as if it had been asserted out of thin air.
+                if f.get("evidence"):
+                    try:
+                        STORE.db.execute(
+                            "INSERT OR REPLACE INTO assertion_evidence VALUES(?,?,?,?,?,?,?)",
+                            (aid, p.id, _src_id, encrypt_content(f.get("evidence")),
+                             f.get("confidence"), type(ext).__name__, time.time()))
+                        STORE.db.commit()
+                    except Exception:
+                        pass
                 # PRIVATE BY DEFAULT: an agent's observation is its own memory
                 # unless the caller explicitly widens it. Sharing later is an
                 # explicit promotion (POST /v1/memory/share).

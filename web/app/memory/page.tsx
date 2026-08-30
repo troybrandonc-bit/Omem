@@ -262,10 +262,14 @@ function WhyPanel({ id }: { id: string }) {
           {why.contradictions.map(c => <span key={c.id} className="num font-medium">{c.proposition}</span>)}
         </div>
       )}
-      {why.source?.view?.snippet && (
+      {(why.evidence?.evidence || why.source?.view?.snippet) && (
         <blockquote className="mt-2.5 border-l-2 pl-2.5 text-muted">
-          &ldquo;{why.source.view.snippet}&rdquo;
-          <span className="ml-1 text-faint">— {why.source.view.from_name || why.source.view.from || "source"}</span>
+          {why.evidence?.evidence
+            ? <>from the source: <span className="text-fg">{why.evidence.evidence}</span></>
+            : <>&ldquo;{why.source!.view!.snippet}&rdquo;</>}
+          <span className="ml-1 text-faint">
+            — {why.source?.view?.from_name || why.source?.view?.from
+               || why.evidence?.extractor || "source"}</span>
         </blockquote>
       )}
       <Link href={`/assertion?id=${encodeURIComponent(id)}`}
