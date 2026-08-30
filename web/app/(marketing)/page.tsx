@@ -3,6 +3,7 @@ import { join } from "path";
 import { MarketingShell } from "@/components/marketing/chrome";
 import { Section, CodeBlock, ButtonLink, SpecList, HeroHeading } from "@/components/marketing/ui";
 import { BeliefInspector } from "@/components/marketing/belief-inspector";
+import { CollectorRedirect } from "@/components/marketing/collector-redirect";
 
 /* The reasoning replay is INLINED into the DOM rather than referenced as an
  * image. Chrome freezes animation clocks inside SVG-as-<img> (we shipped an
@@ -111,6 +112,7 @@ function SectionHead({ n, title, children }: {
 export default function Home() {
   return (
     <MarketingShell>
+      <CollectorRedirect />
       {/* ── hero ────────────────────────────────────────────────────────── */}
       <Section className="hero-y">
         <div className="max-w-[68rem]">
