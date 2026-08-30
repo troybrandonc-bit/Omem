@@ -2976,7 +2976,54 @@ class Handler(BaseHTTPRequestHandler):
 
         # /v1/entities , /v1/entities/{id} , /v1/entities/{id}/beliefs
         if parts == ["v1", "entities"]:
-            return self._send(200, {"data": [shape_entity(p, en.id) for en in e.store.entities()]})
+            # Search / sort / paginate, so a project with a million entities is
+            # navigable instead of shipped whole to the browser. `q` substring-
+            # matches id and label; `sort` is name|id|type|connections; `limit`
+            # + `offset` page the result. With no limit the whole set still
+            # comes back, so existing callers are unchanged.
+            q = (qs.get("q", [""])[0] or "").strip().lower()
+            sort = qs.get("sort", ["name"])[0] or "name"
+            _raw_limit = qs.get("limit", [None])[0]
+            try:
+                limit = _clamp_limit(_raw_limit, 2000, 5000) if _raw_limit else None
+            except (TypeError, ValueError):
+                limit = None
+            try:
+                offset = max(0, int(qs.get("offset", ["0"])[0]))
+            except (TypeError, ValueError):
+                offset = 0
+            deg: dict = {}
+            if sort == "connections":
+                for _r in STORE.db.execute(
+                        "SELECT src AS n, COUNT(*) c FROM memory_edges WHERE project_id=? GROUP BY src", (p.id,)):
+                    deg[_r["n"]] = deg.get(_r["n"], 0) + _r["c"]
+                for _r in STORE.db.execute(
+                        "SELECT dst AS n, COUNT(*) c FROM memory_edges WHERE project_id=? GROUP BY dst", (p.id,)):
+                    deg[_r["n"]] = deg.get(_r["n"], 0) + _r["c"]
+            rows = []
+            for en in e.store.entities():
+                lbl = p.labels.get(en.id) or {}
+                label = lbl.get("label")
+                disp = label or en.id
+                if q and q not in en.id.lower() and q not in disp.lower():
+                    continue
+                row = {"id": en.id, "type": getattr(en, "type", None) or lbl.get("type"),
+                       "label": label}
+                if sort == "connections":
+                    row["connections"] = deg.get(en.id, 0)
+                rows.append(row)
+            if sort == "id":
+                rows.sort(key=lambda r: r["id"])
+            elif sort == "type":
+                rows.sort(key=lambda r: ((r["type"] or "~"), (r["label"] or r["id"]).lower()))
+            elif sort == "connections":
+                rows.sort(key=lambda r: (-r["connections"], (r["label"] or r["id"]).lower()))
+            else:  # name
+                rows.sort(key=lambda r: (r["label"] or r["id"]).lower())
+            total = len(rows)
+            page = rows[offset:offset + limit] if limit is not None else rows
+            return self._send(200, {"data": page, "total": total, "offset": offset,
+                                    "limit": limit if limit is not None else total})
         if len(parts) == 3 and parts[:2] == ["v1", "entities"]:
             se = shape_entity(p, parts[2])
             return self._send(200, se) if se else self._err(404, "not_found", "entity not found")

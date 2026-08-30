@@ -50,7 +50,11 @@ export function formatWhen(recordedAt?: number | null, tick?: number | null): { 
   }
   return { text: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }), title };
 }
-export interface Entity { id: string; type?: string; label?: string | null; }
+export interface Entity { id: string; type?: string; label?: string | null; connections?: number; }
+export interface EntityPage { data: Entity[]; total: number; offset: number; limit: number; }
+export interface NeighborNode { id: string; label: string; hops: number; }
+export interface NeighborEdge { src: string; relation: string; dst: string; }
+export interface NeighborGraph { entity: string; as_of: number; depth: number; nodes: NeighborNode[]; edges: NeighborEdge[]; }
 export interface Agent { id: string; kind?: string; label?: string | null; recorded_existence?: number; claims?: Assertion[]; }
 export interface EventPrim { id: string; kind?: string; label?: string | null; event_time?: number | null; recorded_at?: number | null; }
 export interface ProvNode { id: string; kind: string; root?: boolean; label?: string | null; }
@@ -468,7 +472,19 @@ export const api = {
   revisionChain: (p: string, id: string) =>
     req<{ chain: Assertion[] }>("GET", `/v1/assertions/${enc(id)}/revision-chain?project=${enc(p)}`),
 
-  entities: (p: string) => req<{ data: Entity[] }>("GET", `/v1/entities?project=${enc(p)}`),
+  entities: (p: string, opts?: { q?: string; sort?: string; limit?: number; offset?: number }) => {
+    let u = `/v1/entities?project=${enc(p)}`;
+    if (opts?.q) u += `&q=${enc(opts.q)}`;
+    if (opts?.sort) u += `&sort=${enc(opts.sort)}`;
+    if (opts?.limit != null) u += `&limit=${opts.limit}`;
+    if (opts?.offset != null) u += `&offset=${opts.offset}`;
+    return req<EntityPage>("GET", u);
+  },
+  /** The bounded neighbourhood around one entity: it plus its related entities,
+   *  with relation-labelled edges. This is how the graph scales -- you never
+   *  fetch a million-node graph, only one entity's surroundings. */
+  entityGraph: (p: string, entity: string, depth = 1) =>
+    req<NeighborGraph>("GET", `/v1/memory/graph?project=${enc(p)}&entity=${enc(entity)}&depth=${depth}`),
   entity: (p: string, id: string) => req<Entity>("GET", `/v1/entities/${enc(id)}?project=${enc(p)}`),
   beliefsAbout: (p: string, id: string, as_of?: number | "now") =>
     req<{ as_of: number; data: Assertion[] }>("GET", `/v1/entities/${enc(id)}/beliefs?project=${enc(p)}${as_of !== undefined ? `&as_of=${as_of}` : ""}`),
