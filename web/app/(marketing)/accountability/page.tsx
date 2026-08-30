@@ -14,12 +14,6 @@ export const metadata = {
  * the $1,500 design-partner pilot with a real contact path. Memory is the
  * mechanism here, never the headline. */
 
-// The pilot contact. Uses the project's own domain so Troy's personal address
-// stays private; wire hello@omem-cloud.com to forward (Cloudflare Email Routing)
-// before this goes to real traffic, or swap it for a scheduling link.
-const PILOT_MAILTO =
-  "mailto:hello@omem-cloud.com?subject=OMEM%20design-partner%20pilot";
-
 const PILLARS = [
   {
     k: "Provenance you can hand to a client",
@@ -63,7 +57,7 @@ export default function Accountability() {
           </p>
           <div className="lg:pt-1">
             <div className="flex flex-wrap items-center gap-3">
-              <ButtonLink href={PILOT_MAILTO} external>Book a design-partner pilot</ButtonLink>
+              <ButtonLink href="/pilot">Book a design-partner pilot</ButtonLink>
               <ButtonLink href="/docs/quickstart" variant="secondary">See how it works</ButtonLink>
             </div>
             <p className="mt-5 text-caption text-faint">
@@ -122,7 +116,7 @@ export default function Accountability() {
             work, not signing a contract.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            <ButtonLink href={PILOT_MAILTO} external>Book a design-partner pilot</ButtonLink>
+            <ButtonLink href="/pilot">Book a design-partner pilot</ButtonLink>
             <ButtonLink href="https://github.com/troybrandonc-bit/Omem" variant="secondary" external>
               Read the source first
             </ButtonLink>
