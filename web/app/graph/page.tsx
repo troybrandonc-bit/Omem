@@ -114,12 +114,18 @@ export default function Graph() {
     if (!g || !selected) return [] as { text: string; other: string }[];
     const labelById = new Map(g.nodes.map(n => [n.id, n.label]));
     const here = labelById.get(selected) || humanize(selected);
-    return g.edges.map(e => {
-      const out = e.src === selected;
-      const other = out ? e.dst : e.src;
-      const ol = labelById.get(other) || humanize(other);
-      return { text: out ? `${humanizeRel(e.relation)} ${ol}` : `${ol} ${humanizeRel(e.relation)} ${here}`, other };
-    });
+    // Only edges that actually touch the selected entity are ITS relations. The
+    // neighbourhood also carries edges between two OTHER entities (e.g. a fellow
+    // contact and their shared company); those belong on the graph, not in this
+    // list -- attributing them here is what read as "Alice Chen works at A. Chen".
+    return g.edges
+      .filter(e => e.src === selected || e.dst === selected)
+      .map(e => {
+        const out = e.src === selected;
+        const other = out ? e.dst : e.src;
+        const ol = labelById.get(other) || humanize(other);
+        return { text: out ? `${humanizeRel(e.relation)} ${ol}` : `${ol} ${humanizeRel(e.relation)} ${here}`, other };
+      });
   }, [graph.data, selected]);
 
   return (
