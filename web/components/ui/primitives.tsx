@@ -230,9 +230,9 @@ export function Spinner() { return <Loader2 className="h-4 w-4 animate-spin text
  *
  * Kept exported as IntervalStrip too, since pages already call it that.
  */
-export function BeliefRail({ start, end, now, min, max, state }: {
+export function BeliefRail({ start, end, now, min, max, state, label }: {
   start: number; end: number | null; now: number; min: number; max: number;
-  state?: PropositionState;
+  state?: PropositionState; label?: string;
 }) {
   const span = Math.max(1, max - min);
   const pct = (t: number) => Math.min(100, Math.max(0, ((t - min) / span) * 100));
@@ -240,10 +240,12 @@ export function BeliefRail({ start, end, now, min, max, state }: {
   const l = pct(start);
   const r = pct(end ?? max);
   const contradicted = state === "CONTRADICTED" || state === "BELIEVED_FALSE";
-  const label = `believed from ${start}${open ? ", still open" : ` to ${end}`}`;
+  // A caller that knows the real dates passes a human label; otherwise fall back
+  // to the logical span, which is all this primitive is given.
+  const title = label ?? `believed from ${start}${open ? ", still open" : ` to ${end}`}`;
 
   return (
-    <div className="rail" role="img" aria-label={label} title={label}>
+    <div className="rail" role="img" aria-label={title} title={title}>
       <div
         className={cn("rail-span",
           contradicted ? "is-conflict" : open ? "is-believed is-open" : "is-believed")}

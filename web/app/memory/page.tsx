@@ -172,6 +172,12 @@ function MemoryRow({ a, now, role, primary }: { a: Assertion; now: number; role:
   const src = saidBy(a.agent);
   const closed = !a.open;
   const when = formatWhen(a.recorded_at, a.assertion_time);
+  // The green rail beside "Why" is this belief's life on a small timeline: it
+  // fills from when the belief was first recorded to now (or to when it closed).
+  // Spell that out on hover, in dates, so it is not a mystery sparkline.
+  const railLabel = a.open
+    ? `How long this has been believed: since ${when.text || "the start"}, still current.`
+    : `How long this was believed: since ${when.text || "the start"}, now closed.`;
   // The group header already names the primary subject; a row only adds the
   // OTHER subjects it touches (a relation's counterparty), if any.
   const others = a.subjects.filter(s => s !== primary);
@@ -208,7 +214,10 @@ function MemoryRow({ a, now, role, primary }: { a: Assertion; now: number; role:
           {isGrounded(a.grounded)
             ? <Badge tone="believed"><ShieldCheck className="h-3 w-3" />grounded</Badge>
             : <Badge tone="unknown"><ShieldAlert className="h-3 w-3" />ungrounded</Badge>}
-          <div className="w-32"><IntervalStrip start={a.belief_interval.start} end={a.belief_interval.end} now={now} min={0} max={Math.max(now, a.belief_interval.start + 1)} /></div>
+          <div className="w-32" title={railLabel}>
+            <IntervalStrip start={a.belief_interval.start} end={a.belief_interval.end} now={now}
+              min={0} max={Math.max(now, a.belief_interval.start + 1)} label={railLabel} />
+          </div>
           <button onClick={() => setOpen(o => !o)} aria-expanded={open}
             className="flex items-center gap-0.5 text-2xs font-semibold text-accent hover:underline">
             Why <ChevronRight className={cn("h-3.5 w-3.5 transition-transform duration-1 ease-out", open && "rotate-90")} />
