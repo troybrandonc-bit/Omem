@@ -3,6 +3,22 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.3.7 - 30 Aug 2026
+
+**The commons becomes a local bank, and the copy loses its em dashes.**
+
+- **The standalone commons website is gone.** The separate `/commons` site, its
+  own chrome, and the collector redirect are removed. The bank and the
+  AI-training export stay, but as a file on your own machine rather than a cloud
+  pool: run OMEM locally with the bank on, and it learns priors about how people
+  behave and exports them as a training set, holding no fact about anyone. The
+  runbook for running it locally with recoverable backups is in the repo.
+- **The mission moved onto the product site.** A new `/objectives` page carries
+  what the commons page used to say, reframed around the local bank: teach AI
+  what people are like without holding a fact about anyone.
+- **No more em dashes.** The public pages were swept for em dashes and rewritten
+  with natural punctuation, for a more human read and cleaner copy.
+
 ## 0.3.6 - 30 Aug 2026
 
 **An audit pass: reachable pages, an SDK crash fixed, and copy that matches

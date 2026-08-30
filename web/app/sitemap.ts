@@ -17,6 +17,7 @@ const BASE = "https://infrastructure.omem-cloud.com";
 const ROUTES = [
   "",
   "/accountability",
+  "/objectives",
   "/docs",
   "/docs/quickstart",
   "/docs/sdk",

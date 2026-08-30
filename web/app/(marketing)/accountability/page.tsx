@@ -8,7 +8,7 @@ export const metadata = {
 };
 
 /* The buyer-facing product page. The homepage sells the engine to builders;
- * this page sells accountability to the team shipping agents to clients — the
+ * this page sells accountability to the team shipping agents to clients, the
  * one who gets asked "why did it do that" and "can a human approve first". It
  * leads with their problem, names the three things OMEM hands them, and ends on
  * the $1,500 design-partner pilot with a real contact path. Memory is the
@@ -39,7 +39,7 @@ const PILLARS = [
     k: "A record that cannot rewrite itself",
     d: `The engine is frozen and replays byte-identically, the log is append-only,
         and a contradiction keeps both sides instead of overwriting one. The audit
-        trail you show a client is one the system cannot quietly alter later — which
+        trail you show a client is one the system cannot quietly alter later, which
         is the whole point of an audit trail.`,
   },
 ];
@@ -56,7 +56,7 @@ export default function Accountability() {
           <p className="lede !max-w-none">
             The agent does something on a client&rsquo;s behalf, and the client
             asks the one question you have to be able to answer: <em>why did it do
-            that?</em> Most memory can&rsquo;t tell you — it overwrote the evidence
+            that?</em> Most memory can&rsquo;t tell you. It overwrote the evidence
             the moment the facts changed. OMEM is built so you can answer: prove
             why the agent believed and did what it did, and approve the risky
             moves before they run.
@@ -96,7 +96,7 @@ export default function Accountability() {
           <p className="lede mt-6">
             Under all of this is a memory that keeps contradictions, tracks what
             was believed at any past moment, and never decides on its own that two
-            claims disagree. That&rsquo;s what makes the audit trail trustworthy —
+            claims disagree. That&rsquo;s what makes the audit trail trustworthy,
             but you&rsquo;re buying the answer to your client&rsquo;s question, not
             a memory model. If the engine is what interests you, the{" "}
             <span className="mono">why()</span> chain and the whole design are on
@@ -117,7 +117,7 @@ export default function Accountability() {
             A design-partner pilot is hands-on: over a couple of weeks I work with
             you to put the approval gate and the provenance trail into your agent,
             you walk away with a record you can show a client&rsquo;s compliance
-            team, and I get your feedback and — if it earns it — a reference.
+            team, and I get your feedback and, if it earns it, a reference.
             It&rsquo;s small on purpose. It&rsquo;s about proving it works where you
             work, not signing a contract.
           </p>

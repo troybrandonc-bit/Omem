@@ -9,7 +9,7 @@ export const metadata = {
 
 /* `.prose-omem` was referenced by this page and had never been defined in
  * globals.css, so every paragraph, heading and list here rendered at browser
- * defaults — Times-ish leading, no measure, no rhythm — inside a design system
+ * defaults (Times-ish leading, no measure, no rhythm) inside a design system
  * that had opinions about all three. It is a real class now. */
 
 const WHAT = [

@@ -20,7 +20,7 @@ import { Sun, Moon, Menu, X } from "lucide-react";
  *
  * 2. THE MENUS WERE HOVER-ONLY. Three dropdowns opened on `group-hover` with no
  *    click handler, no `aria-expanded`, and no focus behaviour, so they were
- *    unreachable by keyboard AND unreachable by touch — hover is not an
+ *    unreachable by keyboard AND unreachable by touch: hover is not an
  *    interaction a finger has.
  *
  * The fix for (2) is not a better dropdown, it is fewer of them. The dropdowns
@@ -200,7 +200,7 @@ const FOOTER = [
     { label: "Guides", href: "/guides" },
     { label: "Compare", href: "/compare" },
     { label: "Changelog", href: "/changelog" },
-    { label: "The commons", href: "/commons" },
+    { label: "Objectives", href: "/objectives" },
   ]},
   { group: "Run it", items: [
     { label: "Dashboard", href: "/overview" },
@@ -245,13 +245,13 @@ export function MarketingFooter() {
 
         <div className="mt-12 flex flex-col gap-2 border-t pt-6 text-caption text-faint sm:flex-row sm:items-center sm:justify-between">
           {/* No `new Date()` here. It ran on the server at build time and again
-              on the client, and across a New Year those disagree — a hydration
+              on the client, and across a New Year those disagree, a hydration
               mismatch in the footer of every page. The wheel is versioned; the
               year was not load-bearing. */}
           <span>MIT licensed. Free while in beta.</span>
           {/* "CTS 29/29" sat in the footer of every page. ENGINE_VALIDATION.md
               says the suite behind that figure is not in this repository and it
-              "should not be read as independent validation" — so the strongest
+              "should not be read as independent validation", so the strongest
               claim on the site was the one thing the project cannot show. The
               engine's frozen version is checkable; the conformance score is not. */}
           <span className="mono">OMEM Protocol 1.0 · engine 1.0.0 (frozen)</span>
@@ -275,7 +275,7 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
       {/* `wash-host` carries the background gradient behind the top of every
           public page. It lives here rather than on each page's first section
           because <main> is the only element that is already the full width of
-          the document — see the note on `.wash-host` in globals.css for why the
+          the document. See the note on `.wash-host` in globals.css for why the
           usual 100vw full-bleed trick is not safe. */}
       <main id="main" tabIndex={-1} className="wash-host flex-1">{children}</main>
       <MarketingFooter />
