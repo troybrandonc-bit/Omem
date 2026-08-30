@@ -377,6 +377,23 @@ export interface Prior {
   fires: boolean;
 }
 
+/** One pattern in the joint intelligence bank: priors merged across every
+ *  project the caller owns. Counts about subjects in general -- nothing in a
+ *  row can name a person, an organisation, or a value. */
+export interface BankPattern {
+  antecedent: string; consequent: string; pattern: string;
+  support: number; refute: number; subjects: number; projects: number;
+  rate: number; fires: boolean;
+}
+export interface BankResult {
+  patterns: BankPattern[]; projects: number; markdown: string; note: string;
+  failsafe: {
+    backup_dir: string; bank_file: string; bank_file_written: boolean;
+    last_backup: { last_successful: { finished: number | null } | null;
+                   failing: boolean; interval_seconds: number } | null;
+  };
+}
+
 export type AuthMode = "local" | "password";
 export interface SignupResult { token: string; email: string; existing: boolean; org?: { id: string; name: string }; project?: { id: string; name: string; env: string }; api_key?: ApiKey; }
 
@@ -407,6 +424,9 @@ export const api = {
   /** The regularities OMEM has learned about subjects in general. (Hunches live
    *  under `expectations`, defined below.) */
   priors: (p: string) => req<{ data: Prior[] }>("GET", `/v1/memory/priors?project=${enc(p)}`),
+  /** The joint intelligence bank: those regularities merged across every
+   *  project the caller OWNS. Owner-only and session-only on the server. */
+  bank: () => req<BankResult>("GET", "/v1/org/bank"),
   beginGmail: (p: string, name?: string) => req<{ connector_id: string; auth_url: string | null; real: boolean; note?: string; required_env?: string[] }>("POST", `/v1/oauth/gmail/begin?project=${enc(p)}`, { name }),
   gmailCallback: (
     p: string,

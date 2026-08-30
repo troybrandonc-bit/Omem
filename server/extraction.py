@@ -232,6 +232,36 @@ _VALUE_PATTERNS = [
     (r"\bprecio unitario\b[^.]{0,30}?((?:EUR|USD|€|\$)\s?[\d.,]+)", "unit_price_{v}", 0.88),
 ]
 
+# ── everyday working habits ──────────────────────────────────────────────────
+# How a person prefers to be reached, to meet, and to work: the small repeated
+# preferences of ordinary correspondence, not commercial acts. Individually
+# minor; across many people they are exactly the regularities the priors tier
+# generalises ("people who like async usually like email"). A first-person-
+# singular statement attaches to the PERSON who wrote it (same node shape as
+# infer_employment, so a person's habits and their employment share one node);
+# "we/our" statements fall back to the company like everything else.
+_HABIT_PATTERNS = [
+    (r"\breach me\b[^.]{0,25}?\b(?:by|via|over|through)\s+email\b"
+     r"|\bemail\s+(?:is|works)\s+(?:the\s+)?best\b|\bprefer\s+email\b", "prefers_email_contact", 0.85),
+    (r"\b(?:just\s+)?(?:call|phone)\s+me\b|\bprefer\s+(?:a\s+)?(?:phone\s+)?calls?\b"
+     r"|\bphone\s+(?:is|works)\s+best\b", "prefers_phone_contact", 0.82),
+    (r"\bmornings?\s+(?:work|are|suit)s?\s+(?:(?:for\s+)?(?:me|us)\s+)?(?:best|better)\b"
+     r"|\bprefer\s+morning\s+(?:meetings?|calls?|slots?)\b", "prefers_morning_meetings", 0.85),
+    (r"\bafternoons?\s+(?:work|are|suit)s?\s+(?:(?:for\s+)?(?:me|us)\s+)?(?:best|better)\b"
+     r"|\bprefer\s+afternoon\s+(?:meetings?|calls?|slots?)\b", "prefers_afternoon_meetings", 0.85),
+    (r"\b(?:keep|keeping)\s+(?:it|things)\s+async\b|\basync\s+works\s+(?:best|fine|for\s+me)\b"
+     r"|\bprefer\s+(?:working\s+)?async(?:hronous(?:ly)?)?\b"
+     r"|\bno\s+need\s+for\s+a\s+(?:call|meeting)\b", "prefers_async", 0.8),
+    (r"\binvoices?\s+as\s+PDFs?\b|\bPDF\s+invoices?\b", "wants_pdf_invoices", 0.85),
+    (r"\bkeep\s+(?:our\s+)?meetings?\s+(?:short|under|to)\b"
+     r"|\bprefer\s+shorte?r?\s+meetings?\b", "prefers_short_meetings", 0.8),
+    (r"\b(?:do(?:es)?\s*n[o']?t|not|never)\s+work(?:ing)?\s+(?:on\s+)?"
+     r"(monday|tuesday|wednesday|thursday|friday)s?\b"
+     r"|\b(?:off|unavailable)\s+(?:on\s+)?(monday|tuesday|wednesday|thursday|friday)s?\b",
+     "unavailable_{v}s", 0.85),
+    (r"\bwork(?:s|ing)?\s+(?:from\s+home|remote(?:ly)?)\b|\bfully\s+remote\b", "works_remotely", 0.8),
+]
+
 
 _QUOTED_BLOCK = re.compile(
     r"(?ms)^\s*(?:-{2,}\s*(?:Forwarded message|Original Message)\s*-{2,}.*"  # forward blocks
@@ -360,6 +390,28 @@ class ContextualBusinessExtractor(Extractor):
         return None
 
     # ── subject resolution honouring direction & party ──────────────────
+    def _habit_person(self, pp: dict) -> dict | None:
+        """The human who wrote the mail, when they are identifiable: the same
+        conditions and node shape as infer_employment(), so a person's habits
+        and their inferred employment land on ONE node. None when the writer
+        has no person identity (role addresses, no display name, outbound,
+        internal, free-mail) -- then the habit falls back to the company
+        subject like every other fact, or is dropped."""
+        if pp.get("direction") != "inbound" or pp.get("internal"):
+            return None
+        email = (pp.get("counterparty_email") or "").lower()
+        dom = (pp.get("counterparty_domain") or "").lower()
+        if not email or "@" not in email or not dom or dom in FREE_MAIL:
+            return None
+        local = email.split("@", 1)[0]
+        if local in ROLE_LOCALS or any(local.startswith(r + "+") for r in ROLE_LOCALS):
+            return None
+        name = (pp.get("sender_name") or "").strip()
+        if not _looks_like_person(name):
+            return None
+        return {"id": f"person:{_slug(name)}@{dom.split('.')[0]}",
+                "type": "person", "label": name}
+
     def _subject_for(self, party: str, sentence: str, pp: dict) -> dict | None:
         """Map the sentence's grammatical party onto an entity. None = drop."""
         counter = pp.get("counterparty_email")
@@ -461,11 +513,46 @@ class ContextualBusinessExtractor(Extractor):
                 party = last_party  # short factual continuation of the writer's statement
             if party in ("sender_party", "recipient_party"):
                 last_party = party
+            low = sentence.lower()
+
+            # C) everyday working habits -- checked BEFORE the party gate below,
+            #    because "Mornings work best for me" has no grammatical party
+            #    (its subject is "mornings"), yet the first-person pronoun says
+            #    exactly whose habit it is: the writer's. A first-person-singular
+            #    sentence attaches to the person who wrote it when they are
+            #    identifiable; "we prefer async" stays a fact about the company.
+            #    REQUEST is allowed: "please send invoices as PDF" is a durable
+            #    preference stated as an ask.
+            if act in ("STATEMENT", "DECISION", "REQUEST"):
+                first_person = bool(re.search(r"\b(?:i|me|my|i'm|i'd|i'll)\b", low)
+                                    and not re.search(r"\b(?:we|our|us)\b", low))
+                for pat, template, conf in _HABIT_PATTERNS:
+                    m = re.search(pat, sentence, re.I)
+                    if not m:
+                        continue
+                    value = next((g for g in (m.groups() or ()) if g), "")
+                    prop = template.replace("{v}", _slug(value)) if "{v}" in template else template
+                    if not _VALID_PROP.match(prop):
+                        continue
+                    if first_person:
+                        hsubj = self._habit_person(pp) \
+                            or self._subject_for("sender_party", sentence, pp)
+                    elif party == "sender_party" or re.search(r"\b(?:we|our|us)\b", low):
+                        hsubj = self._subject_for("sender_party", sentence, pp)
+                    else:
+                        hsubj = None
+                    if hsubj is None:
+                        continue
+                    hkey = (hsubj["id"], prop)
+                    if hkey in seen:
+                        continue
+                    seen.add(hkey)
+                    facts.append(self._fact(hsubj, prop, conf, sentence,
+                                            subject_line, act, party, payload))
+
             subj = self._subject_for(party, sentence, pp)
             if subj is None:
                 continue
-
-            low = sentence.lower()
 
             # A) subscription/commercial-action facts, strength-graded.
             #    Plain STATEMENTs never yield bare action verbs: "renews every

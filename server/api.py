@@ -1191,6 +1191,44 @@ METRICS = _Metrics()
 # generous for legitimate content; env-tunable.
 MAX_TEXT_CHARS = int(os.environ.get("OMEM_MAX_TEXT_CHARS", str(100_000)))
 BACKUPS = BackupManager(STORE.db)
+
+
+def _bank_markdown(patterns: list) -> str:
+    """The publishable rendering of the bank: counts about subjects in
+    general, no name, id, quote, or value anywhere in it."""
+    lines = ["# The intelligence bank", "",
+             "Regularities OMEM has learned across projects. Every line is a",
+             "count about subjects in general: no name, identifier, quote, or",
+             "extracted value appears here, so this document is publishable",
+             "as-is.", ""]
+    for p in patterns:
+        total = p["support"] + p["refute"]
+        lines.append(
+            f"- **{p['antecedent'].replace('_', ' ')}** → usually "
+            f"**{p['consequent'].replace('_', ' ')}** — held for "
+            f"{p['support']} of {total} subjects with a stance "
+            f"({round(p['rate'] * 100)}%)")
+    if not patterns:
+        lines.append("_No pattern has repeated across enough subjects yet._")
+    lines += ["", f"Exported from OMEM on {time.strftime('%Y-%m-%d')}."]
+    return "\n".join(lines)
+
+
+def _write_bank_export(dest_dir):
+    """Write the all-projects anonymous bank beside the database backups. The
+    directory is 0700 on the operator's own machine, and the CONTENT is
+    anonymous by construction (hypotheses.bank refuses identifying tokens), so
+    a copy that outlives this laptop leaks nothing. Riding the backup run is
+    the failsafe: point OMEM_BACKUP_DIR at a synced or mounted volume and the
+    bank survives the machine."""
+    rows = _hypo.bank(STORE.db, list(PROJECTS.keys()))
+    with open(os.path.join(dest_dir, "intelligence-bank.json"), "w", encoding="utf-8") as f:
+        json.dump({"patterns": rows, "exported": time.time()}, f, indent=1)
+    with open(os.path.join(dest_dir, "intelligence-bank.md"), "w", encoding="utf-8") as f:
+        f.write(_bank_markdown(rows))
+
+
+BACKUPS.extra_writer = _write_bank_export
 SCHEDULER.backup_manager = BACKUPS
 # The scheduler tick is the only thing running on a quiet server, so it is what
 # keeps the writer lock alive; otherwise an idle-but-healthy holder would look
@@ -2774,6 +2812,44 @@ class Handler(BaseHTTPRequestHandler):
                  "events": len(list(p.engine.store.events())),
                  "is_demo": p.is_demo}
                 for p in PROJECTS.values() if p.id in allowed]})
+
+        # ── the joint intelligence bank: learned patterns from every project
+        # the caller OWNS, merged into one view. Session-only (an API key is
+        # project-scoped and must not read across projects) and owner-only
+        # (bank.read) -- "a bank only I can see" -- even though the content is
+        # anonymous by construction: hypotheses.bank() exports counts about
+        # subjects in general and refuses any token that could embed a name,
+        # an id, or a value. `markdown` is the publishable rendering.
+        if parts == ["v1", "org", "bank"]:
+            if "user" not in auth:
+                return self._err(403, "permission",
+                                 "the intelligence bank is session-only; API keys are project-scoped")
+            owned = []
+            for r in STORE.projects_for_user(auth["user"]["id"]):
+                org = self._org_of_project(r["id"])
+                if org and self._require(auth, "bank.read", org, r["id"]):
+                    owned.append(r["id"])
+            if not owned:
+                return self._err(403, "permission",
+                                 "the intelligence bank is for org owners")
+            patterns = _hypo.bank(STORE.db, owned)
+            bank_file = os.path.join(BACKUPS.dir, "intelligence-bank.json")
+            try:
+                last_backup = BACKUPS.status()
+            except Exception:
+                last_backup = None
+            return self._send(200, {
+                "patterns": patterns,
+                "projects": len(owned),
+                "markdown": _bank_markdown(patterns),
+                "note": "counts about subjects in general; no name, identifier, "
+                        "quote, or value is stored or exported",
+                "failsafe": {
+                    "backup_dir": BACKUPS.dir,
+                    "bank_file": bank_file,
+                    "bank_file_written": os.path.exists(bank_file),
+                    "last_backup": last_backup,
+                }})
 
         p = self._proj(qs)
         if p is None:

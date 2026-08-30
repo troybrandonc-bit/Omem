@@ -78,6 +78,9 @@ PERMISSIONS = {
     "retention.manage": "admin",
     "project.delete": "owner",
     "billing.manage": "owner",
+    # ── the joint intelligence bank: org-wide learned patterns. Owner-only by
+    # design -- "a bank only I can see" -- even though its CONTENT is anonymous.
+    "bank.read": "owner",
     # ── self-healing subsystem ──
     "heal.read": "viewer",            # read failures / health / recovery history
     "heal.report": "developer",       # report failures + health, record snapshots

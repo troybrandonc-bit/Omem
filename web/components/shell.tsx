@@ -10,7 +10,7 @@ import { useScrolled } from "@/lib/use-scrolled";
 import { isMarketingRoute } from "@/lib/routes";
 import {
   Home, Brain, Bot, Box, Clock, AlertTriangle, Network, FlaskConical, Braces,
-  ScrollText, Gauge, Settings, Search, Sun, Moon, User, Activity, Users, ShieldCheck,
+  ScrollText, Gauge, Settings, Search, Sun, Moon, User, Activity, Users, ShieldCheck, Landmark,
   HeartPulse, ShieldPlus, Stethoscope, Menu, X, ChevronDown, History, GitMerge,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -78,6 +78,7 @@ const NAV = [
     { href: "/diagnostics", label: "Diagnostics", icon: Stethoscope },
   ]},
   { group: "Account", items: [
+    { href: "/bank", label: "Intelligence bank", icon: Landmark },
     { href: "/usage", label: "Usage", icon: Gauge },
     { href: "/team", label: "Team", icon: Users },
     { href: "/settings", label: "Settings", icon: Settings },
