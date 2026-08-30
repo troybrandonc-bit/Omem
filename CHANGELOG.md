@@ -3,6 +3,56 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.3.0 - 30 Aug 2026
+
+**Everyday behaviour becomes memory, erasure becomes real, and the dashboard
+stops looking generated.** This also ships 0.2.19's restart fix, which was
+tagged but never reached PyPI.
+
+- **Everyday habits, extracted offline.** "Mornings work best for me", "email
+  is the best way to reach me", "I don't work Fridays" are memory now. A
+  first-person sentence attaches to the PERSON who wrote it (the same node
+  their employment is inferred onto from the address they write from);
+  "we prefer async" stays a fact about the company; a role address never
+  mints a fake person. Every habit carries its sentence as evidence, and the
+  priors tier generalises them: "people who prefer mornings usually prefer
+  email" is a learned pattern with honest counts.
+- **The right to be forgotten, executed.** `POST /v1/entities/{id}/forget`
+  rewrites the op log for real: the person's records, the full cascade that
+  depended on them, the events that carried only their words, evidence
+  quotes, edges, hypotheses, and raw source messages from their address.
+  Their sentences quoted under surviving beliefs are redacted. The pruned
+  log is replay-verified before anything is touched, and what remains is a
+  hash, counts, and a date. Admin act, explicit confirmation, irreversible.
+- **The commons, strictly opt-in.** On first open the dashboard asks once:
+  contribute anonymous patterns to the shared OMEM commons? What leaves is
+  counts ("held for 5 of 7"), never a name, a company, a message, or a
+  number; the exact file sits on your disk to inspect; either answer is
+  revocable in Settings, and silence sends nothing, forever. Contributions
+  are re-validated on arrival, so nothing identifying can enter the pool
+  even from a modified client. The collector instance gains an
+  owner-only bank with analytics, and can shape the pool into an AI
+  training corpus: JSONL plus a dataset card, CC BY 4.0.
+- **The source phrase, kept and shown.** observe() now persists the exact
+  sentence a memory was extracted from, and the dashboard quotes it in
+  every "why" view. Grounded beliefs finally show their receipts.
+- **Ungrounded beliefs answer for themselves.** The why-view names who
+  asserted the claim, when, and at what confidence, and a "Question this
+  belief" action lets you challenge and retract it on your own authority,
+  on the record.
+- **A dashboard that reads like a product.** Set in Geist with real presence;
+  every timestamp is a date and time instead of a logical tick, including
+  the time-travel bar; the timeline shows what happened in the words it
+  happened in, an icon for what and a colour for who; entities are grouped
+  into companies and contacts with their roles; and the belief graph became
+  an entity explorer that searches, sorts and pages on the server, then
+  shows one bounded neighbourhood at a time with a summary beside it, so a
+  million entities navigate as easily as twelve.
+- **Intelligence, visible.** The intelligence page now shows what OMEM has
+  learned (priors with their population rates) and what it merely suspects
+  (hunches with strength, status, and the case-file line explaining the
+  leap), clearly separated from what it believes.
+
 ## 0.2.19 - 29 Aug 2026
 
 **Fixes the dashboard reporting the server as down after a restart.**
