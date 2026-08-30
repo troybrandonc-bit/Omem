@@ -15,19 +15,22 @@ const REASONING_SVG = readFileSync(
   join(process.cwd(), "public", "demo-reasoning.svg"), "utf8");
 
 export const metadata = {
-  title: "Memory for AI agents that refuses to decide what is true",
+  title: "Prove why your AI agent acted, and approve before it does",
   description:
-    "OMEM tracks what each agent believes, when it learned it, and why. It forms hunches from single examples, doubts them, and takes back conclusions when the facts under them die. Self-hosted, MIT, no dependencies.",
+    "OMEM keeps AI agents answerable: an audit trail of what the agent believed and when, and a human approval gate before a risky action runs. Built on a belief-revision engine that keeps contradictions and proves provenance. Self-hosted, MIT, no dependencies.",
 };
 
 /* The landing page.
  *
- * CONTENT THESIS (updated at 0.2.15): still do not lead with memory as
- * storage, every framework ships a vector store. Lead with the two things a
- * competitor cannot copy without rebuilding their engine: the refusals, and
- * now the reasoning that rests on them. The take-back and the intuition layer
- * exist BECAUSE the engine can retract cleanly; that ordering is the page's
- * argument.
+ * CONTENT THESIS (updated at 0.3.6): lead with ACCOUNTABILITY, not memory.
+ * Belief-revision, contradiction-keeping and provenance are now shipped by the
+ * funded incumbents (Mem0, Zep) and a near-clone, so "best memory engine" is a
+ * losing race. What is still differentiated AND monetisable is the answer to
+ * "why did the agent do that, and who approved it" — sold to teams shipping
+ * agents to clients (see /accountability). The hero leads there; the engine
+ * sections below are the HOW that makes the answer trustworthy, not the pitch.
+ * The refusals, take-back and intuition layer still carry the depth a builder
+ * evaluates on.
  *
  * LAYOUT rules carried over from the redesign, still in force:
  * - No label above anything, no numbered furniture, nothing beside the
@@ -118,17 +121,17 @@ export default function Home() {
       <Section className="hero-y">
         <div className="max-w-[68rem]">
           <HeroHeading>
-            Your agent should be able to say <em>why</em> it believes something.
+            Prove <em>why</em> your agent did that, and approve before it acts.
           </HeroHeading>
           <div className="mt-10 grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
             <p className="lede !max-w-none">
-              Most agent memory is a list of facts. When two of them conflict,
-              one silently overwrites the other and the history is gone. OMEM
-              keeps both, tracks which one is believed right now, and can
-              reconstruct any past state. And on that footing it does what a
-              list never could: it leaps to conclusions from single examples,
-              doubts its own leaps, and takes conclusions back the moment the
-              facts under them die.
+              When an agent acts for someone and they ask why, most memory
+              can&rsquo;t say — it overwrote the evidence the moment the facts
+              changed. OMEM keeps both sides of every contradiction, tracks what
+              was believed and when, and puts a human approval step before a
+              risky action runs. An agent&rsquo;s decisions stay answerable: you
+              can show why it believed something, and stop what nobody signed
+              off on.
             </p>
             <div className="lg:pt-1">
               <div className="flex flex-wrap items-center gap-3">
@@ -137,6 +140,11 @@ export default function Home() {
                   Read the source
                 </ButtonLink>
               </div>
+              <p className="mt-4">
+                <ButtonLink href="/accountability" variant="quiet">
+                  Shipping agents to clients? Book a design-partner pilot &rarr;
+                </ButtonLink>
+              </p>
               <p className="mt-5 text-caption text-faint">
                 Runs on your own machine, with no external services.
                 <span className="mono mt-1 block">MIT · Python 3.9+ · no dependencies</span>

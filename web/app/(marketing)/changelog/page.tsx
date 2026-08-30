@@ -14,12 +14,13 @@ export const metadata = {
  * set its own heading two steps larger than every other page on the site. */
 
 const ENTRIES = [
-  { date: "2026-08", version: "v1.0", tag: "GA", current: true,
-    title: "OMEM is generally available",
+  { date: "2026-08", version: "v1.0", tag: "Stable", current: true,
+    title: "The OMEM standard reaches 1.0",
     items: [
-      "The full memory model, hosted and multi-tenant, with as-of time travel on every query.",
+      "The engine is frozen at 1.0 and replays byte-identically, so an upgrade never rewrites your past.",
+      "The full memory model, self-hosted and multi-tenant, with as-of time travel on every query.",
       "Dashboard: memory explorer, provenance viewer, timeline, conflict viewer, memory graph, live inspector.",
-      "Python and TypeScript SDKs, CTS-gated with the embedded engine.",
+      "Python and TypeScript SDKs against the embedded engine.",
       "Playground with real API calls and multi-language code generation.",
     ]},
   { date: "2026-07", version: "v0.9", tag: "Beta",

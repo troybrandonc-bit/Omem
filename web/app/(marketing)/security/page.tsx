@@ -113,11 +113,13 @@ export default function Security() {
               An open standard you can verify, and leave with.
             </h3>
             <p className="lede mt-4">
-              OMEM is a standard first, with a public conformance suite.
-              &ldquo;Correct&rdquo; is decidable: every deployment passes the
-              identical 29-vector CTS. An agent built against one OMEM behaves the
-              same against another. Your memory&rsquo;s meaning never leaves with
-              a vendor.
+              OMEM is built to be a standard, not a black box. The belief-state
+              semantics are documented and your memory exports in full, so its
+              meaning never leaves with a vendor and you can walk away with it
+              whole. What we don&rsquo;t yet have is the part that would prove
+              two deployments agree: a public conformance suite. That&rsquo;s the
+              goal, not a shipped fact, and the table below says so plainly
+              rather than quoting a number you can&rsquo;t check.
             </p>
             <ButtonLink href="/docs/quickstart" variant="quiet" className="mt-5">
               Read the quickstart

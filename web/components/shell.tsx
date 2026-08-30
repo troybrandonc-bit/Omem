@@ -13,6 +13,7 @@ import {
   ScrollText, Gauge, Settings, Search, Sun, Moon, User, Activity, Users, ShieldCheck, Landmark,
   HeartPulse, ShieldPlus, Stethoscope, Menu, X, ChevronDown, History, GitMerge,
   CircleCheck, CircleX, CircleDashed, CircleOff, RefreshCw, Loader2,
+  Plug, Contact, Layers,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 // getSession and AuthMode moved with the bootstrap into providers.tsx; setSession
@@ -62,8 +63,10 @@ const NAV = [
     { href: "/intelligence", label: "Intelligence", icon: Activity },
   ]},
   { group: "Where it came from", items: [
+    { href: "/sources", label: "Sources", icon: Plug },
     { href: "/agents", label: "Agents", icon: Bot },
     { href: "/entities", label: "Entities", icon: Box },
+    { href: "/contacts", label: "Contacts", icon: Contact },
     { href: "/audit", label: "Audit trail", icon: ShieldCheck },
     { href: "/logs", label: "Request log", icon: ScrollText },
   ]},
@@ -77,6 +80,7 @@ const NAV = [
   { group: "Is it running", items: [
     { href: "/healing", label: "Self-healing", icon: ShieldPlus },
     { href: "/diagnostics", label: "Diagnostics", icon: Stethoscope },
+    { href: "/jobs", label: "Jobs", icon: Layers },
   ]},
   { group: "Account", items: [
     { href: "/bank", label: "Intelligence bank", icon: Landmark },

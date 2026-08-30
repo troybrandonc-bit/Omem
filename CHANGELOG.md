@@ -3,6 +3,38 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.3.6 - 30 Aug 2026
+
+**An audit pass: reachable pages, an SDK crash fixed, and copy that matches
+reality.** A full audit and test sweep before the next push. The engine and
+every backend feature were already green (2,154 checks, zero failures); the
+fixes were at the surface.
+
+- **`Agent.observe()` crashed on every call.** The wrapper referenced
+  `self.memory`/`self.agent_id`, which it never sets, so `mem.agent("x").observe(...)`
+  always raised `AttributeError`. Fixed to use the real attributes, with a
+  regression test.
+- **Three working pages had no way in.** Sources (the only place to connect
+  GitHub/Gmail or upload a document), Contacts, and Jobs were fully wired but
+  absent from the navigation, so a new user could not reach the data-ingestion
+  surface at all. They are in the sidebar and command palette now.
+- **Copy that no longer told the truth.** The security page still claimed a
+  public conformance suite the project had already walked back; the changelog
+  announced a hosted, multi-tenant "GA" that contradicts the self-hosted, free
+  product; Settings said team, roles, and API keys were "not wired" when they
+  are; the docs named an SDK `history()` verb that does not exist and understated
+  `retract()`, which does. All corrected.
+- **SEO/metadata.** Every page now emits OpenGraph and Twitter-card metadata (it
+  had none), and the commons page gets its own title, description, and a canonical
+  to the commons domain instead of inheriting the product's.
+- **The site leads with accountability now, not memory.** Belief revision,
+  contradiction-keeping and provenance are shipped by the funded incumbents and a
+  near-clone, so the homepage no longer sells the engine as the headline. It leads
+  with the question a team shipping agents to clients has to answer — "prove why it
+  did that, and approve before it acts" — and the engine becomes the mechanism that
+  makes the answer trustworthy. New `/accountability` product page for that buyer,
+  with a design-partner pilot path.
+
 ## 0.3.5 - 30 Aug 2026
 
 **The commons states its mission, and a collector's dashboard is its operator's

@@ -4,15 +4,35 @@ import { Providers } from "@/components/providers";
 import { Shell } from "@/components/shell";
 import { fontVars } from "./fonts";
 
+const SITE_TITLE = "OMEM / accountability for the AI agents you ship";
+const SITE_DESC =
+  "OMEM keeps AI agents answerable: an audit trail of what the agent believed and when, and a human approval gate before a risky action runs. Built on a belief-revision engine that keeps contradictions and proves provenance. Self-hosted, MIT, no dependencies.";
+
 export const metadata: Metadata = {
+  // Resolves relative OG/canonical URLs and the icon below. Set to the product
+  // site; the commons runs on its own domain with its own metadata.
+  metadataBase: new URL("https://infrastructure.omem-cloud.com"),
   title: {
-    default: "OMEM / memory for AI agents that refuses to decide what is true",
+    default: SITE_TITLE,
     template: "%s / OMEM",
   },
-  description:
-    "OMEM tracks what each agent believes, when it learned it, and why. It forms hunches from single examples, doubts them, and takes back conclusions when the facts under them die. Self-hosted, MIT, no dependencies.",
+  description: SITE_DESC,
   applicationName: "OMEM",
   formatDetection: { telephone: false },
+  openGraph: {
+    type: "website",
+    siteName: "OMEM",
+    title: SITE_TITLE,
+    description: SITE_DESC,
+    url: "/",
+    images: ["/icon.png"],
+  },
+  twitter: {
+    card: "summary",
+    title: SITE_TITLE,
+    description: SITE_DESC,
+    images: ["/icon.png"],
+  },
 };
 
 /* The dashboard is a dense instrument and the marketing site is a document, and

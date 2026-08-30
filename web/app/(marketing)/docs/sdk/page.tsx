@@ -11,15 +11,17 @@ export const metadata = {
  * anyone who followed this page got an AttributeError. why() was also given as
  * why(about, claim) when it takes an assertion id.
  *
- * Superseding and retracting ARE real operations, but they live on the HTTP API
- * (POST /v1/assertions/{id}/supersede and /retract) and the Python client does
- * not wrap them yet. Time travel is a PARAMETER, as_of= on recall(), not a verb.
+ * retract() IS wrapped on the Python client (below). Superseding is real too but
+ * lives only on the HTTP API (POST /v1/assertions/{id}/supersede); the Python
+ * client does not wrap it yet. Time travel is a PARAMETER, as_of= on recall(),
+ * not a verb.
  * Both are said plainly below instead of being implied by a signature that does
  * not resolve. */
 const VERBS = [
   { verb: "remember", sig: "remember(agent, about, claim, because=None, scope=None)", d: "Record a belief, optionally grounded in events." },
   { verb: "believes", sig: "believes(about, claim) -> State", d: "The four-valued belief state at the current time." },
   { verb: "why", sig: "why(assertion_id) -> Provenance", d: "Evidence, grounding, interval, and contradictions." },
+  { verb: "retract", sig: "retract(assertion_id, agent=None)", d: "Withdraw a belief: its state becomes UNKNOWN, not negated, and history stays reconstructable." },
   { verb: "recall", sig: "recall(about=None, *, agent=None, context=None, as_of=None, limit=10)", d: "Retrieve what is relevant, with belief state and conflicts attached." },
   { verb: "contradict", sig: "contradict(claim_a, claim_b)", d: "Declare two claims opposed. OMEM never infers this." },
   { verb: "observe", sig: "observe(agent, interaction, source=None, scope=None)", d: "Feed a raw interaction; OMEM decides what becomes memory." },
@@ -38,7 +40,7 @@ export default function Sdk() {
   return (
     <article className="max-w-read">
       <div className="tech-label mb-3">SDK</div>
-      <h1 className="display text-2xl">Eight verbs, one memory model</h1>
+      <h1 className="display text-2xl">Nine verbs, one memory model</h1>
       <p className="lede mt-4">
         The SDK speaks the language of an agent remembering things. Each verb maps
         1:1 to an operation in the OMEM standard. There are no hidden semantics,
@@ -95,9 +97,11 @@ export default function Sdk() {
         does not yet cover the whole Python surface.{" "}
         <span className="mono text-fg">npm test</span> in{" "}
         <span className="mono text-fg">sdk/typescript/</span> runs it against a
-        live server and reports what is missing. Superseding and retracting are
-        HTTP routes rather than client methods on either SDK, and time travel is
-        the <span className="mono text-fg">as_of</span> parameter on{" "}
+        live server and reports what is missing. Superseding is an HTTP route
+        rather than a client method (the Python client wraps{" "}
+        <span className="mono text-fg">retract</span> but not supersede; the
+        TypeScript SDK wraps neither yet), and time travel is the{" "}
+        <span className="mono text-fg">as_of</span> parameter on{" "}
         <span className="mono text-fg">recall</span>, not a verb of its own.
       </aside>
     </article>

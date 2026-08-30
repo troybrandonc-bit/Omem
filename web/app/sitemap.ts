@@ -16,6 +16,7 @@ const BASE = "https://infrastructure.omem-cloud.com";
 
 const ROUTES = [
   "",
+  "/accountability",
   "/docs",
   "/docs/quickstart",
   "/docs/sdk",
@@ -38,6 +39,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: r ? `${BASE}${r}/` : `${BASE}/`,
     lastModified,
     changeFrequency: r === "/changelog" ? "weekly" : "monthly",
-    priority: r === "" ? 1 : r.startsWith("/compare/") || r.startsWith("/guides/") ? 0.8 : 0.6,
+    priority: r === "" ? 1 : r === "/accountability" ? 0.9 : r.startsWith("/compare/") || r.startsWith("/guides/") ? 0.8 : 0.6,
   }));
 }

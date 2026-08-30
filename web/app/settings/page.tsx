@@ -59,9 +59,11 @@ export default function Settings() {
       <div className="tech-label mb-3">Organization</div>
       <div className="overflow-hidden rounded-lg border">
         <p className="px-4 py-3 text-sm leading-relaxed text-muted">
-          Team members, roles, SSO, and API key management are part of the hosted product and
-          are not wired in this build. The development key is visible on the
-          {" "}<a href="/developers" className="text-accent hover:underline">API page</a>.
+          Team members and roles are managed on the{" "}
+          <a href="/team" className="text-accent hover:underline">Team page</a>, and
+          API keys on the{" "}
+          <a href="/developers" className="text-accent hover:underline">API page</a>.
+          SSO is part of the enterprise tier and is not in this build.
         </p>
       </div>
     
