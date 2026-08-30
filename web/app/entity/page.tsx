@@ -19,7 +19,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api, isGrounded } from "@/lib/api";
 import { useApp } from "@/components/providers";
-import { Card, Skeleton, Badge, ErrorState } from "@/components/ui/primitives";
+import { Card, Skeleton, Badge, ErrorState, GroundedMark } from "@/components/ui/primitives";
 import { ArrowLeft, Box } from "lucide-react";
 
 function EntityDetailInner() {
@@ -50,7 +50,7 @@ function EntityDetailInner() {
               <Card className="p-3 hover:border-[color:var(--accent)]/40">
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-medium">{b.label || b.proposition}</div>
-                  {isGrounded(b.grounded) ? <Badge tone="believed">grounded</Badge> : <Badge tone="unknown">ungrounded</Badge>}
+                  <GroundedMark grounded={isGrounded(b.grounded)} size="sm" />
                 </div>
                 <div className="mt-0.5 text-2xs text-muted">by {b.agent} / t={b.assertion_time}</div>
               </Card>

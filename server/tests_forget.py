@@ -125,16 +125,17 @@ check("the shared event's label is the erasure note, not her words",
       api.ERASURE_NOTE in labels and not any("Mornings" in (l or "") for l in labels), labels)
 
 print("== the record that it happened, holding nothing ==")
-con = sqlite3.connect(DB)
-con.row_factory = sqlite3.Row
-row = con.execute("SELECT * FROM erasures WHERE project_id=?", (PID,)).fetchone()
+# Read through the SERVER's own database handle, not a fresh sqlite connection:
+# under Postgres the erasures row lives in Postgres, and a raw sqlite reader
+# would find no such table. STORE.db speaks whichever backend is configured.
+row = api.STORE.db.execute(
+    "SELECT * FROM erasures WHERE project_id=?", (PID,)).fetchone()
 check("an erasures row exists", row is not None)
 if row:
     check("it holds a hash, not the identity",
           ALICE not in row["entity_hash"] and len(row["entity_hash"]) == 16, row["entity_hash"])
     check("it records what was removed, as counts",
           "removed" in json.loads(row["removed"]))
-con.close()
 
 print("== life goes on: the rewritten log still serves writes ==")
 r = mem.observe("agent:sup", {"text": "we are planning to upgrade to the enterprise plan.",
