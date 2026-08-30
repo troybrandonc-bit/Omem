@@ -46,6 +46,7 @@ function Wordmark({ className }: { className?: string }) {
 }
 
 const NAV = [
+  { label: "Accountability", href: "/accountability" },
   { label: "Docs", href: "/docs" },
   { label: "Guides", href: "/guides" },
   { label: "Compare", href: "/compare" },
@@ -193,11 +194,13 @@ const FOOTER = [
     { label: "SDK reference", href: "/docs/sdk" },
   ]},
   { group: "Product", items: [
+    { label: "Accountability", href: "/accountability" },
     { label: "Pricing", href: "/pricing" },
     { label: "Security", href: "/security" },
     { label: "Guides", href: "/guides" },
     { label: "Compare", href: "/compare" },
     { label: "Changelog", href: "/changelog" },
+    { label: "The commons", href: "/commons" },
   ]},
   { group: "Run it", items: [
     { label: "Dashboard", href: "/overview" },
@@ -214,8 +217,8 @@ export function MarketingFooter() {
           <div>
             <Wordmark />
             <p className="mt-4 max-w-[32ch] text-note text-muted">
-              Memory for AI agents that keeps both sides of a contradiction and can
-              say why it believes either one.
+              Keeps AI agents answerable: prove why it acted, approve before it
+              does. Built on a memory that keeps both sides of a contradiction.
             </p>
           </div>
           {FOOTER.map(col => (

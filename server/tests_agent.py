@@ -100,6 +100,10 @@ rec = mem.recall("customer:777")
 check("SDK recall works", rec["count"] >= 1)
 ag = mem.agent("support-agent")
 check("SDK Agent wrapper .recall", ag.recall("customer:777")["count"] >= 1)
+# Regression: Agent.observe once called self.memory/self.agent_id (which do not
+# exist on the wrapper), so every call raised AttributeError. Pin that it works.
+obs = ag.observe("The customer at customer:777 prefers email over phone calls.")
+check("SDK Agent wrapper .observe works", isinstance(obs, dict))
 try:
     mem.remember(agent="support-agent", about="ghost:1", claim="x", auto_create=False)
     check("SDK error", False)

@@ -36,7 +36,7 @@ export default function DocsIntro() {
         productive. The SDK speaks in <code className="mono text-fg">remember</code>,{" "}
         <code className="mono text-fg">believes</code>,{" "}
         <code className="mono text-fg">why</code>, and{" "}
-        <code className="mono text-fg">history</code>. The machinery of provenance
+        <code className="mono text-fg">changes</code>. The machinery of provenance
         graphs, belief intervals and contradiction states runs underneath.
       </p>
 

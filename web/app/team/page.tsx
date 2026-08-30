@@ -38,7 +38,7 @@ export default function Team() {
             ))}
           </div>
         )}
-        <div className="flex flex-wrap items-center gap-2 border-t px-4 py-2.5.5">
+        <div className="flex flex-wrap items-center gap-2 border-t px-4 py-2.5">
           <input value={email} onChange={e => setEmail(e.target.value)} placeholder="teammate@company.com"
             className="flex-1 rounded-md border bg-panel px-3 py-1.5 text-sm outline-none focus:border-accent" />
           <select value={role} onChange={e => setRole(e.target.value)} className="rounded-md border bg-panel px-2 py-1.5 text-sm">

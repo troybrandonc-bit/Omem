@@ -51,7 +51,7 @@ export default function Admin() {
         <header className="border-b px-4 py-2.5"><h2 className="text-sm font-semibold">Job queue (all tenants)</h2></header>
         <div className="grid grid-cols-3 divide-x divide-y sm:grid-cols-6 sm:divide-y-0">
           {Object.entries(data.jobs).map(([st, n]) => (
-            <div key={st} className="px-4 py-2.5.5">
+            <div key={st} className="px-4 py-2.5">
               <div className="text-2xs text-faint">{st.replace("_", " ")}</div>
               <div className="num mt-1 text-md leading-none">{n}</div>
             </div>

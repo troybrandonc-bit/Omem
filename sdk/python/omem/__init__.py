@@ -42,7 +42,7 @@ import time
 import urllib.request
 import urllib.error
 
-__version__ = "0.3.5"
+__version__ = "0.3.6"
 
 
 class OmemError(Exception):
@@ -565,7 +565,7 @@ class Agent:
         self.id = agent_id
 
     def observe(self, interaction, source=None, scope=None):
-        return self.memory.observe(self.agent_id, interaction, source=source, scope=scope)
+        return self._m.observe(self.id, interaction, source=source, scope=scope)
 
     def learn(self, text, about=None, source=None):
         return self._m.learn(self.id, text, about=about, source=source)
