@@ -47,6 +47,7 @@ function Wordmark({ className }: { className?: string }) {
 
 const NAV = [
   { label: "Accountability", href: "/accountability" },
+  { label: "Objective", href: "/objectives" },
   { label: "Docs", href: "/docs" },
   { label: "Guides", href: "/guides" },
   { label: "Compare", href: "/compare" },

@@ -259,6 +259,25 @@ mem.priors()         # what it learned about people in general
         </div>
       </Section>
 
+      {/* ── the objective ──────────────────────────────────────────────────
+          The identity, stated plainly. The priors above are not just a feature;
+          they are in service of this. */}
+      <Section className="section-y" id="objective">
+        <SectionHead n="objective" title="Why we are building this: AI that understands people, and holds a fact about no one.">
+          OMEM is memory for agents, but the reason it exists runs deeper. From
+          what it sees across many people it learns priors, regularities of the
+          form &ldquo;people who do X tend to do Y&rdquo;, kept as counts that
+          name nobody. Installs that choose to can pool those counts into a
+          shared, anonymous bank, and that bank is offered to teach AI our nature
+          without ever holding a person. That is the objective: connect humans
+          and AI by giving AI a real understanding of who we are, learned from
+          patterns people chose to share, held by no one.
+        </SectionHead>
+        <ButtonLink href="/objectives" variant="quiet" className="mt-5">
+          Read the objective
+        </ButtonLink>
+      </Section>
+
       {/* ── 04 the refusal, shown ─────────────────────────────────────── */}
       <Section className="section-y">
         <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">

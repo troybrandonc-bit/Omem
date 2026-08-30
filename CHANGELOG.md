@@ -3,6 +3,16 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.3.9 - 30 Aug 2026
+
+**The objective is part of the identity now.** The reason OMEM exists, to give
+AI a real understanding of human nature and behaviour while holding a fact about
+no one, was tucked away on a footer-only page. It now has its own section on the
+homepage and a place in the top nav, so the mission reads as part of what OMEM
+is, not a footnote. The `/objectives` page is rewritten to the shared-bank model
+(consenting installs pool anonymous counts, offered to train AI), correcting the
+brief local-only framing from 0.3.7.
+
 ## 0.3.8 - 30 Aug 2026
 
 **The pilot CTA is a real form now, not a mailto.** A `mailto:` link silently
