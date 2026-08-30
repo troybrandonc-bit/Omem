@@ -3,6 +3,20 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.3.1 - 30 Aug 2026
+
+**The commons gets its real address, and its gate gets stricter.**
+
+- Contributions now default to `https://commons.omem-cloud.com`, a domain the
+  project actually controls. 0.3.0 pointed at a domain it did not, so an
+  opted-in install's (anonymous, counts-only) reports could have gone to
+  whoever registered it. If you enabled contribution on 0.3.0, upgrade.
+- The bank and its dataset export now answer only to the instance OPERATOR
+  (the emails in `OMEM_ADMIN_EMAILS`). A public collector accepts signups,
+  and every signup mints its own org with its own owner; on 0.3.0 any
+  stranger who registered on a collector could read the pooled counts. Now
+  they cannot.
+
 ## 0.3.0 - 30 Aug 2026
 
 **Everyday behaviour becomes memory, erasure becomes real, and the dashboard
