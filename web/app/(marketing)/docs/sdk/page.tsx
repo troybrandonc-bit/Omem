@@ -33,7 +33,7 @@ const VERBS = [
  * reader met fourteen unrelated cells and no column headers, and there was no
  * way to know which signature belonged to which verb. It is a <table> now, which
  * is what it always was. The heading also claimed "six languages" above a list
- * of seven verbs and four code tabs — the number was wrong twice over.
+ * of seven verbs and four code tabs. The number was wrong twice over.
  */
 
 export default function Sdk() {

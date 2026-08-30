@@ -9,27 +9,27 @@ export const metadata = {
 /* Every sample below is the real API, copied from a working call. This page
  * used to document a product that does not exist: `pip install omem` (the
  * package is omem-infrastructure), `omem.Client()` and `Client(embedded=True)`
- * (neither exists — the SDK is Memory(), and it talks to a server over HTTP),
+ * (neither exists: the SDK is Memory(), and it talks to a server over HTTP),
  * and mem.entity()/mem.event() constructors that were never written. Someone
  * following it got an ImportError on line one. CONTRIBUTING.md rule 4 says
  * nothing displayed may be fabricated; that applies to the docs, not just to
  * the dashboard's numbers.
  */
 const STEPS = [
-  { title: "Install and start the server", body: "One package, no dependencies. Or run it straight from a clone — same server, same port, same first-run key. From source the dashboard needs building once (cd web && OMEM_STATIC=1 npm run build); in the wheel it is already bundled.",
+  { title: "Install and start the server", body: "One package, no dependencies. Or run it straight from a clone: same server, same port, same first-run key. From source the dashboard needs building once (cd web && OMEM_STATIC=1 npm run build); in the wheel it is already bundled.",
     code: [
       { label: "From PyPI", code: `pip install omem-infrastructure\nomem-server            # or: omem-server 9000` },
       { label: "From source", code: `cd server\npython api.py          # or: python api.py 9000` },
     ] },
-  { title: "Create a client", body: "The first run prints a project id and an API key. There is no signup call and nothing to configure — paste them straight in.",
+  { title: "Create a client", body: "The first run prints a project id and an API key. There is no signup call and nothing to configure. Paste them straight in.",
     code: [{ label: "Python", code: `from omem import Memory\n\nmem = Memory(api_key="omem_sk_...",\n             base_url="http://127.0.0.1:8787",\n             project="proj_...")` }] },
-  { title: "Remember a belief", body: "`about` is any entity id you choose. `claim` is a token, not a sentence — OMEM normalises spelling, so three spellings of one claim stay one claim.",
+  { title: "Remember a belief", body: "`about` is any entity id you choose. `claim` is a token, not a sentence. OMEM normalises spelling, so three spellings of one claim stay one claim.",
     code: [{ label: "Python", code: `mem.remember(agent="support-bot",\n             about="customer:alice",\n             claim="prefers_annual_billing")` }] },
   { title: "Query what it believes", body: "Returns a four-valued state: BELIEVED_TRUE, BELIEVED_FALSE, CONTRADICTED, or UNKNOWN.",
     code: [{ label: "Python", code: `mem.believes(about="customer:alice",\n             claim="prefers_annual_billing")\n# -> 'BELIEVED_TRUE'` }] },
   { title: "Contradict yourself", body: "The part a vector store cannot do. Tell OMEM two claims disagree, then assert the second one. Nothing is overwritten and nothing is lost.",
     code: [{ label: "Python", code: `mem.contradict("prefers_annual_billing",\n               "prefers_monthly_billing")\n\nmem.remember(agent="sales", about="customer:alice",\n             claim="prefers_monthly_billing")\n\nmem.believes(about="customer:alice",\n             claim="prefers_annual_billing")\n# -> 'CONTRADICTED'` }] },
-  { title: "Ask why", body: "Both claims are still on record. Pass an assertion id to get the chain that led there — which agent said it, when, and on what basis.",
+  { title: "Ask why", body: "Both claims are still on record. Pass an assertion id to get the chain that led there: which agent said it, when, and on what basis.",
     code: [{ label: "Python", code: `beliefs = mem.about("customer:alice")\n\nmem.why(beliefs[0]["id"])\n# -> {'state': ..., 'provenance': [...]}` }] },
 ];
 
@@ -37,7 +37,7 @@ const STEPS = [
  * positioned number sitting on the rule. Two problems it had: the number was
  * `-left-[13px]` on a 1px border, so at any browser zoom other than 100% the
  * circle drifted off the line; and on a phone the 32px of left padding came
- * straight out of an already narrow measure. It is a grid now — the rule and the
+ * straight out of an already narrow measure. It is a grid now: the rule and the
  * number are laid out rather than nudged, and the whole rail collapses on small
  * screens instead of eating the text column.
  */

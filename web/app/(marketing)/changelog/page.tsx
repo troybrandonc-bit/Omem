@@ -10,7 +10,7 @@ export const metadata = {
 /* A changelog is a record, so it is set like one: a dated left rail, a rule per
  * entry, and the version as a machine value in mono. The previous version put
  * the date and the version in the label column and the entries in the body,
- * which was right — what it did not do was mark WHICH entry is current, and it
+ * which was right. What it did not do was mark WHICH entry is current, and it
  * set its own heading two steps larger than every other page on the site. */
 
 const ENTRIES = [

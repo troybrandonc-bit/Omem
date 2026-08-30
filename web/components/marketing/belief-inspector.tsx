@@ -13,13 +13,13 @@ import {
  *
  * WHAT THIS REDESIGN FIXED
  *
- * - THE `.led` SQUARES ARE GONE. Every row was marked with a 9px square —
+ * - THE `.led` SQUARES ARE GONE. Every row was marked with a 9px square,
  *   filled, hollow or struck. As a state encoding in a dense dashboard table
  *   that is a good idea and it stays there. On a marketing page, blown up as
  *   the hero object, three tiny squares read as unrendered debug marks: they
  *   look like something failed to load rather than something meaning anything.
- *   Each row now carries the icon for what it actually IS — a ticket, a
- *   derivation, a document — in a tinted well sized to be seen.
+ *   Each row now carries the icon for what it actually IS (a ticket, a
+ *   derivation, a document) in a tinted well sized to be seen.
  *
  * - IT USES ICONS AT ALL. The rest of the site runs on lucide and this
  *   component used none, which is most of why it looked like it belonged to a
@@ -29,8 +29,8 @@ import {
  *   Provenance is three entries; Contradictions is four short lines. At the
  *   width the landing page gives this, the right column was ~60% empty and the
  *   panel read as a layout that failed rather than one that was composed. The
- *   contradiction is now the thing it actually is — a second claim set AGAINST
- *   the first — so it sits opposite it across a divider, which is also what the
+ *   contradiction is now the thing it actually is, a second claim set AGAINST
+ *   the first, so it sits opposite it across a divider, which is also what the
  *   product is trying to say.
  *
  * - CONFIDENCE IS A QUANTITY, SO IT IS DRAWN AS ONE. 0.62 as bare text is a
@@ -221,14 +221,14 @@ export function BeliefInspector() {
  * The belief interval, drawn on the rail.
  *
  * This replaces a "Timeline" strip that was three plain dots on a hairline with
- * two lines of caption under each — which is what the screenshot showed being
+ * two lines of caption under each, which is what the screenshot showed being
  * clipped, and which said nothing the segmented control at the top did not
  * already say.
  *
  * `.rail` is the design system's signature element and this component was not
  * using it. It draws a claim's belief interval as a span rather than as points:
  * believed from t=1, hatched from t=3 where the contradiction lands. That is
- * the actual story — a claim is believed over a PERIOD, and the period is the
+ * the actual story: a claim is believed over a PERIOD, and the period is the
  * thing a vector store cannot represent. Three dots could never show it.
  *
  * The hatched right half is `.rail-span.is-conflict`, whose 45° stripe is a
@@ -249,7 +249,7 @@ function Interval({ t, onPick }: { t: T; onPick: (t: T) => void }) {
           <span className="rail-now transition-[left] duration-3 ease-out" style={{ left: POS[t] }} />
         </div>
 
-        {/* The stops. Buttons, because they move the clock — the same state the
+        {/* The stops. Buttons, because they move the clock, the same state the
             segmented control drives, reachable from the picture of it. */}
         <div className="relative mt-3 h-9">
           {TIMES.map(x => {
@@ -308,7 +308,7 @@ function Chip({ k, v }: { k: string; v: string }) {
   );
 }
 
-/** 0.62 as bare text is a number you read. As a track it is a level you see —
+/** 0.62 as bare text is a number you read. As a track it is a level you see,
  *  and the number stays, because a bar alone cannot be quoted in an incident. */
 function Confidence({ value }: { value: number }) {
   const pct = Math.round(value * 100);

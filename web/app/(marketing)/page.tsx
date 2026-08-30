@@ -3,7 +3,6 @@ import { join } from "path";
 import { MarketingShell } from "@/components/marketing/chrome";
 import { Section, CodeBlock, ButtonLink, SpecList, HeroHeading } from "@/components/marketing/ui";
 import { BeliefInspector } from "@/components/marketing/belief-inspector";
-import { CollectorRedirect } from "@/components/marketing/collector-redirect";
 import { CircleDashed } from "lucide-react";
 
 /* The reasoning replay is INLINED into the DOM rather than referenced as an
@@ -26,7 +25,7 @@ export const metadata = {
  * Belief-revision, contradiction-keeping and provenance are now shipped by the
  * funded incumbents (Mem0, Zep) and a near-clone, so "best memory engine" is a
  * losing race. What is still differentiated AND monetisable is the answer to
- * "why did the agent do that, and who approved it" — sold to teams shipping
+ * "why did the agent do that, and who approved it", sold to teams shipping
  * agents to clients (see /accountability). The hero leads there; the engine
  * sections below are the HOW that makes the answer trustworthy, not the pitch.
  * The refusals, take-back and intuition layer still carry the depth a builder
@@ -86,8 +85,8 @@ const FEATURES = [
    "“Mornings work best for me” attaches to the person who wrote it, grounded in their own sentence, extracted offline with no LLM. The priors tier then learns what people are like in general, as counts that name nobody."],
   ["The right to be forgotten, executed",
    "One request rewrites the record for real: the person's data, the cascade behind it, and their sentences quoted under surviving beliefs. Replay-verified before anything is touched; what remains is a hash, counts, and a date."],
-  ["A commons that teaches AI what people are like",
-   "Consenting installs pool anonymous counts about human working behaviour, offered as a CC BY 4.0 training corpus. The objective is to connect humans and AI by giving AI a real understanding of our nature, while holding no fact about anyone."],
+  ["A bank that teaches AI what people are like",
+   "The priors OMEM learns collect in an intelligence bank on your own machine, anonymous counts about how people behave, exportable as a training set. Our objective is to give AI a real understanding of our nature while holding no fact about anyone."],
   ["The dashboard is included",
    "One pip install serves the API and the UI on the same port. No Node at runtime, no second process."],
 ];
@@ -116,7 +115,6 @@ function SectionHead({ n, title, children }: {
 export default function Home() {
   return (
     <MarketingShell>
-      <CollectorRedirect />
       {/* ── hero ────────────────────────────────────────────────────────── */}
       <Section className="hero-y">
         <div className="max-w-[68rem]">
@@ -126,7 +124,7 @@ export default function Home() {
           <div className="mt-10 grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
             <p className="lede !max-w-none">
               When an agent acts for someone and they ask why, most memory
-              can&rsquo;t say — it overwrote the evidence the moment the facts
+              can&rsquo;t say. It overwrote the evidence the moment the facts
               changed. OMEM keeps both sides of every contradiction, tracks what
               was believed and when, and puts a human approval step before a
               risky action runs. An agent&rsquo;s decisions stay answerable: you

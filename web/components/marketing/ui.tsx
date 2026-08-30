@@ -8,8 +8,8 @@ import { Copy, Check } from "lucide-react";
  *
  * These pages are documents, not instruments, so everything here sits on the
  * reading base (`.reading`, set once by MarketingShell) rather than the 13px
- * dashboard base. The rest of the system — ink levels, state colour, hairline
- * rules, 6px radius — is identical, because it is one product. */
+ * dashboard base. The rest of the system (ink levels, state colour, hairline
+ * rules, 6px radius) is identical, because it is one product. */
 
 function esc(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -34,7 +34,7 @@ function highlight(line: string) {
  *
  * Tab height is 44px, the platform minimum for a finger, rather than the 34px
  * it was: these are the only controls on a marketing page and they sit on a
- * phone. The code itself is a reading step too — at 12px it was the smallest
+ * phone. The code itself is a reading step too: at 12px it was the smallest
  * text on the site, and it is the text a developer came here to read.
  */
 export function CodeBlock({ tabs, single, filename, label }:
@@ -119,7 +119,7 @@ export function CodeBlock({ tabs, single, filename, label }:
         {lines.map((l, i) => (
           /* `w-max min-w-full`, and `whitespace-pre` on the code.
              The wrapper has always said `overflow-x-auto` and the panel is
-             focusable *because it scrolls* — but nothing in here actually
+             focusable *because it scrolls*, but nothing in here actually
              scrolled. The rows were plain flex items at the container's width
              and the code inherited `overflow-wrap: break-word` from body, so
              every long line wrapped instead, mid-token, under a line number
@@ -129,7 +129,7 @@ export function CodeBlock({ tabs, single, filename, label }:
              component already declared actually happen. */
           <div key={i} className="flex w-max min-w-full">
             {/* w-10, not w-7. At 28px with 12px of padding the number had 16px,
-                and two digits of Plex Mono at the reading size need ~16 — so
+                and two digits of Plex Mono at the reading size need ~16, so
                 every block longer than nine lines stacked "1" above "0". Three
                 digits fit now, which covers every sample on the site. */}
             <span aria-hidden="true"
@@ -163,7 +163,7 @@ export function Eyebrow({ children, className }: { children: React.ReactNode; cl
  * The page header every marketing and docs page shares.
  *
  * Each page used to hand-roll this with its own arbitrary size, so the landing
- * page led at 31px, pricing and security at 40px and the docs at 36px — four
+ * page led at 31px, pricing and security at 40px and the docs at 36px, four
  * different answers to "how big is a page title" inside one site. It is one
  * answer now, and it is on the scale.
  *
@@ -197,7 +197,7 @@ export function PageHeader({ eyebrow, title, children }:
  * The measure is 19ch, not 15. 15 was correct when this shared a row with a
  * 500px panel and had roughly half the page to work in; now that it owns the
  * whole first screen the same cap would set a 68px headline in a 480px column
- * inside a 1088px container — a narrow ribbon of type floating in empty space,
+ * inside a 1088px container, a narrow ribbon of type floating in empty space,
  * which reads as timid rather than confident. 19ch gives two or three full
  * lines that use the width they have been given.
  */
@@ -216,7 +216,7 @@ export function HeroHeading({ children, className }:
  * previously offered three text links of identical weight, which is the same as
  * offering none.
  *
- * The label is `text-note`, a READING step — so it is ~16px inside `.reading`
+ * The label is `text-note`, a READING step, so it is ~16px inside `.reading`
  * rather than the 13px instrument size. A 13px label centred in a 44px button
  * looks like a control that was resized without being redrawn.
  */
@@ -240,11 +240,11 @@ export function ButtonLink({ href, children, variant = "primary", external, clas
 }
 
 /**
- * A ruled list of label / definition pairs — the shape a record is set in, and
+ * A ruled list of label / definition pairs, the shape a record is set in, and
  * the main structural device on these pages. Flat, left-aligned, no boxes.
  *
- * Both columns are on the READING scale. They were `text-sm`, which is 13px —
- * the dashboard's instrument size — so the densest body copy on the public site
+ * Both columns are on the READING scale. They were `text-sm`, which is 13px
+ * (the dashboard's instrument size), so the densest body copy on the public site
  * was also the copy people were most expected to actually read.
  */
 export function SpecList({ items, tone = "fg" }: {

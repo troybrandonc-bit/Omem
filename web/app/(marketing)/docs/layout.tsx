@@ -10,12 +10,12 @@ import { cn } from "@/lib/cn";
  * The sidebar was `hidden md:block` with nothing in its place, so on a phone the
  * documentation had no table of contents and no way to move between pages
  * except the browser's back button. Below md it becomes a horizontally
- * scrollable rail pinned under the header — the pattern a docs site uses when
+ * scrollable rail pinned under the header, the pattern a docs site uses when
  * there is no room for a column, and one that keeps every destination one tap
  * away instead of behind a disclosure nobody opens.
  *
  * Also fixed: the active row was marked with `bg-panel`, which on the light
- * theme is #ffffff on a #faf9f6 ground — a 2% difference that is invisible in
+ * theme is #ffffff on a #faf9f6 ground, a 2% difference that is invisible in
  * most lighting, and the only indication of where you were. Active is now the
  * same 2px ink rule the dashboard sidebar and the primary nav use.
  */

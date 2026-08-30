@@ -18,7 +18,7 @@ export const metadata = {
  *
  * The redesign's one structural change: the two lists are now visually
  * DIFFERENT, not just differently labelled. They were identical `.spec-row`
- * stacks distinguished by one word of heading and the colour of a label — so on
+ * stacks distinguished by one word of heading and the colour of a label, so on
  * a phone, scrolling, the most consequential distinction on the page (what is
  * real vs what is not) was carried by hue alone. The second list is marked, set
  * on a tinted ground, and its heading says "do not plan around these" in the
@@ -38,7 +38,7 @@ const CONTROLS = [
 ];
 
 const NOT_YET = [
-  { k: "Tamper-proofing", d: "The audit chain detects edits; it cannot prevent them. Anyone with write access can rewrite the chain from the edit forward. Detecting that requires keeping the head hash somewhere else — export it." },
+  { k: "Tamper-proofing", d: "The audit chain detects edits; it cannot prevent them. Anyone with write access can rewrite the chain from the edit forward. Detecting that requires keeping the head hash somewhere else. Export it." },
   { k: "SSO and SCIM", d: "No OIDC, SAML or SCIM. Accounts are email and password." },
   { k: "Key rotation", d: "There is one master key and no re-encryption tooling. Rotating it today means decrypting and re-encrypting by hand." },
   { k: "Data residency", d: "No region pinning. Your data is wherever you run it." },
@@ -47,7 +47,7 @@ const NOT_YET = [
 ];
 
 /* "Conformance: CTS 29/29, deterministic" was in this list. On this page, of
- * all pages — the one whose whole argument is that the absences are stated as
+ * all pages, the one whose whole argument is that the absences are stated as
  * plainly as the features. ENGINE_VALIDATION.md is unambiguous that the
  * conformance suite is not in this repository and the figure "should not be
  * read as independent validation". What can be shown is that the engine is
@@ -55,7 +55,7 @@ const NOT_YET = [
 const FACTS = [
   ["Protocol", "OMEM 1.0"],
   ["Reference engine", "omem_engine 1.0.0, frozen and hash-checked"],
-  ["Independent conformance", "None — the normative suite is not public"],
+  ["Independent conformance", "None. The normative suite is not public"],
   ["License", "MIT, open source and self-hostable"],
   ["Audit stream", "Append-only, exportable"],
 ];
@@ -92,7 +92,7 @@ export default function Security() {
         <div className="rounded-lg border border-[color:var(--conflict)]/35 bg-conflictBg p-6 sm:p-8">
           <div className="flex items-center gap-2.5">
             <AlertTriangle className="h-5 w-5 shrink-0 text-conflict" aria-hidden="true" />
-            <h2 className="display text-xl text-conflict">Not built yet — do not plan around these</h2>
+            <h2 className="display text-xl text-conflict">Not built yet: do not plan around these</h2>
           </div>
           <p className="mt-3 max-w-read text-body text-muted">
             If your deployment needs something on this list, OMEM is not ready for
