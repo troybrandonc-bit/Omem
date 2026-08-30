@@ -19,7 +19,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api, isGrounded, formatWhen, type WhyResult } from "@/lib/api";
 import { useApp } from "@/components/providers";
-import { StateBadge, Badge, Card, Skeleton, IntervalStrip, Button } from "@/components/ui/primitives";
+import { StateBadge, Badge, Card, Skeleton, IntervalStrip, Button, GroundedMark } from "@/components/ui/primitives";
 import { ProvenanceDAG } from "@/components/viz/provenance-dag";
 import {
   ArrowLeft, AlertTriangle, History, ExternalLink, Mail, FileText } from "lucide-react";
@@ -120,9 +120,7 @@ function AssertionDetailInner() {
           <Card className="p-4">
             <div className="mb-2 flex items-center justify-between">
               <div className="tech-label">Supporting evidence / provenance</div>
-              {isGrounded(why.grounded)
-                ? <Badge tone="believed">grounded in an event</Badge>
-                : <Badge tone="unknown">not grounded in an event</Badge>}
+              <GroundedMark grounded={isGrounded(why.grounded)} />
             </div>
             {why.provenance.nodes.length > 0
               ? <ProvenanceDAG nodes={why.provenance.nodes} edges={why.provenance.edges} rootId={a.id} />
@@ -158,7 +156,8 @@ function AssertionDetailInner() {
                     {(() => { const w = formatWhen(c.recorded_at, c.assertion_time);
                       return <div className="text-2xs text-faint" title={w.title}>by {c.agent.replace(/^agent:/, "")}{w.text ? ` · ${w.text}` : ""}</div>; })()}
                   </div>
-                  <Badge tone="conflict">opposing</Badge>
+                  <span title="opposing claim" role="img" aria-label="opposing claim" className="inline-flex">
+                    <AlertTriangle className="h-4 w-4 text-conflict" aria-hidden="true" /></span>
                 </Link>
               ))}
               <div className="mt-1 text-2xs text-muted">

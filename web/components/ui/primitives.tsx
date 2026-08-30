@@ -1,7 +1,7 @@
 "use client";
 import { cn } from "@/lib/cn";
 import type { PropositionState } from "@/lib/api";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle, CircleCheck, CircleX, CircleHelp, ShieldCheck, ShieldAlert } from "lucide-react";
 
 /* OMEM design language, product side. See app/globals.css for the direction.
    Three rules do most of the work here:
@@ -32,15 +32,43 @@ const TXT: Record<string, string> = {
   closed: "text-closed", accent: "text-accent", muted: "text-muted",
 };
 
-/** The mark + the engine's own word for the state. Replaces the uppercase pill:
- *  a pill is a label you skim, and this is the answer you came for. */
+/* Each state is a distinct GLYPH, not a coloured box: a check that is
+   believed, a triangle that disagrees, a cross that is believed false, a
+   question that is unknown. Shape first, colour second, per the rules above.
+   md keeps the engine's word beside the glyph (the one place a page states
+   the answer); sm is the glyph alone, with the word in the tooltip. */
+const STATE_ICON: Record<PropositionState, typeof CircleCheck> = {
+  BELIEVED_TRUE: CircleCheck, BELIEVED_FALSE: CircleX,
+  CONTRADICTED: AlertTriangle, UNKNOWN: CircleHelp,
+};
+
 export function StateBadge({ state, size = "md" }: { state: PropositionState; size?: "sm" | "md" }) {
   const tone = STATE_TONE[state];
+  const Icon = STATE_ICON[state] ?? CircleHelp;
+  const word = STATE_WORD[state];
   return (
     <span className={cn("inline-flex items-center gap-1.5 font-medium", TXT[tone],
-      size === "sm" ? "text-2xs" : "text-xs")}>
-      <span className={cn("led", tone)} aria-hidden="true" />
-      <span className="mono">{STATE_WORD[state]}</span>
+      size === "sm" ? "text-2xs" : "text-xs")}
+      title={word} aria-label={word}>
+      <Icon className={size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4"} aria-hidden="true" />
+      {size === "md" && <span className="mono">{word}</span>}
+    </span>
+  );
+}
+
+/** Grounding as a glyph: a solid shield when the belief traces to a recorded
+ *  event, an alert shield when nothing backs it. Icon only -- the tooltip and
+ *  aria carry the words -- because this mark appears on every row and a boxed
+ *  label at that frequency is noise. */
+export function GroundedMark({ grounded, size = "md", className }:
+  { grounded: boolean; size?: "sm" | "md"; className?: string }) {
+  const Icon = grounded ? ShieldCheck : ShieldAlert;
+  const word = grounded ? "grounded: traces to a recorded event"
+                        : "ungrounded: nothing behind it to check against";
+  return (
+    <span title={word} role="img" aria-label={word} className={cn("inline-flex", className)}>
+      <Icon className={cn(size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4",
+        grounded ? "text-believed" : "text-unknown")} aria-hidden="true" />
     </span>
   );
 }

@@ -4,8 +4,8 @@ import Link from "next/link";
 import { api, isGrounded, formatWhen, type Assertion } from "@/lib/api";
 import { useApp } from "@/components/providers";
 import { cn } from "@/lib/cn";
-import { Badge, Skeleton, EmptyState, IntervalStrip, StateBadge } from "@/components/ui/primitives";
-import { Brain, ShieldCheck, ShieldAlert, Bot, User, ScanSearch, ChevronRight, AlertTriangle } from "lucide-react";
+import { Badge, Skeleton, EmptyState, IntervalStrip, StateBadge, GroundedMark } from "@/components/ui/primitives";
+import { Brain, Bot, User, ScanSearch, ChevronRight, AlertTriangle, CircleOff } from "lucide-react";
 import { useMemo, useState } from "react";
 
 // The memory list answers, per row: WHAT is believed, WHO it is about, WHO
@@ -190,7 +190,8 @@ function MemoryRow({ a, now, role, primary }: { a: Assertion; now: number; role:
           <div className="flex flex-wrap items-center gap-2">
             <span className="num text-sm font-medium group-hover:text-accent">{a.proposition}</span>
             {role && <Badge tone={role === "CUSTOMER" ? "believed" : role === "MARKETING" || role === "IGNORE" ? "conflict" : "accent"}>{role.replace(/_/g, " ")}</Badge>}
-            {closed && <Badge tone="closed">no longer believed</Badge>}
+            {closed && <span title="no longer believed" role="img" aria-label="no longer believed"
+              className="inline-flex"><CircleOff className="h-3.5 w-3.5 text-closed" aria-hidden="true" /></span>}
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-2xs text-muted">
             {others.length > 0 && (
@@ -211,9 +212,7 @@ function MemoryRow({ a, now, role, primary }: { a: Assertion; now: number; role:
           </div>
         </button>
         <div className="flex shrink-0 items-center gap-3">
-          {isGrounded(a.grounded)
-            ? <Badge tone="believed"><ShieldCheck className="h-3 w-3" />grounded</Badge>
-            : <Badge tone="unknown"><ShieldAlert className="h-3 w-3" />ungrounded</Badge>}
+          <GroundedMark grounded={isGrounded(a.grounded)} />
           <div className="w-32" title={railLabel}>
             <IntervalStrip start={a.belief_interval.start} end={a.belief_interval.end} now={now}
               min={0} max={Math.max(now, a.belief_interval.start + 1)} label={railLabel} />
