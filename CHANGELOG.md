@@ -3,6 +3,24 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.3.2 - 30 Aug 2026
+
+**The commons gets a public face, and belief state reads as marks.**
+
+- **A page for the commons.** A collector now serves a distinct public page
+  at `/commons` (and its bare domain lands there): the mission, live headline
+  counts of what the pool holds, and, once the operator publishes the dataset,
+  the patterns and a download. No login, nothing identifying, so the URL you
+  hand a lab or a contributor reads as the commons rather than as a generic
+  OMEM dashboard. `GET /v1/commons/public` backs it.
+- **State and grounding as glyphs, not coloured boxes.** Each state is now a
+  distinct mark the eye recognises at a glance: a check for believed, a cross
+  for believed-false, a triangle for contradicted, a question for unknown;
+  grounding is a solid shield when a belief traces to a recorded event and an
+  alert shield when nothing backs it. The word rides the tooltip and the
+  accessible label, so nothing is lost to a screen reader or a colour-blind
+  reader, which a hue-only box could not promise.
+
 ## 0.3.1 - 30 Aug 2026
 
 **The commons gets its real address, and its gate gets stricter.**

@@ -1014,6 +1014,9 @@ COMMONS_URL = (os.environ.get("OMEM_COMMONS_URL") or "").strip()
 # (GET /v1/commons/dataset). Off by default: publishing is the creator's
 # deliberate act, flipped when they are ready to hand labs a URL.
 DATASET_PUBLIC = os.environ.get("OMEM_COMMONS_DATASET_PUBLIC", "0") == "1"
+COMMONS_MISSION = ("connect humans and AI by giving AI a better understanding "
+                   "of our nature and behaviour, without holding a single fact "
+                   "about a person")
 STORE.db.executescript(_cand_index.INDEX_SCHEMA)
 STORE.db.commit()
 STORE.db.executescript(_graph.GRAPH_SCHEMA)
@@ -3102,6 +3105,34 @@ class Handler(BaseHTTPRequestHandler):
                  "events": len(list(p.engine.store.events())),
                  "is_demo": p.is_demo}
                 for p in PROJECTS.values() if p.id in allowed]})
+
+        # ── the commons' PUBLIC face: what commons.omem-cloud.com shows a
+        # visitor, no login. Headline counts only (all anonymous aggregate),
+        # plus the mission and license; the full patterns ride along only once
+        # the operator has published the dataset (OMEM_COMMONS_DATASET_PUBLIC),
+        # so this page never leaks the corpus ahead of that deliberate flip.
+        # Collector-only and rate limited like the rest of /v1/commons.
+        if parts == ["v1", "commons", "public"]:
+            if not BANK_COLLECTOR:
+                return self._err(404, "not_found", "not found")
+            ip = self.client_address[0] if self.client_address else "unknown"
+            if not COMMONS_LIMITER.allow(f"public:{ip}"):
+                return self._err(429, "rate_limited", "Slow down and retry.")
+            contribs = _commons.latest_per_instance(STORE.db)
+            rows = _commons.merged(_hypo.bank(STORE.db, list(PROJECTS.keys())), contribs)
+            stats = _commons.analytics(rows, contribs, STORE.db)
+            out = {
+                "collector": True,
+                "dataset_public": DATASET_PUBLIC,
+                "license": _commons.DATASET_LICENSE,
+                "mission": COMMONS_MISSION,
+                "stats": {"contributors": stats["contributors"],
+                          "patterns": stats["patterns"], "stances": stats["stances"],
+                          "strong": stats["strong"], "categories": stats["categories"]},
+            }
+            if DATASET_PUBLIC:
+                out["patterns"] = rows
+            return self._send(200, out)
 
         # ── the commons as a training corpus. Two doors to one payload:
         # /v1/commons-dataset is the owner's (session, collector only), for
