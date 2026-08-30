@@ -115,7 +115,7 @@ export default function Commons() {
               </p>
               <div className="mt-7 flex flex-wrap gap-3">
                 {!live && <ButtonLink href="https://commons.omem-cloud.com/commons" external>Visit the commons</ButtonLink>}
-                <ButtonLink href="/" variant="secondary">What OMEM is</ButtonLink>
+                <ButtonLink href="/docs" variant="secondary">What OMEM is</ButtonLink>
               </div>
             </>
           )}
