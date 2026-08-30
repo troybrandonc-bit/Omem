@@ -16,7 +16,7 @@ export default function Intelligence() {
 
   return (
     <div className="space-y-5">
-      <h1 className="display text-lg">Memory intelligence</h1>
+      <h1 className="display text-2xl">Memory intelligence</h1>
 
       <section className="panel overflow-hidden">
         <header className="border-b px-4 py-2.5"><h2 className="text-sm font-semibold">Memory health</h2></header>

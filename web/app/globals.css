@@ -57,21 +57,18 @@
 :root {
   color-scheme: light;
 
-  /* Type is the platform's own system family, not a webfont. On Apple hardware
-     that is San Francisco -- SF Pro for text and display, SF Mono for code --
-     resolved through the -apple-system / ui-* keywords; on Windows it falls to
-     Segoe UI and Cascadia/Consolas, on Linux to the system UI face. This is the
-     Apple approach to type on the web: use the OS font rather than approximate
-     it with Inter, and it also means the dashboard now downloads no font files
-     at all, which the "runs on your own machine, no external services" claim
-     always implied it should. font-optical-sizing lets SF switch to its display
-     cut at large sizes on its own. */
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", ui-sans-serif,
+  /* Geist (Vercel's product typeface), self-hosted via next/font -- see
+     app/fonts.ts. Its --font-geist-sans / --font-geist-mono are set on <html>;
+     the system faces after it are only the pre-load fallback, chosen to be
+     SF/Segoe so the swap barely moves. Geist is a tight neo-grotesque in the SF
+     lineage, so this reads as a designed product on every machine, not as a
+     Windows default. */
+  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont,
     "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", ui-sans-serif,
+  --font-display: var(--font-geist-sans), -apple-system, BlinkMacSystemFont,
     "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Monaco,
-    "Cascadia Code", "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", "SFMono-Regular",
+    Menlo, "Cascadia Code", "Segoe UI Mono", Consolas, monospace;
 
   /* Surfaces: cool neutral. Elevation moves in ~2% steps. You feel it, you do
      not see it. Sidebar shares --bg with the canvas on purpose; a different
@@ -499,7 +496,6 @@ textarea:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
   letter-spacing: -0.028em;
   line-height: 1.08;
   text-wrap: balance;
-  font-feature-settings: "cv11" 1;  /* single-storey a-alt off; keeps 'g' simple */
 }
 /* The emphasised word in a headline.
    Colour alone was carrying it, and under the old palette the accent (#263449)

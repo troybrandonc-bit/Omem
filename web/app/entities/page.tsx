@@ -81,7 +81,7 @@ export default function Entities() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="display text-lg">Entities</h1>
+        <h1 className="display text-2xl">Entities</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
           Everyone and everything OMEM holds memory about, split into the
           companies you track and the people you deal with at them.

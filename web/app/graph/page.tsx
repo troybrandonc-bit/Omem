@@ -217,7 +217,7 @@ export default function Graph() {
     <div>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div>
-          <h1 className="display text-lg">Belief graph</h1>
+          <h1 className="display text-2xl">Belief graph</h1>
           <p className="mt-1 text-sm text-muted">
             Agents assert claims about entities, grounded in events. Drag to pan, scroll to zoom, click a belief to open it.
           </p>

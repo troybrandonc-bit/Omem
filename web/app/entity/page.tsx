@@ -34,7 +34,7 @@ function EntityDetailInner() {
       <Link href="/entities" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg"><ArrowLeft className="h-4 w-4" /> Entities</Link>
       <div className="mb-5 flex items-center gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-lg border bg-panel"><Box className="h-5 w-5 text-muted" /></div>
-        <div><h1 className="display text-lg">{ent?.label || id}</h1><div className="text-xs text-muted">{id}{ent?.type ? ` / ${ent.type}` : ""}</div></div>
+        <div><h1 className="display text-2xl">{ent?.label || id}</h1><div className="text-xs text-muted">{id}{ent?.type ? ` / ${ent.type}` : ""}</div></div>
       </div>
       <div className="mb-2 tech-label">
         What your AI believes about this entity{asOf !== null ? ` (as-of t=${asOf})` : ""}

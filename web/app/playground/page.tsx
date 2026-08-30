@@ -44,7 +44,7 @@ export default function Playground() {
   return (
     <div className="space-y-5">
       <div className="flex items-baseline justify-between">
-        <h1 className="display text-lg">Playground</h1>
+        <h1 className="display text-2xl">Playground</h1>
         <span className="text-sm text-muted">Every call runs live against your project.</span>
       </div>
 

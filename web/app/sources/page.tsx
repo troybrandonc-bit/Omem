@@ -86,7 +86,7 @@ export default function Sources() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="display text-lg">Sources</h1>
+        <h1 className="display text-2xl">Sources</h1>
         <div className="flex flex-wrap items-center gap-2">
           <Btn onClick={connectGithub} busy={busy === "github"} icon={<Github className="h-3.5 w-3.5" />}>Connect GitHub</Btn>
           <Btn onClick={uploadDoc} busy={busy === "doc"} icon={<FileUp className="h-3.5 w-3.5" />}>Upload document</Btn>

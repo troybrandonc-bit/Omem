@@ -25,7 +25,7 @@ export default function Team() {
 
   return (
     <div className="space-y-5">
-      <h1 className="display text-lg">Team</h1>
+      <h1 className="display text-2xl">Team</h1>
       <section className="panel overflow-hidden">
         <header className="border-b px-4 py-2.5"><h2 className="text-sm font-semibold">Members</h2></header>
         {!data ? <div className="p-5"><Skeleton className="h-12" /></div> : (

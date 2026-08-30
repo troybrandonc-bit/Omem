@@ -55,7 +55,7 @@ export default function Contacts() {
   return (
     <div className="mx-auto max-w-5xl space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="display text-lg">Contacts</h1>
+        <h1 className="display text-2xl">Contacts</h1>
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filter contacts…"
           className="w-64 rounded-md border bg-panel px-3 py-1.5 text-sm outline-none focus:border-accent" />
       </div>

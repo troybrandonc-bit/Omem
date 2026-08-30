@@ -108,7 +108,7 @@ export default function MemoryHealth() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="display text-lg">Memory health</h1>
+        <h1 className="display text-2xl">Memory health</h1>
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" variant="secondary" onClick={() => scanNow("recent")}
             disabled={busy !== null}>

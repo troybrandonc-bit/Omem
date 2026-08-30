@@ -60,7 +60,7 @@ function DiagnosticsInner() {
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="display text-lg">Email diagnostics</h1>
+        <h1 className="display text-2xl">Email diagnostics</h1>
         <form className="flex items-center gap-2"
           onSubmit={e => { e.preventDefault(); window.location.href = `/diagnostics?source=${encodeURIComponent(input)}`; }}>
           <input value={input} onChange={e => setInput(e.target.value)}

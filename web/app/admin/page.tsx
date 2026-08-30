@@ -31,7 +31,7 @@ export default function Admin() {
   return (
     <div className="space-y-5">
       <div className="flex items-baseline justify-between">
-        <h1 className="display text-lg">Operator console</h1>
+        <h1 className="display text-2xl">Operator console</h1>
         <span className="text-sm text-muted">Internal. All counts live from the database.</span>
       </div>
 

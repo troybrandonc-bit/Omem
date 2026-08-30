@@ -72,7 +72,7 @@ export default function Onboarding() {
 
       {step === 0 && (
         <div className="panel p-6">
-          <h1 className="display text-lg">Create your workspace</h1>
+          <h1 className="display text-2xl">Create your workspace</h1>
           <p className="mt-1.5 text-sm text-muted">An organization, a project, and a development API key. Stored on your local OMEM server.</p>
           <label className="mt-5 block text-2xs text-muted">Email</label>
           <input value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" type="email"
@@ -96,7 +96,7 @@ export default function Onboarding() {
 
       {step === 1 && acct?.api_key && (
         <div className="panel p-6">
-          <h1 className="display text-lg">Your development API key</h1>
+          <h1 className="display text-2xl">Your development API key</h1>
           <p className="mt-1.5 text-sm text-muted">
             This secret is shown once. It is stored hashed; if you lose it, create a new key in Developers.
           </p>
@@ -116,7 +116,7 @@ export default function Onboarding() {
 
       {step === 2 && (
         <div className="panel p-6">
-          <h1 className="display text-lg">Store your first memory</h1>
+          <h1 className="display text-2xl">Store your first memory</h1>
           <p className="mt-1.5 text-sm text-muted">
             Runs against your project <span className="font-medium text-fg">{acct?.project?.name}</span> through the live API:
             an entity, an agent, an evidence event, then a grounded belief.
@@ -131,7 +131,7 @@ export default function Onboarding() {
 
       {step === 3 && (
         <div className="panel p-6">
-          <h1 className="display text-lg">{acct?.existing ? "Welcome back" : "You have memory"}</h1>
+          <h1 className="display text-2xl">{acct?.existing ? "Welcome back" : "You have memory"}</h1>
           {memoryDone && <p className="mono mt-2 text-xs text-believed">{memoryDone}</p>}
           <p className="mt-1.5 text-sm text-muted">
             {acct?.existing ? "Signed in. Your projects are ready." : "Your belief is stored, grounded, and queryable. Open the dashboard to inspect it."}

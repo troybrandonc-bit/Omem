@@ -48,7 +48,7 @@ function AssertionDetailInner() {
       {/* Header: claim, state, and the facts that matter, one dense block. */}
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="display text-lg leading-tight">
+          <h1 className="display text-2xl leading-tight">
             {why.subjects.length > 1
               ? why.subjects.map(s => s?.label || s?.id).filter(Boolean).join(" + ")
               : (why.subjects[0]?.label || why.subjects[0]?.id || "Unknown subject")}
