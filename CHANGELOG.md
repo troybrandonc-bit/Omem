@@ -3,6 +3,14 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.3.3 - 30 Aug 2026
+
+**The commons reads as its own site.** On a collector, commons.omem-cloud.com
+was the product landing with one extra page, sharing the product's nav and
+footer. The `/commons` page now wears its own chrome: a "commons" wordmark, a
+nav about the commons itself, and a footer that credits OMEM rather than
+carrying docs, pricing and compare. The bare domain lands on it.
+
 ## 0.3.2 - 30 Aug 2026
 
 **The commons gets a public face, and belief state reads as marks.**
