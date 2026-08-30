@@ -282,7 +282,7 @@ function TopBar({ onSearch, onMenu }: { onSearch: () => void; onMenu: () => void
         </button>
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
-          <AsOfControl asOf={asOf} setAsOf={setAsOf} now={now} T={T} />
+          <AsOfControl asOf={asOf} setAsOf={setAsOf} now={now} T={T} clock={data?.clock} />
           <HealthIndicator />
           <button onClick={toggleTheme}
             aria-pressed={mounted ? theme === "dark" : undefined}
@@ -309,27 +309,51 @@ function TopBar({ onSearch, onMenu }: { onSearch: () => void; onMenu: () => void
  * which keeps the one thing that must never be ambiguous — whether you are
  * looking at now or at the past — visible at every width.
  */
-function AsOfControl({ asOf, setAsOf, now, T }: {
+// Map a logical tick to the real moment it was recorded: the latest clock
+// entry at or before the tick. The engine still time-travels by tick -- that is
+// what it replays -- but a person reads a date, not a tick number, so the
+// control shows the date and the tick stays under the hood.
+function tickToTs(clock: { t: number; ts: number }[] | undefined, T: number): number | null {
+  if (!clock || clock.length === 0) return null;
+  let ts: number | null = null;
+  for (const c of clock) { if (c.t <= T) ts = c.ts; else break; }
+  return ts ?? clock[0].ts;
+}
+function fmtStamp(ts: number): string {
+  const d = new Date(ts * 1000);
+  const day = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return `${day}, ${time}`;
+}
+
+function AsOfControl({ asOf, setAsOf, now, T, clock }: {
   asOf: number | null; setAsOf: (t: number | null) => void; now: number; T: number;
+  clock?: { t: number; ts: number }[];
 }) {
   const past = asOf !== null;
+  const ts = tickToTs(clock, T);
+  const stamp = ts != null ? fmtStamp(ts) : null;
+  // When we have a real clock, read out the date/time; fall back to the tick
+  // only for a server too old to send one.
+  const readout = past ? (stamp ?? `t${asOf}`) : "now";
   return (
     <div className={cn("panel flex h-9 items-center gap-2 px-2.5 transition-colors duration-1 ease-out",
       past && "border-[color:var(--accent)] bg-accentBg")}>
       <History className={cn("h-3.5 w-3.5 shrink-0", past ? "text-accent" : "text-faint")} aria-hidden="true" />
       <label htmlFor="as-of" className="tech-label hidden sm:block">as of</label>
       <input id="as-of" type="range" min={0} max={Math.max(now, 1)} value={T}
-        aria-label="View memory as of an earlier logical time"
-        aria-valuetext={past ? `logical time ${asOf}` : `now, logical time ${now}`}
+        aria-label="View memory as of an earlier date and time"
+        aria-valuetext={past ? `as of ${stamp ?? `logical time ${asOf}`}` : "now"}
         onChange={e => { const v = Number(e.target.value); setAsOf(v >= now ? null : v); }}
         className="hidden h-1.5 w-20 cursor-pointer accent-[color:var(--accent)] sm:block lg:w-28" />
-      <span className={cn("mono shrink-0 text-2xs tabular-nums", past ? "font-medium text-accent" : "text-muted")}>
-        {past ? `t${asOf}` : `now`}
+      <span className={cn("shrink-0 whitespace-nowrap text-2xs tabular-nums", past ? "font-medium text-accent" : "text-muted")}
+        title={ts != null ? new Date(ts * 1000).toLocaleString() : undefined}>
+        {readout}
       </span>
       {past && (
         <button onClick={() => setAsOf(null)}
           className="tap shrink-0 rounded px-1 text-2xs font-medium text-accent hover:underline">
-          reset
+          now
         </button>
       )}
     </div>

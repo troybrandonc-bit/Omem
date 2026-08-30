@@ -73,6 +73,9 @@ export interface WhyResult {
 }
 export interface Overview {
   now: number;
+  // What real second each logical tick was recorded at, sorted by tick, so the
+  // "as of" control can travel in real dates instead of tick numbers.
+  clock?: { t: number; ts: number }[];
   counts: { entities: number; agents: number; events: number; assertions: number; open_beliefs: number; conflicts: number; };
   grounded_ratio: number; activity: LogEntry[];
 }

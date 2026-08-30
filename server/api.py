@@ -2788,8 +2788,26 @@ class Handler(BaseHTTPRequestHandler):
                             and a.proposition != RETRACTED]
             grounded = sum(1 for a in open_beliefs if e.provenance(a.id)[1] == "GROUNDED")
             conflicts = e.conflicts(p.now())
+            # The clock: what real moment each LOGICAL time corresponds to, so the
+            # "as of" control can travel in dates and times instead of tick
+            # numbers. Keyed by tick, earliest real ts wins; assertions and events
+            # both stamp a tick, so both feed it.
+            _ts_map = STORE.assert_timestamps(p.id)
+            _clock: dict[int, float] = {}
+            for _a in assertions:
+                _ts = _ts_map.get(_a.id)
+                _t = _a.assertion_time
+                if _ts is not None and (_t not in _clock or _ts < _clock[_t]):
+                    _clock[_t] = _ts
+            for _ev in e.store.events():
+                _ts = _ts_map.get(_ev.id)
+                _t = getattr(_ev, "event_time", None)
+                if _ts is not None and _t is not None and (_t not in _clock or _ts < _clock[_t]):
+                    _clock[_t] = _ts
+            clock = [{"t": _t, "ts": _clock[_t]} for _t in sorted(_clock)]
             return self._send(200, {
                 "now": p.now(),
+                "clock": clock,
                 "counts": {
                     "entities": len(list(e.store.entities())),
                     "agents": len(list(e.store.agents())),
