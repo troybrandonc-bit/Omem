@@ -408,7 +408,11 @@ export const api = {
   // BEFORE it has a session: "local" (no login, server bound to loopback) or
   // "password" (real accounts). Guessing wrong either locks local users out of
   // a one-minute quickstart or silently signs somebody in on an exposed server.
-  health: () => req<{ status: string; cts: string; auth?: AuthMode; commons_collector?: boolean }>("GET", "/v1/health"),
+  health: () => req<{ status: string; cts: string; auth?: AuthMode; commons_collector?: boolean; commons_ask?: boolean }>("GET", "/v1/health"),
+  /** The operator's commons decision: null until the first-open prompt (or
+   *  Settings) records one. Session-only on the server. */
+  commonsChoice: () => req<{ contribute: "yes" | "no" | null; env_override: boolean; url: string; collector: boolean }>("GET", "/v1/commons-choice"),
+  setCommonsChoice: (contribute: boolean) => req<{ contribute: string }>("POST", "/v1/commons-choice", { contribute }),
   signup: (b: { email: string; org?: string; project?: string; password?: string; code?: string }) =>
     req<SignupResult>("POST", "/v1/signup", b),
   login: (email: string, password?: string, code?: string) =>

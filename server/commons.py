@@ -38,6 +38,26 @@ CREATE TABLE IF NOT EXISTS commons_meta(k TEXT PRIMARY KEY, v TEXT NOT NULL);
 MAX_PATTERNS = 500          # one contribution's pattern cap
 MAX_INSTANCE_LEN = 64
 
+# Where contributions go when an operator says yes: the commons the OMEM
+# project runs. Overridable with OMEM_COMMONS_URL (a lab pooling its own
+# installs would point at its own collector); an override also counts as
+# consent, since setting it IS the operator's explicit act.
+DEFAULT_COMMONS_URL = "https://commons.omem.dev"
+
+
+def get_choice(db) -> str | None:
+    """The operator's recorded decision: 'yes', 'no', or None (never asked)."""
+    r = db.execute("SELECT v FROM commons_meta WHERE k='contribute'").fetchone()
+    return r["v"] if r else None
+
+
+def set_choice(db, contribute: bool):
+    """Record the decision. Either answer is durable; both are revocable from
+    Settings, because consent that cannot be withdrawn is not consent."""
+    db.execute("INSERT OR REPLACE INTO commons_meta(k,v) VALUES('contribute',?)",
+               ("yes" if contribute else "no",))
+    db.commit()
+
 
 def instance_id(db) -> str:
     """This install's stable pseudonym for contributions: a random uuid minted

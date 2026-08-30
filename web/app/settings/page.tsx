@@ -42,6 +42,8 @@ export default function Settings() {
         </dl>
       )}
 
+      <CommonsSetting />
+
       <div className="tech-label mb-3">Appearance</div>
       <div className="mb-8 flex items-center justify-between rounded-lg border px-4 py-3">
         <div>
@@ -182,5 +184,48 @@ function IdentitySettings() {
         {saved && <span className="text-2xs text-believed">Saved.</span>}
       </div>
     </div>
+  );
+}
+
+/* The commons decision, revocable. Consent that cannot be withdrawn is not
+ * consent, so the first-open answer lives here as a plain toggle. On the
+ * collector instance, and when OMEM_COMMONS_URL was set by hand (that env is
+ * itself the consent), the toggle explains instead of pretending control. */
+function CommonsSetting() {
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ["commons-choice"], queryFn: api.commonsChoice, retry: false });
+  const [busy, setBusy] = useState(false);
+  if (!data || data.collector) return null;
+  const on = data.contribute === "yes";
+  const flip = async () => {
+    setBusy(true);
+    try { await api.setCommonsChoice(!on); await qc.invalidateQueries({ queryKey: ["commons-choice"] }); }
+    finally { setBusy(false); }
+  };
+  return (
+    <>
+      <div className="tech-label mb-3">The commons</div>
+      <div className="mb-8 flex items-center justify-between gap-6 rounded-lg border px-4 py-3">
+        <div>
+          <div className="text-sm">Contribute anonymous patterns</div>
+          <div className="mt-0.5 max-w-md text-2xs leading-relaxed text-faint">
+            Shares only counts, like &ldquo;prefers async usually comes with prefers
+            email, 5 of 7&rdquo;. Never a name, a company, a message, or a number from
+            your data; the exact file sits in your backup directory to inspect.
+            {data.env_override && " Currently forced on by OMEM_COMMONS_URL in the environment."}
+          </div>
+        </div>
+        {data.env_override ? (
+          <span className="mono shrink-0 text-2xs text-muted">env</span>
+        ) : (
+          <button onClick={flip} disabled={busy} role="switch" aria-checked={on}
+            className={"tap h-6 w-11 shrink-0 rounded-full border transition-colors " +
+              (on ? "border-accent bg-accent" : "border-[color:var(--line-strong)] bg-chip")}>
+            <span className={"block h-4 w-4 rounded-full bg-white transition-transform " +
+              (on ? "translate-x-6" : "translate-x-1")} />
+          </button>
+        )}
+      </div>
+    </>
   );
 }

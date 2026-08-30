@@ -99,5 +99,13 @@ check("scheduling covers unavailable days",
 check("commercial category recognised",
       commons.category_of("prefers_annual_billing") == "commercial")
 
+print("== the operator's decision: durable, revocable, never presumed ==")
+check("never asked reads as None (no send happens on None)",
+      commons.get_choice(con) is None)
+commons.set_choice(con, True)
+check("yes is recorded", commons.get_choice(con) == "yes")
+commons.set_choice(con, False)
+check("consent is revocable", commons.get_choice(con) == "no")
+
 print("\n%d passed, %d failed" % (PASS, FAIL))
 sys.exit(1 if FAIL else 0)

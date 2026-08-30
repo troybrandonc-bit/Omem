@@ -1246,16 +1246,24 @@ def _write_bank_export(dest_dir):
     with open(os.path.join(dest_dir, "intelligence-bank.md"), "w", encoding="utf-8") as f:
         f.write(_bank_markdown(rows))
     # CONTRIBUTION, and the whole consent model in one condition: this block
-    # runs only when the operator set OMEM_COMMONS_URL themselves. What is
-    # sent is byte-for-byte what was just written to their own disk above --
-    # counts over populations under a random instance pseudonym -- so consent
-    # is informed by a file they can open. Unset, no network call exists.
-    if COMMONS_URL and rows:
+    # runs only when the operator said yes -- either to the first-open prompt
+    # (recorded, revocable in Settings) or by setting OMEM_COMMONS_URL, which
+    # is itself an explicit act. What is sent is byte-for-byte what was just
+    # written to their own disk above -- counts over populations under a
+    # random instance pseudonym -- so consent is informed by a file they can
+    # open. No answer, or no: no network call exists. A collector never
+    # contributes to itself.
+    try:
+        consented = bool(COMMONS_URL) or _commons.get_choice(STORE.db) == "yes"
+    except Exception:
+        consented = False
+    if consented and rows and not BANK_COLLECTOR:
         try:
+            url = COMMONS_URL or _commons.DEFAULT_COMMONS_URL
             payload = json.dumps({"instance": _commons.instance_id(STORE.db),
                                   "patterns": rows}).encode()
             req = urllib.request.Request(
-                COMMONS_URL.rstrip("/") + "/v1/commons", data=payload,
+                url.rstrip("/") + "/v1/commons", data=payload,
                 headers={"Content-Type": "application/json"}, method="POST")
             urllib.request.urlopen(req, timeout=5).read()
         except Exception:
@@ -2051,6 +2059,15 @@ class Handler(BaseHTTPRequestHandler):
                 # uses it to show or hide the bank; a stock install is not one.
                 "commons_collector": BANK_COLLECTOR,
             }
+            # Should the dashboard ask, once, whether to contribute to the
+            # commons? Only when nobody has answered: not a collector, no
+            # recorded choice, no env override (setting OMEM_COMMONS_URL is
+            # itself the operator's explicit act of consent).
+            try:
+                body["commons_ask"] = (not BANK_COLLECTOR and not COMMONS_URL
+                                       and _commons.get_choice(STORE.db) is None)
+            except Exception:
+                body["commons_ask"] = False
             return self._send(200 if ready else 503, body)
         # ── Google redirects the BROWSER here after consent ──
         if parts == ["oauth", "gmail", "callback"] or parts == ["v1", "oauth", "gmail", "callback"]:
@@ -2853,6 +2870,19 @@ class Handler(BaseHTTPRequestHandler):
                  "is_demo": p.is_demo}
                 for p in PROJECTS.values() if p.id in allowed]})
 
+        # ── the operator's commons decision, for the Settings toggle. Session
+        # only: this is an instance-level choice, not something an API key
+        # (or the /v1/commons prefix, which is public for contributions)
+        # should reach. Hence its own path segment.
+        if parts == ["v1", "commons-choice"]:
+            if "user" not in auth:
+                return self._err(403, "permission", "session required")
+            return self._send(200, {
+                "contribute": _commons.get_choice(STORE.db),
+                "env_override": bool(COMMONS_URL),
+                "url": COMMONS_URL or _commons.DEFAULT_COMMONS_URL,
+                "collector": BANK_COLLECTOR})
+
         # ── the commons bank: the creator's view. Not a user feature -- a
         # stock install answers 404 here (BANK_COLLECTOR off) and shows no
         # bank page. On the one collector instance, this merges the operator's
@@ -3395,6 +3425,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self._err(422, "invalid_request", verr)
             _commons.store(STORE.db, body["instance"], clean)
             return self._send(201, {"accepted": len(clean), "object": "contribution"})
+
+        # ── the operator answers the commons question (first-open prompt, or
+        # the Settings toggle later). Either answer is durable and revocable.
+        if parts == ["v1", "commons-choice"]:
+            if "user" not in auth:
+                return self._err(403, "permission", "session required")
+            c = body.get("contribute")
+            if not isinstance(c, bool):
+                return self._err(422, "invalid_request",
+                                 "contribute must be true or false", param="contribute")
+            _commons.set_choice(STORE.db, c)
+            return self._send(200, {"contribute": "yes" if c else "no"})
 
         # ── account ──
         if parts == ["v1", "signup"]:

@@ -114,7 +114,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
    * looking at an app whose every panel said "nothing here" while the server
    * held their data. One bootstrap, one order: see providers.tsx.
    */
-  const { boot, mode, retryBoot } = useApp();
+  const { boot, mode, retryBoot, commonsAsk, dismissCommonsAsk } = useApp();
 
   if (isMarketing || path?.startsWith("/onboarding")) return <>{children}</>;
   if (boot === "connecting") return <BootSkeleton />;
@@ -153,6 +153,57 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </div>
 
       {palette && <CommandPalette onClose={() => setPalette(false)} />}
+      {commonsAsk && <CommonsAsk onDone={dismissCommonsAsk} />}
+    </div>
+  );
+}
+
+/* The commons question, asked once, on the first open, and never presumed.
+ * Escape or the backdrop record nothing and it asks again next time; only
+ * the two buttons write an answer, and either answer is revocable from
+ * Settings. The copy says exactly what would leave the machine, because
+ * consent to an unread sentence is not consent. */
+function CommonsAsk({ onDone }: { onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const answer = async (yes: boolean) => {
+    setBusy(true);
+    try { await api.setCommonsChoice(yes); } catch { /* ask again next open */ }
+    onDone();
+  };
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onDone(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onDone]);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+      <div className="anim-fade absolute inset-0 bg-black/40" onClick={onDone} aria-hidden="true" />
+      <div role="dialog" aria-modal="true" aria-label="Contribute anonymous patterns"
+        className="anim-fade relative w-full max-w-md rounded-lg border bg-panel p-5 shadow-lg">
+        <h2 className="text-sm font-semibold">Teach the commons what people are like?</h2>
+        <p className="mt-2 text-xs leading-relaxed text-muted">
+          OMEM learns patterns like &ldquo;people who prefer async usually prefer
+          email&rdquo;. You can contribute those patterns to the shared OMEM
+          commons, which studies human behaviour in general so AI can understand
+          people better.
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-muted">
+          What leaves this machine: counts, like &ldquo;held for 5 of 7&rdquo;.
+          Never a name, a company, a message, or a number from your data, and the
+          exact file is on your disk to inspect (intelligence-bank.json). Nothing
+          is sent until you say yes, and you can change your answer in Settings.
+        </p>
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button onClick={() => answer(false)} disabled={busy}
+            className="tap h-8 rounded border border-[color:var(--line-strong)] bg-panel px-3 text-xs font-medium hover:bg-raised">
+            No, keep everything local
+          </button>
+          <button onClick={() => answer(true)} disabled={busy}
+            className="tap on-accent h-8 rounded bg-accent px-3 text-xs font-medium text-accentFg hover:bg-accentHover">
+            Yes, contribute
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
