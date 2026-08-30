@@ -18,6 +18,7 @@ import { Sun, Moon, LogIn } from "lucide-react";
 const GITHUB = "https://github.com/troybrandonc-bit/Omem";
 
 const LINKS = [
+  { label: "Mission", href: "#mission" },
   { label: "How it works", href: "#how" },
   { label: "The dataset", href: "#dataset" },
   { label: "Contribute", href: "#contribute" },

@@ -3,6 +3,28 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.3.5 - 30 Aug 2026
+
+**The commons states its mission, and a collector's dashboard is its operator's
+alone.**
+
+- **The mission, in depth.** The public `/commons` page now makes the case it
+  only gestured at before: teach AI what people are like without teaching it
+  who anyone is. Almost everything AI knows about people it learned by reading
+  them; the commons is the other way — how often, across everyone who
+  consented, one behaviour goes with another, as a rate attached to nobody.
+  These are priors, not rules, and the corpus is a public good (CC BY 4.0). The
+  contribute section now says plainly that we are looking for the people who
+  will build it.
+- **`OMEM_OPERATOR_ONLY` for a private collector.** On the one instance that
+  runs as the commons collector, the dashboard is the operator's private
+  console — the place the pooled bank is read — not a service strangers sign up
+  for. Set this and only the emails in `OMEM_ADMIN_EMAILS` may register or sign
+  in; a stranger who registered earlier is turned away at sign-in too, before
+  any password is checked. The public commons page and the contribution
+  endpoint (`POST /v1/commons`) stay open, since neither needs an account, so
+  locking the dashboard never turns a contributor away.
+
 ## 0.3.4 - 30 Aug 2026
 
 **Every status reads as a glyph, and the commons shows its door.** The last

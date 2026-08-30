@@ -1014,9 +1014,24 @@ COMMONS_URL = (os.environ.get("OMEM_COMMONS_URL") or "").strip()
 # (GET /v1/commons/dataset). Off by default: publishing is the creator's
 # deliberate act, flipped when they are ready to hand labs a URL.
 DATASET_PUBLIC = os.environ.get("OMEM_COMMONS_DATASET_PUBLIC", "0") == "1"
+# On the public collector the dashboard is the OPERATOR'S private console, the
+# one place the pooled bank is read. It is not a service strangers sign up for.
+# When set, only emails in OMEM_ADMIN_EMAILS may register or sign in, so the
+# whole authenticated app is the operator's alone. The public /commons page and
+# the contribution endpoint (/v1/commons) stay open -- neither needs an account,
+# so locking the door here never turns a contributor away.
+OPERATOR_ONLY = os.environ.get("OMEM_OPERATOR_ONLY", "0") == "1"
 COMMONS_MISSION = ("connect humans and AI by giving AI a better understanding "
                    "of our nature and behaviour, without holding a single fact "
                    "about a person")
+
+
+def _admin_email_set():
+    """Emails allowed operator access, lower-cased for a case-insensitive match
+    (an email's local part is case-insensitive in every mailbox that matters,
+    and locking the operator out of their own box over letter-case is a worse
+    failure than being lenient here)."""
+    return {e.strip().lower() for e in os.environ.get("OMEM_ADMIN_EMAILS", "").split(",") if e.strip()}
 STORE.db.executescript(_cand_index.INDEX_SCHEMA)
 STORE.db.commit()
 STORE.db.executescript(_graph.GRAPH_SCHEMA)
@@ -3773,6 +3788,15 @@ class Handler(BaseHTTPRequestHandler):
             email = (body.get("email") or "").strip()
             if "@" not in email:
                 return self._err(422, "invalid_request", "A valid email is required.", param="email")
+            # A private collector: registration is the operator's, not open to
+            # the public. Contributing needs no account, and the commons itself
+            # lives at /commons, so this closes the dashboard without closing the
+            # commons.
+            if OPERATOR_ONLY and email.lower() not in _admin_email_set():
+                return self._err(403, "permission",
+                                 "This server is a private commons collector; the dashboard "
+                                 "is its operator's. The public commons is at /commons, and "
+                                 "contributing needs no account.")
             if PASSWORD_MODE:
                 password = body.get("password") or ""
                 if len(password) < MIN_PASSWORD_LENGTH:
@@ -3821,6 +3845,12 @@ class Handler(BaseHTTPRequestHandler):
             email = (body.get("email") or "").strip()
             if "@" not in email:
                 return self._err(422, "invalid_request", "A valid email is required.", param="email")
+            # Before the password is even checked, so a stranger who registered
+            # earlier (or before this was set) can no longer get back in either.
+            if OPERATOR_ONLY and email.lower() not in _admin_email_set():
+                return self._err(403, "permission",
+                                 "This server is a private commons collector; sign-in is "
+                                 "limited to its operator.")
             if PASSWORD_MODE:
                 user = STORE.verify_login(email, (body or {}).get("password") or "")
                 if not user:
