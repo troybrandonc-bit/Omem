@@ -5,7 +5,7 @@ import { api, formatWhen } from "@/lib/api";
 import { useApp } from "@/components/providers";
 import { Skeleton, StateBadge } from "@/components/ui/primitives";
 import { cn } from "@/lib/cn";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, AlertTriangle, CircleCheck } from "lucide-react";
 
 // Stripe-style titled panels. Every number and the sparkline come from the
 // live store and its request log; nothing is synthesized.
@@ -78,9 +78,9 @@ export default function Overview() {
             </div>
             <div className="mt-3 flex items-center gap-1.5 text-2xs">
               {c.conflicts > 0
-                ? <><span className="led conflict" aria-hidden="true" />
+                ? <><AlertTriangle className="h-3.5 w-3.5 shrink-0 text-conflict" aria-hidden="true" />
                     <span className="text-conflict">needs adjudication</span></>
-                : <><span className="led believed" aria-hidden="true" />
+                : <><CircleCheck className="h-3.5 w-3.5 shrink-0 text-believed" aria-hidden="true" />
                     <span className="text-muted">nothing contradicts</span></>}
             </div>
           </Link>

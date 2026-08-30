@@ -3,7 +3,8 @@ import { useState } from "react";
 import { api, getSession, type WhyResult } from "@/lib/api";
 import { useApp } from "@/components/providers";
 import { cn } from "@/lib/cn";
-import { Play, Copy, Check, Terminal, RefreshCw, ArrowRight } from "lucide-react";
+import { Play, Copy, Check, Terminal, RefreshCw, ArrowRight,
+  CircleCheck, CircleX, CircleDashed, Zap, Sparkles, Circle } from "lucide-react";
 
 // Full developer loop, all live against the user's project:
 // learn (text -> engine belief) -> recall -> why (state + provenance) -> code-gen.
@@ -143,11 +144,12 @@ function Step({ n, label, children }: { n: number; label: string; children: Reac
 
 function StatePill({ state }: { state: string }) {
   const tone = state === "BELIEVED_TRUE" ? "believed" : state === "CONTRADICTED" ? "conflict" : state === "BELIEVED_FALSE" ? "conflict" : "closed";
+  const Icon = tone === "believed" ? CircleCheck : tone === "conflict" ? CircleX : CircleDashed;
   return (
     <span className={cn("inline-flex items-center gap-1.5 rounded-sm border px-2 py-px text-2xs font-semibold lowercase",
       tone === "believed" ? "text-believed" : tone === "conflict" ? "text-conflict" : "text-muted")}
       style={{ borderColor: "currentColor" }}>
-      <span className={cn("led", tone)} style={{ width: 6, height: 6 }} />{state.replace("_", " ")}
+      <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />{state.replace("_", " ")}
     </span>
   );
 }
@@ -161,16 +163,20 @@ function ProvChain({ why }: { why: WhyResult }) {
   ];
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md bg-raised px-3 py-2.5">
-      {chain.map((c, i) => (
-        <span key={c.id} className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5">
-            <span className={cn("led", c.kind === "event" ? "believed" : c.kind === "assertion" ? "accent" : "closed")} style={{ width: 7, height: 7 }} />
-            <span className="mono text-2xs">{c.label}</span>
-            <span className="text-2xs text-faint">({c.kind})</span>
+      {chain.map((c, i) => {
+        const Icon = c.kind === "event" ? Zap : c.kind === "assertion" ? Sparkles : Circle;
+        const tone = c.kind === "event" ? "text-believed" : c.kind === "assertion" ? "text-accent" : "text-muted";
+        return (
+          <span key={c.id} className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5">
+              <Icon className={cn("h-3.5 w-3.5 shrink-0", tone)} aria-hidden="true" />
+              <span className="mono text-2xs">{c.label}</span>
+              <span className="text-2xs text-faint">({c.kind})</span>
+            </span>
+            {i < chain.length - 1 && <ArrowRight className="h-3 w-3 text-faint" />}
           </span>
-          {i < chain.length - 1 && <ArrowRight className="h-3 w-3 text-faint" />}
-        </span>
-      ))}
+        );
+      })}
     </div>
   );
 }

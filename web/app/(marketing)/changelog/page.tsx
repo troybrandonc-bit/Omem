@@ -1,5 +1,6 @@
 import { MarketingShell } from "@/components/marketing/chrome";
 import { Section, PageHeader } from "@/components/marketing/ui";
+import { CircleCheck, Circle } from "lucide-react";
 
 export const metadata = {
   title: "Changelog",
@@ -58,7 +59,9 @@ export default function Changelog() {
                   {/* The tag is state, so it gets a mark and not only a word.
                       "Current" is the one thing a reader scans this page for. */}
                   <span className={`chip ${e.current ? "text-fg" : ""}`}>
-                    <span className={`led ${e.current ? "believed" : "closed"}`} aria-hidden="true" />
+                    {e.current
+                      ? <CircleCheck className="h-3.5 w-3.5 shrink-0 text-believed" aria-hidden="true" />
+                      : <Circle className="h-3.5 w-3.5 shrink-0 text-faint" aria-hidden="true" />}
                     {e.tag}
                   </span>
                 </div>
