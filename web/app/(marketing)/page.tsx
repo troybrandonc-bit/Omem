@@ -4,6 +4,7 @@ import { MarketingShell } from "@/components/marketing/chrome";
 import { Section, CodeBlock, ButtonLink, SpecList, HeroHeading } from "@/components/marketing/ui";
 import { BeliefInspector } from "@/components/marketing/belief-inspector";
 import { CollectorRedirect } from "@/components/marketing/collector-redirect";
+import { CircleDashed } from "lucide-react";
 
 /* The reasoning replay is INLINED into the DOM rather than referenced as an
  * image. Chrome freezes animation clocks inside SVG-as-<img> (we shipped an
@@ -417,7 +418,7 @@ await mem.believes({ about: "customer:alice",
           <ul className="border-t">
             {NOT_YET.map(n => (
               <li key={n} className="flex items-start gap-3 border-b py-4">
-                <span className="led closed mt-[7px] shrink-0" aria-hidden="true" />
+                <CircleDashed className="mt-0.5 h-4 w-4 shrink-0 text-faint" aria-hidden="true" />
                 <span className="text-note text-muted">{n}</span>
               </li>
             ))}

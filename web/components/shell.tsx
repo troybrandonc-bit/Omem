@@ -12,6 +12,7 @@ import {
   Home, Brain, Bot, Box, Clock, AlertTriangle, Network, FlaskConical, Braces,
   ScrollText, Gauge, Settings, Search, Sun, Moon, User, Activity, Users, ShieldCheck, Landmark,
   HeartPulse, ShieldPlus, Stethoscope, Menu, X, ChevronDown, History, GitMerge,
+  CircleCheck, CircleX, CircleDashed, CircleOff, RefreshCw, Loader2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 // getSession and AuthMode moved with the bootstrap into providers.tsx; setSession
@@ -215,7 +216,7 @@ function BootSkeleton() {
   return (
     <div className="flex min-h-screen items-center justify-center px-6" role="status" aria-live="polite">
       <div className="flex items-center gap-3 text-sm text-muted">
-        <span className="led unknown animate-pulse" aria-hidden="true" />
+        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted" aria-hidden="true" />
         Connecting to the OMEM server…
       </div>
     </div>
@@ -515,10 +516,16 @@ function HealthIndicator() {
   // Returning null on error meant a 403 or an unreachable server rendered
   // exactly like a healthy one: the failure mode looked like the success.
   const state = isError || !data ? "unreadable" : data.overall;
-  const tone = state === "unreadable" ? "closed"
-    : state === "healthy" ? "believed"
-    : state === "failed" ? "conflict"
-    : state === "unknown" ? "closed" : "unknown";
+  // Status as a glyph, not a coloured square, same grammar as the healing page:
+  // check when healthy, triangle when degraded, cross when failed, spinner while
+  // recovering, dashed ring when not reporting, struck ring when unreadable.
+  const { Icon, tone, spin } = state === "unreadable"
+      ? { Icon: CircleOff, tone: "text-muted", spin: false }
+    : state === "healthy" ? { Icon: CircleCheck, tone: "text-believed", spin: false }
+    : state === "failed" ? { Icon: CircleX, tone: "text-conflict", spin: false }
+    : state === "degraded" ? { Icon: AlertTriangle, tone: "text-unknown", spin: false }
+    : state === "recovering" ? { Icon: RefreshCw, tone: "text-unknown", spin: true }
+    : { Icon: CircleDashed, tone: "text-muted", spin: false };
   const bad = state !== "healthy" && state !== "unknown" && state !== "unreadable";
   const broken = data ? data.components.filter(c => c.status !== "healthy").length : 0;
   const label = state === "unreadable" ? "Health unreadable" : `System health: ${state}`;
@@ -526,7 +533,7 @@ function HealthIndicator() {
   return (
     <Link href="/healing" title={label}
       className={cn("panel panel-link tap flex h-9 items-center gap-2 px-2.5", bad && "border-[color:var(--conflict)]")}>
-      <span className={cn("led", tone)} aria-hidden="true" />
+      <Icon className={cn("h-4 w-4 shrink-0", tone, spin && "animate-spin")} aria-hidden="true" />
       {/* Only the interesting states get words. Healthy is just the mark. */}
       {bad && (
         <span className="hidden text-2xs font-medium text-conflict sm:block">
@@ -552,7 +559,7 @@ function ServerDown({ onRetry }: { onRetry: () => void }) {
     <div className="grid min-h-screen place-items-center px-5">
       <div className="w-full max-w-md">
         <div className="flex items-center gap-2.5">
-          <span className="led unknown" aria-hidden="true" />
+          <CircleOff className="h-[18px] w-[18px] shrink-0 text-muted" aria-hidden="true" />
           <h1 className="text-md font-semibold">The OMEM server isn&rsquo;t answering</h1>
         </div>
         <p className="mt-3 text-sm leading-relaxed text-muted">
@@ -655,7 +662,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
         <div role="alert" aria-live="assertive">
           {err && (
             <p className="mt-4 flex items-start gap-2 rounded border border-[color:var(--conflict)]/40 bg-conflictBg px-3 py-2.5 text-xs leading-relaxed text-conflict">
-              <span className="led conflict mt-[3px] shrink-0" aria-hidden="true" />
+              <CircleX className="mt-[1px] h-4 w-4 shrink-0" aria-hidden="true" />
               {err}
             </p>
           )}

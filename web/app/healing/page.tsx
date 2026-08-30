@@ -8,7 +8,7 @@ import {
 import { useApp } from "@/components/providers";
 import { Card, Skeleton, EmptyState, SectionLabel } from "@/components/ui/primitives";
 import { cn } from "@/lib/cn";
-import { ShieldPlus, ChevronRight } from "lucide-react";
+import { ShieldPlus, ChevronRight, CircleCheck, CircleX, AlertTriangle, CircleDashed, RefreshCw, Circle } from "lucide-react";
 
 /* Self-healing, made visible.
  *
@@ -35,10 +35,6 @@ import { ShieldPlus, ChevronRight } from "lucide-react";
 
 // Health maps onto the belief-state palette rather than inventing a second one.
 // Same grammar as everywhere else: shape first, colour second.
-const HEALTH_TONE: Record<HealthState, string> = {
-  healthy: "believed", degraded: "unknown", failed: "conflict",
-  recovering: "unknown", unknown: "closed",
-};
 // Written out in full, never built as `text-${tone}`. Tailwind scans source for
 // complete class names, so an interpolated one is never generated and the style
 // silently does not exist. It looks fine in the editor and renders unstyled.
@@ -145,8 +141,15 @@ function confidenceWord(c: number | undefined): string | null {
    hollow = not reached. All four survive a greyscale screenshot, which the
    previous version, a `bg-chip` tint measuring 1.15:1 against the panel. Did
    not. The screen-reader line carries the same distinction in words. */
-const STEP_MARK: Record<StepState, string> = {
-  done: "believed", failed: "conflict", active: "unknown", pending: "hollow",
+// The loop as glyphs, same grammar as the health marks: a filled check for a
+// step completed, a cross for the one it failed at, a dashed ring spinning for
+// the step in flight, a hollow ring for one not yet reached. Filled/struck/
+// dotted/hollow all survive a greyscale screenshot; colour is the second signal.
+const STEP_ICON: Record<StepState, typeof CircleCheck> = {
+  done: CircleCheck, failed: CircleX, active: CircleDashed, pending: Circle,
+};
+const STEP_TONE: Record<StepState, string> = {
+  done: "text-believed", failed: "text-conflict", active: "text-unknown", pending: "text-faint",
 };
 const STEP_TEXT: Record<StepState, string> = {
   done: "text-fg", failed: "font-medium text-conflict",
@@ -156,8 +159,27 @@ const STEP_SR: Record<StepState, string> = {
   done: "completed", failed: "failed here", active: "in progress", pending: "not reached",
 };
 
-function HealthMark({ status }: { status: HealthState }) {
-  return <span className={cn("led", HEALTH_TONE[status])} aria-hidden="true" />;
+// Status as a glyph, not a coloured square: a check when healthy, a triangle
+// when degraded, a cross when failed, a spinner while recovering, a dashed ring
+// when nothing has reported. Shape first, colour second.
+const HEALTH_ICON: Record<HealthState, typeof CircleCheck> = {
+  healthy: CircleCheck, degraded: AlertTriangle, failed: CircleX,
+  recovering: RefreshCw, unknown: CircleDashed,
+};
+const HM_SIZE = { sm: "h-4 w-4", md: "h-[18px] w-[18px]", lg: "h-5 w-5" };
+function HealthMark({ status, size = "sm" }: { status: HealthState; size?: keyof typeof HM_SIZE }) {
+  const Icon = HEALTH_ICON[status] ?? CircleDashed;
+  return <Icon className={cn(HM_SIZE[size], "shrink-0", HEALTH_TEXT[status],
+    status === "recovering" && "animate-spin")}
+    role="img" aria-label={HEALTH_WORD[status]} />;
+}
+
+// A pass/fail mark for the repair detail: permitted actions, verified checks,
+// completed steps. A check when it held, a cross when it did not.
+function OkMark({ ok, className }: { ok: boolean; className?: string }) {
+  const Icon = ok ? CircleCheck : CircleX;
+  return <Icon className={cn("h-4 w-4 shrink-0", ok ? "text-believed" : "text-conflict", className)}
+    role="img" aria-label={ok ? "ok" : "failed"} />;
 }
 
 function ago(ts: number) {
@@ -234,7 +256,7 @@ export default function Healing() {
       {/* Focal: one answer to "is anything wrong". */}
       <section className="panel overflow-hidden">
         <div className="flex items-start gap-4 px-5 py-5">
-          <span className="mt-1"><HealthMark status={overall} /></span>
+          <span className="mt-0.5"><HealthMark status={overall} size="lg" /></span>
           <div className="min-w-0 flex-1">
             <div className="tech-label">Component health</div>
             <h1 className={cn("display mt-1 text-lg", overall !== "healthy" && HEALTH_TEXT[overall])}>
@@ -301,7 +323,11 @@ function ComponentRow({ c, openFailures }: { c: HealComponent; openFailures: num
     <div className="flex items-center gap-3 border-b px-5 py-2.5 last:border-b-0">
       <HealthMark status={c.status} />
       <span className="mono shrink-0 text-xs">{c.component}</span>
-      <span className={cn("shrink-0 text-2xs", HEALTH_TEXT[c.status])}>{HEALTH_WORD[c.status]}</span>
+      {/* The check already says healthy; the word is kept only when the status
+          is one worth calling out. */}
+      {c.status !== "healthy" && (
+        <span className={cn("shrink-0 text-2xs font-medium", HEALTH_TEXT[c.status])}>{HEALTH_WORD[c.status]}</span>
+      )}
       {c.reason && <span className="truncate text-2xs text-muted">{c.reason}</span>}
       {/* The disagreement, shown rather than resolved. A component can report
           healthy while carrying unresolved failures. Both readings are honest,
@@ -354,7 +380,7 @@ function Failure({ f, project }: { f: HealFailure; project: string }) {
         aria-controls={panelId}
         aria-label={`${f.component}, ${f.error_type}, ${f.occurrences} ${f.occurrences === 1 ? "occurrence" : "occurrences"}. Show recovery history.`}
         className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 ease-out hover:bg-raised">
-        <span className={cn("led", f.resolved ? "believed" : "conflict")} aria-hidden="true" />
+        <OkMark ok={f.resolved} />
         <span className="mono shrink-0 text-xs">{f.component}</span>
         <span className="truncate text-xs text-muted">{f.error_type}: {f.message}</span>
         {f.occurrences > 1 && (
@@ -404,7 +430,7 @@ function Refused({ d }: { d: HealDiagnosis }) {
   return (
     <div className="space-y-2 border-l-2 border-[color:var(--conflict)] pl-3">
       <div className="flex items-center gap-2">
-        <span className="led conflict" aria-hidden="true" />
+        <CircleX className="h-4 w-4 shrink-0 text-conflict" role="img" aria-label="refused" />
         <span className="text-2xs font-medium text-conflict">
           {noPlan ? "Escalated: no repair available" : "Refused by policy: nothing was executed"}
         </span>
@@ -417,8 +443,7 @@ function Refused({ d }: { d: HealDiagnosis }) {
         <ul className="space-y-0.5">
           {d.decisions.map((dec, i) => (
             <li key={i} className="flex items-start gap-1.5 text-2xs">
-              <span className={cn("led mt-1 shrink-0", dec.permit ? "believed" : "conflict")}
-                    aria-hidden="true" />
+              <OkMark ok={dec.permit} className="mt-0.5" />
               <span className="mono shrink-0">
                 {d.actions[dec.index ?? i]?.type ?? `action ${(dec.index ?? i) + 1}`}
               </span>
@@ -483,13 +508,17 @@ function Recovery({ r }: { r: HealRecovery }) {
           single most important thing in this block. Marks carry the state, not
           colour alone, a struck mark survives a greyscale screenshot. */}
       <ol className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        {steps.map(({ step, state }) => (
-          <li key={step} className="flex items-center gap-1.5">
-            <span className={cn("led", STEP_MARK[state])} aria-hidden="true" />
-            <span className={cn("text-2xs", STEP_TEXT[state])}>{step}</span>
-            <span className="sr-only">{STEP_SR[state]}</span>
-          </li>
-        ))}
+        {steps.map(({ step, state }) => {
+          const Icon = STEP_ICON[state];
+          return (
+            <li key={step} className="flex items-center gap-1.5">
+              <Icon className={cn("h-3.5 w-3.5 shrink-0", STEP_TONE[state], state === "active" && "animate-spin")}
+                aria-hidden="true" />
+              <span className={cn("text-2xs", STEP_TEXT[state])}>{step}</span>
+              <span className="sr-only">{STEP_SR[state]}</span>
+            </li>
+          );
+        })}
       </ol>
 
       {r.actions_run?.length > 0 && (
@@ -507,9 +536,7 @@ function Recovery({ r }: { r: HealRecovery }) {
           <ul className="space-y-0.5">
             {r.verification.checks.map((c, i) => (
               <li key={i} className="flex items-start gap-1.5 text-2xs">
-                <span className={cn("led mt-1 shrink-0",
-                  c.status === "healthy" || c.status === "recovering" ? "believed" : "conflict")}
-                  aria-hidden="true" />
+                <OkMark ok={c.status === "healthy" || c.status === "recovering"} className="mt-0.5" />
                 <span className="mono shrink-0">{c.check}</span>
                 <span className="text-muted">{c.status}{c.reason ? `, ${c.reason}` : ""}</span>
               </li>
@@ -545,7 +572,7 @@ function ActionLine({ a }: { a: HealActionRun }) {
           ? a.detail.error : null);
   return (
     <li className="flex items-start gap-1.5 text-2xs">
-      <span className={cn("led mt-1 shrink-0", a.ok ? "believed" : "conflict")} aria-hidden="true" />
+      <OkMark ok={a.ok} className="mt-0.5" />
       <span className="mono shrink-0">{a.type}</span>
       <span className={cn(a.ok ? "text-muted" : "text-conflict")}>
         {a.ok ? "ok" : detail ?? "failed"}

@@ -1,5 +1,6 @@
 import { MarketingShell } from "@/components/marketing/chrome";
 import { Section, PageHeader, SpecList, ButtonLink } from "@/components/marketing/ui";
+import { CircleCheck, AlertTriangle } from "lucide-react";
 
 export const metadata = {
   title: "Security",
@@ -72,8 +73,8 @@ export default function Security() {
       </Section>
 
       <Section className="pb-20 sm:pb-28">
-        <div className="flex items-baseline gap-3">
-          <span className="led believed shrink-0" aria-hidden="true" />
+        <div className="flex items-center gap-2.5">
+          <CircleCheck className="h-5 w-5 shrink-0 text-believed" aria-hidden="true" />
           <h2 className="display text-xl">Implemented today</h2>
         </div>
         <p className="mt-3 max-w-read text-body text-muted">
@@ -89,8 +90,8 @@ export default function Security() {
           real" and "this does not exist" was carried by hue alone. */}
       <Section className="pb-20 sm:pb-28">
         <div className="rounded-lg border border-[color:var(--conflict)]/35 bg-conflictBg p-6 sm:p-8">
-          <div className="flex items-baseline gap-3">
-            <span className="led conflict shrink-0" aria-hidden="true" />
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-conflict" aria-hidden="true" />
             <h2 className="display text-xl text-conflict">Not built yet — do not plan around these</h2>
           </div>
           <p className="mt-3 max-w-read text-body text-muted">

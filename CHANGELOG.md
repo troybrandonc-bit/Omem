@@ -3,6 +3,22 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.3.4 - 30 Aug 2026
+
+**Every status reads as a glyph, and the commons shows its door.** The last
+coloured status squares are gone. Component health on the healing page, the
+health mark in the top bar, the "needs adjudication" marks on the overview,
+the playground's state pill and provenance chain, the changelog's current
+tag, and the security page's two section heads now render as marks the eye
+recognises at a glance: a check when it held, a cross when it failed, a
+triangle for degraded, a spinner while recovering, a dashed ring for not
+reporting or not yet built. Same grammar everywhere: shape first, colour
+second, so each still reads in greyscale and to a screen reader.
+
+On a collector, the commons site now shows where to sign in. It runs as a
+real password-mode OMEM server, but its own chrome carried no way in; an
+"Operator sign-in" link now leads to the sign-in and create-account form.
+
 ## 0.3.3 - 30 Aug 2026
 
 **The commons reads as its own site.** On a collector, commons.omem-cloud.com

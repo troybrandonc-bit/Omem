@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/components/providers";
 import { useScrolled } from "@/lib/use-scrolled";
-import { Sun, Moon } from "lucide-react";
+import { Sun, Moon, LogIn } from "lucide-react";
 
 /* The commons wears its OWN chrome, not the product's.
  *
@@ -61,6 +61,15 @@ export function CommonsShell({ children }: { children: React.ReactNode }) {
               className="rounded px-3 py-2 text-note text-muted transition-colors duration-1 ease-out hover:text-fg">
               GitHub
             </a>
+            {/* The commons runs as a real OMEM server: the operator signs in here
+                to hold the bank. A visitor who wants to run their own install
+                gets there too, and lands on the sign-in / create-account form. */}
+            <Link href="/overview"
+              className="tap flex items-center gap-1.5 rounded-md border px-3 py-2 text-note text-muted transition-colors duration-1 ease-out hover:bg-raised hover:text-fg">
+              <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="hidden sm:inline">Operator sign-in</span>
+              <span className="sm:hidden">Sign in</span>
+            </Link>
             <ThemeToggle />
           </div>
         </div>
