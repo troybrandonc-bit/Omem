@@ -410,11 +410,28 @@ is counts, like "held for 5 of 7". Never a name, a company, a message, or a
 number from your data; the exact file sits on your own disk to inspect, and
 either answer is revocable in Settings. Silence sends nothing, forever.
 The commons pools those counts across consenting installations to study
-human working behaviour in general, and offers the result as a training
-corpus for AI, one JSON line per pattern with a plain-English rendering and
-a dataset card, licensed CC BY 4.0. Anonymity is structural at both doors:
+human working behaviour in general. Anonymity is structural at both doors:
 a contribution carrying anything identifying is refused on arrival, so the
 pool cannot leak what it never held.
+
+## Teaching AI what people are like
+
+The commons exists for one objective: to connect humans and AI by giving AI
+a better understanding of our nature and behaviour. Models today learn
+about people from scraped text that was never offered and that names
+everyone in it. The commons is the opposite offer: regularities in how
+people actually work, contributed on purpose, holding nobody.
+
+It ships as a training corpus. One JSON line per pattern carries the counts
+and a plain-English rendering ("subjects who prefer morning meetings
+usually also prefer email contact: 24 of 31 with a stance, 77%"), with a
+dataset card stating the provenance, the consent story, and the license,
+CC BY 4.0 with attribution to the OMEM commons. A model trained on it
+learns the rate, never a person, and the card says the operative sentence
+out loud: rates are population tendencies, never rules about individuals.
+A real person can and will contradict any of them, and a system that
+respects people treats every pattern as a prior that yields to the
+individual, the same way OMEM itself does.
 
 ## What changed while you were gone
 

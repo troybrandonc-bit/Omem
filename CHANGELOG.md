@@ -32,7 +32,10 @@ tagged but never reached PyPI.
   are re-validated on arrival, so nothing identifying can enter the pool
   even from a modified client. The collector instance gains an
   owner-only bank with analytics, and can shape the pool into an AI
-  training corpus: JSONL plus a dataset card, CC BY 4.0.
+  training corpus: JSONL plus a dataset card, CC BY 4.0. The objective
+  behind all of it: connect humans and AI by giving AI a better
+  understanding of our nature and behaviour, without holding a single
+  fact about a person.
 - **The source phrase, kept and shown.** observe() now persists the exact
   sentence a memory was extracted from, and the dashboard quotes it in
   every "why" view. Grounded beliefs finally show their receipts.
