@@ -17,7 +17,7 @@ import { Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, formatWhen } from "@/lib/api";
 import { useApp } from "@/components/providers";
 import { Card, Skeleton, Badge } from "@/components/ui/primitives";
 import { ArrowLeft, Bot } from "lucide-react";
@@ -32,7 +32,7 @@ function AgentDetailInner() {
       <Link href="/agents" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg"><ArrowLeft className="h-4 w-4" /> Agents</Link>
       <div className="mb-5 flex items-center gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-lg border bg-panel"><Bot className="h-5 w-5 text-muted" /></div>
-        <div><h1 className="display text-lg">{data.label || data.id}</h1><div className="text-xs text-muted">{data.id} / {data.kind}</div></div>
+        <div><h1 className="display text-2xl">{data.label || data.id}</h1><div className="text-xs text-muted">{data.id} / {data.kind}</div></div>
       </div>
       <div className="mb-2 tech-label">Claims asserted by this agent</div>
       <div className="space-y-2">
@@ -43,7 +43,7 @@ function AgentDetailInner() {
                 <div className="text-sm font-medium">{c.label || c.proposition}</div>
                 <Badge tone={c.open ? "believed" : "closed"}>{c.open ? "open" : "closed"}</Badge>
               </div>
-              <div className="mt-0.5 text-2xs text-muted">t={c.assertion_time}</div>
+              {(() => { const w = formatWhen(c.recorded_at, c.assertion_time); return w.text ? <div className="mt-0.5 text-2xs text-muted" title={w.title}>{w.text}</div> : null; })()}
             </Card>
           </Link>
         ))}

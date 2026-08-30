@@ -374,6 +374,65 @@ whole set, or hand it to someone, without leaking a single subject. The
 general pattern always yields to the individual, by construction rather than
 by policy.
 
+## Everyday behaviour is memory too
+
+Not everything worth remembering is a contract. "Mornings work best for me",
+"email is the best way to reach me", "I don't work Fridays" are the small
+repeated preferences of ordinary correspondence, and OMEM extracts them
+offline, no LLM required. A first-person sentence attaches to the person who
+wrote it, the same node their employment is inferred onto from the address
+they write from, while "we prefer async" stays a fact about the company. A
+role address like support@ never mints a fake person, and every habit
+carries the sentence it came from as evidence. These are exactly the
+regularities the priors tier generalises: "people who prefer mornings
+usually prefer email" is a learned pattern, not a guess.
+
+## The right to be forgotten, executed
+
+Retraction is not erasure: an append-only log keeps history, and a real
+erasure request means the personal data is gone. `POST
+/v1/entities/{id}/forget` rewrites the op log for real: every record that
+references the person, everything that cascaded from those, the events that
+carried only their words, and the evidence quotes, edges, hypotheses and raw
+source messages behind them. A sentence of theirs quoted under a surviving
+belief is redacted, because the sentence is the person's even when the
+belief is a company's. The pruned log is replay-verified through a scratch
+engine before anything is touched, and what remains afterwards is one row
+holding a hash, counts and a date: proof the erasure happened, retaining
+nothing. It is an admin act, it asks for explicit confirmation, and it
+cannot be undone.
+
+## The commons, and what it will never take
+
+On first open the dashboard asks one question: contribute anonymous
+patterns to the shared OMEM commons? What leaves the machine if you say yes
+is counts, like "held for 5 of 7". Never a name, a company, a message, or a
+number from your data; the exact file sits on your own disk to inspect, and
+either answer is revocable in Settings. Silence sends nothing, forever.
+The commons pools those counts across consenting installations to study
+human working behaviour in general. Anonymity is structural at both doors:
+a contribution carrying anything identifying is refused on arrival, so the
+pool cannot leak what it never held.
+
+## Teaching AI what people are like
+
+The commons exists for one objective: to connect humans and AI by giving AI
+a better understanding of our nature and behaviour. Models today learn
+about people from scraped text that was never offered and that names
+everyone in it. The commons is the opposite offer: regularities in how
+people actually work, contributed on purpose, holding nobody.
+
+It ships as a training corpus. One JSON line per pattern carries the counts
+and a plain-English rendering ("subjects who prefer morning meetings
+usually also prefer email contact: 24 of 31 with a stance, 77%"), with a
+dataset card stating the provenance, the consent story, and the license,
+CC BY 4.0 with attribution to the OMEM commons. A model trained on it
+learns the rate, never a person, and the card says the operative sentence
+out loud: rates are population tendencies, never rules about individuals.
+A real person can and will contradict any of them, and a system that
+respects people treats every pattern as a prior that yields to the
+individual, the same way OMEM itself does.
+
 ## What changed while you were gone
 
 The question every agent asks at session start, answered from the same as_of

@@ -78,6 +78,12 @@ PERMISSIONS = {
     "retention.manage": "admin",
     "project.delete": "owner",
     "billing.manage": "owner",
+    # ── the joint intelligence bank: org-wide learned patterns. Owner-only by
+    # design -- "a bank only I can see" -- even though its CONTENT is anonymous.
+    "bank.read": "owner",
+    # ── the right to be forgotten: rewrites the op log. Destructive by intent,
+    # so it is an admin act, never something a developer key stumbles into.
+    "erasure.execute": "admin",
     # ── self-healing subsystem ──
     "heal.read": "viewer",            # read failures / health / recovery history
     "heal.report": "developer",       # report failures + health, record snapshots

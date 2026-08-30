@@ -44,7 +44,7 @@ export default function Playground() {
   return (
     <div className="space-y-5">
       <div className="flex items-baseline justify-between">
-        <h1 className="display text-lg">Playground</h1>
+        <h1 className="display text-2xl">Playground</h1>
         <span className="text-sm text-muted">Every call runs live against your project.</span>
       </div>
 
@@ -93,7 +93,7 @@ export default function Playground() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm">
                         <StatePill state={why.state} />
-                        <span className="text-2xs text-faint">{why.grounded ? "grounded: reaches an event root" : "ungrounded"}</span>
+                        <span className="text-2xs text-faint">{why.grounded ? "grounded in a source event" : "ungrounded"}</span>
                       </div>
                       <ProvChain why={why} />
                     </div>
@@ -134,7 +134,7 @@ function Step({ n, label, children }: { n: number; label: string; children: Reac
     <div className="flex gap-3">
       <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-sm bg-accentBg text-2xs font-semibold text-accent">{n}</span>
       <div className="min-w-0 flex-1">
-        <div className="mb-1 text-2xs font-semibold uppercase tracking-[0.04em] text-muted">{label}</div>
+        <div className="mb-1 text-2xs font-semibold capitalize text-muted">{label}</div>
         {children}
       </div>
     </div>
@@ -144,7 +144,7 @@ function Step({ n, label, children }: { n: number; label: string; children: Reac
 function StatePill({ state }: { state: string }) {
   const tone = state === "BELIEVED_TRUE" ? "believed" : state === "CONTRADICTED" ? "conflict" : state === "BELIEVED_FALSE" ? "conflict" : "closed";
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-sm border px-2 py-px text-2xs font-semibold uppercase tracking-[0.04em]",
+    <span className={cn("inline-flex items-center gap-1.5 rounded-sm border px-2 py-px text-2xs font-semibold lowercase",
       tone === "believed" ? "text-believed" : tone === "conflict" ? "text-conflict" : "text-muted")}
       style={{ borderColor: "currentColor" }}>
       <span className={cn("led", tone)} style={{ width: 6, height: 6 }} />{state.replace("_", " ")}

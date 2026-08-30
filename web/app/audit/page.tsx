@@ -11,7 +11,7 @@ export default function Audit() {
 
   return (
     <div className="space-y-5">
-      <h1 className="display text-lg">Audit log</h1>
+      <h1 className="display text-2xl">Audit log</h1>
       <section className="panel overflow-hidden">
         <header className="border-b px-4 py-2.5"><h2 className="text-sm font-semibold">Security events</h2></header>
         {data.data.length === 0 ? <div className="empty m-5">No audit events yet.</div> : (

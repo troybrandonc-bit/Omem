@@ -53,6 +53,10 @@ class BackupManager:
         # OMEM_BACKUP_ENCRYPT=1 (requires OMEM_MASTER_KEY or OMEM_KMS_KEY_ID).
         self.encrypt_backups = os.environ.get("OMEM_BACKUP_ENCRYPT", "0") == "1"
         self._secrets = secrets
+        # Optional callable(dest_dir) invoked after every successful backup, so
+        # derived artifacts (the intelligence-bank export) ride the same
+        # retention-protected, offsite-syncable directory as the database.
+        self.extra_writer = None
         os.makedirs(self.dir, exist_ok=True)
         try:
             os.chmod(self.dir, 0o700)  # backups are sensitive: owner-only
@@ -157,6 +161,15 @@ class BackupManager:
                 (time.time(), final_path, size, run_id))
             self.db.commit()
             self._apply_retention()
+            # The intelligence bank rides every backup: whatever offsite
+            # strategy protects the database (a synced folder, a mounted
+            # drive) also protects the bank, so losing the machine loses
+            # neither. Best-effort -- an export failure never fails a backup.
+            if self.extra_writer:
+                try:
+                    self.extra_writer(self.dir)
+                except Exception:
+                    pass
             return self.status()
         except Exception as e:
             self.db.execute(

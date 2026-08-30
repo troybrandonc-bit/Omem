@@ -77,6 +77,12 @@ const FEATURES = [
    "When two records look like one person, or a declared rule is violated, the question waits for a human. Approvals are recorded under the approver's name, and a dismissed question is never asked twice."],
   ["Private by default",
    "Memory belongs to an agent unless you share it with a team or the project."],
+  ["Everyday habits are memory",
+   "“Mornings work best for me” attaches to the person who wrote it, grounded in their own sentence, extracted offline with no LLM. The priors tier then learns what people are like in general, as counts that name nobody."],
+  ["The right to be forgotten, executed",
+   "One request rewrites the record for real: the person's data, the cascade behind it, and their sentences quoted under surviving beliefs. Replay-verified before anything is touched; what remains is a hash, counts, and a date."],
+  ["A commons that teaches AI what people are like",
+   "Consenting installs pool anonymous counts about human working behaviour, offered as a CC BY 4.0 training corpus. The objective is to connect humans and AI by giving AI a real understanding of our nature, while holding no fact about anyone."],
   ["The dashboard is included",
    "One pip install serves the API and the UI on the same port. No Node at runtime, no second process."],
 ];

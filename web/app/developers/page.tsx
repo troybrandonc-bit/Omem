@@ -89,7 +89,7 @@ export default function Developers() {
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-8">
-        <h1 className="display text-lg">Developers</h1>
+        <h1 className="display text-2xl">Developers</h1>
         <p className="mt-1 text-sm text-muted">Integrate OMEM in a few minutes. Keys below are scoped to <span className="mono text-fg">{project}</span> / development.</p>
       </div>
 

@@ -86,7 +86,7 @@ export default function Sources() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="display text-lg">Sources</h1>
+        <h1 className="display text-2xl">Sources</h1>
         <div className="flex flex-wrap items-center gap-2">
           <Btn onClick={connectGithub} busy={busy === "github"} icon={<Github className="h-3.5 w-3.5" />}>Connect GitHub</Btn>
           <Btn onClick={uploadDoc} busy={busy === "doc"} icon={<FileUp className="h-3.5 w-3.5" />}>Upload document</Btn>
@@ -174,7 +174,7 @@ function SourceCard({ c, busy, act }: { c: Connector; busy: string | null; act: 
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className={cn("rounded-sm border px-2 py-px text-2xs font-semibold uppercase tracking-[0.04em]", TONE[status] ?? "text-muted")}
+          <span className={cn("rounded-sm border px-2 py-px text-2xs font-semibold capitalize", TONE[status] ?? "text-muted")}
             style={{ borderColor: "currentColor" }}>{status.replace("_", " ")}</span>
           {status === "NEEDS_REAUTH" && (
             <button onClick={() => act(c.id + "re", async () => {

@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import time
 
 MIN_SIMILARITY = 2.0     # shared evidence needed before anything counts as a look-alike
@@ -721,4 +722,53 @@ def expects(p, db, about: str | None = None, status: str | None = None) -> list[
         d = dict(r)
         d["docket"] = json.loads(d["docket"])
         out.append(d)
+    return out
+
+
+# ── the joint intelligence bank ──────────────────────────────────────────────
+
+def _identifying(token: str) -> bool:
+    """A proposition token that could name someone or something. Relation
+    props embed the target's slug (rel_works_at_acme names a company), colons
+    carry raw entity ids, digits carry extracted values (a contract price, a
+    payment term). The bank refuses them all, so what it exports can be
+    published without a redaction pass."""
+    return token.startswith("rel_") or ":" in token or bool(re.search(r"\d", token))
+
+
+def bank(db, project_ids: list[str]) -> list[dict]:
+    """Priors from every given project, merged into one population-level view.
+
+    Anonymity is structural, not procedural. A prior already stores counts and
+    proposition tokens -- never a subject, a sentence, or a name -- and the
+    bank additionally drops any token that could embed an identity or a value
+    (see _identifying). What remains is knowledge about people in general:
+    "holds P -> usually holds Q, at this rate, over this many subjects",
+    publishable as-is because there is nothing in it to leak."""
+    agg: dict = {}
+    for pid in project_ids:
+        for r in db.execute(
+                "SELECT antecedent, consequent, support, refute, subjects "
+                "FROM priors WHERE project_id=?", (pid,)):
+            a, c = r["antecedent"], r["consequent"]
+            if _identifying(a) or _identifying(c):
+                continue
+            e = agg.setdefault((a, c), {
+                "antecedent": a, "consequent": c,
+                "support": 0, "refute": 0, "subjects": 0, "projects": 0})
+            e["support"] += r["support"]
+            e["refute"] += r["refute"]
+            e["subjects"] += r["subjects"]
+            e["projects"] += 1
+    out = []
+    for e in agg.values():
+        total = e["support"] + e["refute"]
+        if total == 0 or e["support"] < PRIOR_FLOOR_N:
+            continue
+        rate = e["support"] / total
+        out.append({**e,
+                    "pattern": f'holds {e["antecedent"]} -> holds {e["consequent"]}',
+                    "rate": round(rate, 3),
+                    "fires": rate >= PRIOR_MIN_RATE})
+    out.sort(key=lambda x: (-x["rate"], -x["support"], x["pattern"]))
     return out

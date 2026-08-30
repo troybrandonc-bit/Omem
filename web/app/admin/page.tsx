@@ -31,7 +31,7 @@ export default function Admin() {
   return (
     <div className="space-y-5">
       <div className="flex items-baseline justify-between">
-        <h1 className="display text-lg">Operator console</h1>
+        <h1 className="display text-2xl">Operator console</h1>
         <span className="text-sm text-muted">Internal. All counts live from the database.</span>
       </div>
 
@@ -82,10 +82,10 @@ export default function Admin() {
               {orgs.data.map(o => (
                 <tr key={o.id}>
                   <td className="px-4 py-2 font-medium">{o.name || o.id}</td>
-                  <td className="px-3 py-2.5"><span className="rounded-sm border border-line-strong px-2 py-px text-2xs font-semibold uppercase text-muted">{o.plan}</span></td>
+                  <td className="px-3 py-2.5"><span className="rounded-sm border border-line-strong px-2 py-px text-2xs font-semibold capitalize text-muted">{o.plan}</span></td>
                   <td className="px-3 py-2.5">
                     <select value={o.customer.status} onChange={e => setStatus(o.id, e.target.value)}
-                      className="rounded-md border bg-panel px-1.5 py-0.5 text-2xs font-semibold uppercase">
+                      className="rounded-md border bg-panel px-1.5 py-0.5 text-2xs font-semibold capitalize">
                       {STATUSES.map(s_ => <option key={s_} value={s_}>{s_}</option>)}
                     </select>
                   </td>

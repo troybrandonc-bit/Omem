@@ -10,7 +10,7 @@ import { useScrolled } from "@/lib/use-scrolled";
 import { isMarketingRoute } from "@/lib/routes";
 import {
   Home, Brain, Bot, Box, Clock, AlertTriangle, Network, FlaskConical, Braces,
-  ScrollText, Gauge, Settings, Search, Sun, Moon, User, Activity, Users, ShieldCheck,
+  ScrollText, Gauge, Settings, Search, Sun, Moon, User, Activity, Users, ShieldCheck, Landmark,
   HeartPulse, ShieldPlus, Stethoscope, Menu, X, ChevronDown, History, GitMerge,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -78,6 +78,7 @@ const NAV = [
     { href: "/diagnostics", label: "Diagnostics", icon: Stethoscope },
   ]},
   { group: "Account", items: [
+    { href: "/bank", label: "Intelligence bank", icon: Landmark },
     { href: "/usage", label: "Usage", icon: Gauge },
     { href: "/team", label: "Team", icon: Users },
     { href: "/settings", label: "Settings", icon: Settings },
@@ -113,7 +114,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
    * looking at an app whose every panel said "nothing here" while the server
    * held their data. One bootstrap, one order: see providers.tsx.
    */
-  const { boot, mode, retryBoot } = useApp();
+  const { boot, mode, retryBoot, commonsAsk, dismissCommonsAsk } = useApp();
 
   if (isMarketing || path?.startsWith("/onboarding")) return <>{children}</>;
   if (boot === "connecting") return <BootSkeleton />;
@@ -152,6 +153,57 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </div>
 
       {palette && <CommandPalette onClose={() => setPalette(false)} />}
+      {commonsAsk && <CommonsAsk onDone={dismissCommonsAsk} />}
+    </div>
+  );
+}
+
+/* The commons question, asked once, on the first open, and never presumed.
+ * Escape or the backdrop record nothing and it asks again next time; only
+ * the two buttons write an answer, and either answer is revocable from
+ * Settings. The copy says exactly what would leave the machine, because
+ * consent to an unread sentence is not consent. */
+function CommonsAsk({ onDone }: { onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const answer = async (yes: boolean) => {
+    setBusy(true);
+    try { await api.setCommonsChoice(yes); } catch { /* ask again next open */ }
+    onDone();
+  };
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onDone(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onDone]);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+      <div className="anim-fade absolute inset-0 bg-black/40" onClick={onDone} aria-hidden="true" />
+      <div role="dialog" aria-modal="true" aria-label="Contribute anonymous patterns"
+        className="anim-fade relative w-full max-w-md rounded-lg border bg-panel p-5 shadow-lg">
+        <h2 className="text-sm font-semibold">Teach the commons what people are like?</h2>
+        <p className="mt-2 text-xs leading-relaxed text-muted">
+          OMEM learns patterns like &ldquo;people who prefer async usually prefer
+          email&rdquo;. You can contribute those patterns to the shared OMEM
+          commons, which studies human behaviour in general so AI can understand
+          people better.
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-muted">
+          What leaves this machine: counts, like &ldquo;held for 5 of 7&rdquo;.
+          Never a name, a company, a message, or a number from your data, and the
+          exact file is on your disk to inspect (intelligence-bank.json). Nothing
+          is sent until you say yes, and you can change your answer in Settings.
+        </p>
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button onClick={() => answer(false)} disabled={busy}
+            className="tap h-8 rounded border border-[color:var(--line-strong)] bg-panel px-3 text-xs font-medium hover:bg-raised">
+            No, keep everything local
+          </button>
+          <button onClick={() => answer(true)} disabled={busy}
+            className="tap on-accent h-8 rounded bg-accent px-3 text-xs font-medium text-accentFg hover:bg-accentHover">
+            Yes, contribute
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -171,7 +223,7 @@ function BootSkeleton() {
 }
 
 function Sidebar({ path, className, dense = true }: { path: string; className?: string; dense?: boolean }) {
-  const { project, setProject } = useApp();
+  const { project, setProject, collector } = useApp();
   const { data } = useQuery({ queryKey: ["projects"], queryFn: api.projects });
   const projects = data?.data || [];
   return (
@@ -200,7 +252,7 @@ function Sidebar({ path, className, dense = true }: { path: string; className?: 
           <div key={gi}>
             <h2 className="tech-label mb-2 px-2">{g.group}</h2>
             <ul className="space-y-0.5">
-              {g.items.map(it => {
+              {g.items.filter(it => it.href !== "/bank" || collector).map(it => {
                 const active = path.startsWith(it.href);
                 const Icon = it.icon;
                 return (
@@ -240,6 +292,16 @@ function TopBar({ onSearch, onMenu }: { onSearch: () => void; onMenu: () => void
   useEffect(() => { if (data?.now !== undefined) setNow(data.now); }, [data?.now, setNow]);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  // The palette opens on Cmd+K or Ctrl+K (see the key handler above); the hint
+  // has to match the platform the reader is actually on. Detected after mount
+  // so the static first paint (which has no navigator) does not mismatch.
+  const [shortcut, setShortcut] = useState("⌘K");
+  useEffect(() => {
+    try {
+      const mac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+      setShortcut(mac ? "⌘K" : "Ctrl K");
+    } catch { /* no navigator */ }
+  }, []);
   const T = asOf ?? now;
 
   return (
@@ -268,11 +330,11 @@ function TopBar({ onSearch, onMenu }: { onSearch: () => void; onMenu: () => void
           className="panel panel-link flex h-9 min-w-0 flex-1 items-center gap-2 px-3 text-left text-xs text-faint sm:max-w-md">
           <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <span className="truncate">Search beliefs…</span>
-          <kbd className="mono ml-auto hidden shrink-0 rounded-sm border bg-raised px-1.5 text-2xs text-faint sm:block">⌘K</kbd>
+          <kbd className="ml-auto hidden shrink-0 rounded-sm border bg-raised px-1.5 text-2xs text-faint sm:block">{shortcut}</kbd>
         </button>
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
-          <AsOfControl asOf={asOf} setAsOf={setAsOf} now={now} T={T} />
+          <AsOfControl asOf={asOf} setAsOf={setAsOf} now={now} T={T} clock={data?.clock} />
           <HealthIndicator />
           <button onClick={toggleTheme}
             aria-pressed={mounted ? theme === "dark" : undefined}
@@ -299,27 +361,51 @@ function TopBar({ onSearch, onMenu }: { onSearch: () => void; onMenu: () => void
  * which keeps the one thing that must never be ambiguous — whether you are
  * looking at now or at the past — visible at every width.
  */
-function AsOfControl({ asOf, setAsOf, now, T }: {
+// Map a logical tick to the real moment it was recorded: the latest clock
+// entry at or before the tick. The engine still time-travels by tick -- that is
+// what it replays -- but a person reads a date, not a tick number, so the
+// control shows the date and the tick stays under the hood.
+function tickToTs(clock: { t: number; ts: number }[] | undefined, T: number): number | null {
+  if (!clock || clock.length === 0) return null;
+  let ts: number | null = null;
+  for (const c of clock) { if (c.t <= T) ts = c.ts; else break; }
+  return ts ?? clock[0].ts;
+}
+function fmtStamp(ts: number): string {
+  const d = new Date(ts * 1000);
+  const day = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return `${day}, ${time}`;
+}
+
+function AsOfControl({ asOf, setAsOf, now, T, clock }: {
   asOf: number | null; setAsOf: (t: number | null) => void; now: number; T: number;
+  clock?: { t: number; ts: number }[];
 }) {
   const past = asOf !== null;
+  const ts = tickToTs(clock, T);
+  const stamp = ts != null ? fmtStamp(ts) : null;
+  // When we have a real clock, read out the date/time; fall back to the tick
+  // only for a server too old to send one.
+  const readout = past ? (stamp ?? `t${asOf}`) : "now";
   return (
     <div className={cn("panel flex h-9 items-center gap-2 px-2.5 transition-colors duration-1 ease-out",
       past && "border-[color:var(--accent)] bg-accentBg")}>
       <History className={cn("h-3.5 w-3.5 shrink-0", past ? "text-accent" : "text-faint")} aria-hidden="true" />
       <label htmlFor="as-of" className="tech-label hidden sm:block">as of</label>
       <input id="as-of" type="range" min={0} max={Math.max(now, 1)} value={T}
-        aria-label="View memory as of an earlier logical time"
-        aria-valuetext={past ? `logical time ${asOf}` : `now, logical time ${now}`}
+        aria-label="View memory as of an earlier date and time"
+        aria-valuetext={past ? `as of ${stamp ?? `logical time ${asOf}`}` : "now"}
         onChange={e => { const v = Number(e.target.value); setAsOf(v >= now ? null : v); }}
         className="hidden h-1.5 w-20 cursor-pointer accent-[color:var(--accent)] sm:block lg:w-28" />
-      <span className={cn("mono shrink-0 text-2xs tabular-nums", past ? "font-medium text-accent" : "text-muted")}>
-        {past ? `t${asOf}` : `now`}
+      <span className={cn("shrink-0 whitespace-nowrap text-2xs tabular-nums", past ? "font-medium text-accent" : "text-muted")}
+        title={ts != null ? new Date(ts * 1000).toLocaleString() : undefined}>
+        {readout}
       </span>
       {past && (
         <button onClick={() => setAsOf(null)}
           className="tap shrink-0 rounded px-1 text-2xs font-medium text-accent hover:underline">
-          reset
+          now
         </button>
       )}
     </div>

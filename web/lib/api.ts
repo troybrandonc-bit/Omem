@@ -23,10 +23,40 @@ export interface Assertion {
   proposition: string; assertion_time: number; event_time: number | null;
   confidence: number | null; belief_interval: BeliefInterval; open: boolean;
   grounded: string | boolean; provenance_count: number; is_retraction: boolean;
+  // Real wall-clock seconds this was written, for a human-readable "when".
+  // assertion_time above is the LOGICAL clock the engine reasons in.
+  recorded_at?: number | null;
 }
-export interface Entity { id: string; type?: string; label?: string | null; }
+
+/** A real timestamp, read the way a person reads a feed: the clock for today,
+ *  a relative age for the last week, a date before that. Falls back to the
+ *  logical tick only when no wall-clock is known (older records). Returns the
+ *  short text plus a full timestamp for the title attribute. */
+export function formatWhen(recordedAt?: number | null, tick?: number | null): { text: string; title: string } {
+  if (recordedAt == null || !isFinite(recordedAt)) {
+    return { text: tick != null ? `t${tick}` : "", title: "logical time" };
+  }
+  const ms = recordedAt * 1000;
+  const d = new Date(ms);
+  const title = d.toLocaleString();
+  const diff = Date.now() - ms;
+  const day = 86_400_000;
+  if (diff >= 0 && diff < day && d.getDate() === new Date().getDate()) {
+    return { text: d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }), title };
+  }
+  if (diff >= 0 && diff < 7 * day) {
+    const days = Math.max(1, Math.round(diff / day));
+    return { text: `${days}d ago`, title };
+  }
+  return { text: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }), title };
+}
+export interface Entity { id: string; type?: string; label?: string | null; connections?: number; }
+export interface EntityPage { data: Entity[]; total: number; offset: number; limit: number; }
+export interface NeighborNode { id: string; label: string; hops: number; }
+export interface NeighborEdge { src: string; relation: string; dst: string; }
+export interface NeighborGraph { entity: string; as_of: number; depth: number; nodes: NeighborNode[]; edges: NeighborEdge[]; }
 export interface Agent { id: string; kind?: string; label?: string | null; recorded_existence?: number; claims?: Assertion[]; }
-export interface EventPrim { id: string; kind?: string; label?: string | null; event_time?: number | null; }
+export interface EventPrim { id: string; kind?: string; label?: string | null; event_time?: number | null; recorded_at?: number | null; }
 export interface ProvNode { id: string; kind: string; root?: boolean; label?: string | null; }
 export interface ProvEdge { from: string; to: string; kind: string; }
 export interface EvidenceRecord { assertion_id: string; source_record_id: string | null; evidence: string | null; confidence: number | null; extractor: string | null; created: number; }
@@ -38,6 +68,7 @@ export interface SourceView {
 export interface SourceRef { id: string; external_id: string; connector_id: string; received: number; payload: Record<string, unknown>; view?: SourceView; }
 export interface WhyResult {
   assertion: Assertion; as_of: number; state: PropositionState; grounded: boolean;
+  confidence?: { score: number; because: string[] };
   provenance: { nodes: ProvNode[]; edges: ProvEdge[] };
   revision_chain: Assertion[]; contradictions: Assertion[];
   subjects: (Entity | null)[]; agent: Agent | null;
@@ -46,6 +77,9 @@ export interface WhyResult {
 }
 export interface Overview {
   now: number;
+  // What real second each logical tick was recorded at, sorted by tick, so the
+  // "as of" control can travel in real dates instead of tick numbers.
+  clock?: { t: number; ts: number }[];
   counts: { entities: number; agents: number; events: number; assertions: number; open_beliefs: number; conflicts: number; };
   grounded_ratio: number; activity: LogEntry[];
 }
@@ -334,6 +368,38 @@ export interface Hypothesis {
   created: number; decided: number | null;
 }
 
+/** A regularity OMEM mined across subjects: holds P -> holds Q, with the rate it
+ *  held in the population it was learned from. Counts, never a person. */
+export interface Prior {
+  id: string; pattern: string; antecedent: string; consequent: string; context: string;
+  in_population: { support: number; refute: number; subjects: number; rate: number };
+  when_applied: { supported: number; refuted: number; rate: number | null };
+  fires: boolean;
+}
+
+/** One pattern in the joint intelligence bank: priors merged across every
+ *  project the caller owns. Counts about subjects in general -- nothing in a
+ *  row can name a person, an organisation, or a value. */
+export interface BankPattern {
+  antecedent: string; consequent: string; pattern: string;
+  support: number; refute: number; subjects: number;
+  rate: number; sources: number;
+}
+export interface BankAnalytics {
+  contributors: number; patterns: number; stances: number; strong: number;
+  categories: Record<string, number>;
+  timeline: { week: string; contributions: number }[];
+}
+export interface BankResult {
+  patterns: BankPattern[]; projects: number; markdown: string; note: string;
+  analytics: BankAnalytics;
+  failsafe: {
+    backup_dir: string; bank_file: string; bank_file_written: boolean;
+    last_backup: { last_successful: { finished: number | null } | null;
+                   failing: boolean; interval_seconds: number } | null;
+  };
+}
+
 export type AuthMode = "local" | "password";
 export interface SignupResult { token: string; email: string; existing: boolean; org?: { id: string; name: string }; project?: { id: string; name: string; env: string }; api_key?: ApiKey; }
 
@@ -342,7 +408,11 @@ export const api = {
   // BEFORE it has a session: "local" (no login, server bound to loopback) or
   // "password" (real accounts). Guessing wrong either locks local users out of
   // a one-minute quickstart or silently signs somebody in on an exposed server.
-  health: () => req<{ status: string; cts: string; auth?: AuthMode }>("GET", "/v1/health"),
+  health: () => req<{ status: string; cts: string; auth?: AuthMode; commons_collector?: boolean; commons_ask?: boolean }>("GET", "/v1/health"),
+  /** The operator's commons decision: null until the first-open prompt (or
+   *  Settings) records one. Session-only on the server. */
+  commonsChoice: () => req<{ contribute: "yes" | "no" | null; env_override: boolean; url: string; collector: boolean }>("GET", "/v1/commons-choice"),
+  setCommonsChoice: (contribute: boolean) => req<{ contribute: string }>("POST", "/v1/commons-choice", { contribute }),
   signup: (b: { email: string; org?: string; project?: string; password?: string; code?: string }) =>
     req<SignupResult>("POST", "/v1/signup", b),
   login: (email: string, password?: string, code?: string) =>
@@ -361,6 +431,14 @@ export const api = {
   ingestStats: (p: string) => req<IngestStats>("GET", `/v1/ingest/stats?project=${enc(p)}`),
   deadLetters: (p: string) => req<{ data: DeadLetter[] }>("GET", `/v1/ingest/dead-letters?project=${enc(p)}`),
   intelligence: (p: string) => req<Intelligence>("GET", `/v1/intelligence?project=${enc(p)}`),
+  /** The regularities OMEM has learned about subjects in general. (Hunches live
+   *  under `expectations`, defined below.) */
+  priors: (p: string) => req<{ data: Prior[] }>("GET", `/v1/memory/priors?project=${enc(p)}`),
+  /** The joint intelligence bank: those regularities merged across every
+   *  project the caller OWNS. Owner-only and session-only on the server. */
+  bank: () => req<BankResult>("GET", "/v1/org/bank"),
+  /** The commons as a training corpus: JSONL plus its dataset card. */
+  commonsDataset: () => req<{ patterns: number; license: string; jsonl: string; card: string; public: boolean; note: string }>("GET", "/v1/commons-dataset"),
   beginGmail: (p: string, name?: string) => req<{ connector_id: string; auth_url: string | null; real: boolean; note?: string; required_env?: string[] }>("POST", `/v1/oauth/gmail/begin?project=${enc(p)}`, { name }),
   gmailCallback: (
     p: string,
@@ -438,7 +516,19 @@ export const api = {
   revisionChain: (p: string, id: string) =>
     req<{ chain: Assertion[] }>("GET", `/v1/assertions/${enc(id)}/revision-chain?project=${enc(p)}`),
 
-  entities: (p: string) => req<{ data: Entity[] }>("GET", `/v1/entities?project=${enc(p)}`),
+  entities: (p: string, opts?: { q?: string; sort?: string; limit?: number; offset?: number }) => {
+    let u = `/v1/entities?project=${enc(p)}`;
+    if (opts?.q) u += `&q=${enc(opts.q)}`;
+    if (opts?.sort) u += `&sort=${enc(opts.sort)}`;
+    if (opts?.limit != null) u += `&limit=${opts.limit}`;
+    if (opts?.offset != null) u += `&offset=${opts.offset}`;
+    return req<EntityPage>("GET", u);
+  },
+  /** The bounded neighbourhood around one entity: it plus its related entities,
+   *  with relation-labelled edges. This is how the graph scales -- you never
+   *  fetch a million-node graph, only one entity's surroundings. */
+  entityGraph: (p: string, entity: string, depth = 1) =>
+    req<NeighborGraph>("GET", `/v1/memory/graph?project=${enc(p)}&entity=${enc(entity)}&depth=${depth}`),
   entity: (p: string, id: string) => req<Entity>("GET", `/v1/entities/${enc(id)}?project=${enc(p)}`),
   beliefsAbout: (p: string, id: string, as_of?: number | "now") =>
     req<{ as_of: number; data: Assertion[] }>("GET", `/v1/entities/${enc(id)}/beliefs?project=${enc(p)}${as_of !== undefined ? `&as_of=${as_of}` : ""}`),

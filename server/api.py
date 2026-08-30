@@ -13,7 +13,7 @@ for the Next.js dev frontend.
 
 from __future__ import annotations
 
-from secrets_provider import decrypt_content  # noqa: E402
+from secrets_provider import decrypt_content, encrypt_content  # noqa: E402
 
 
 import hashlib
@@ -24,7 +24,8 @@ import unicodedata
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from urllib.parse import urlparse, parse_qs
+import urllib.request
+from urllib.parse import urlparse, parse_qs, unquote
 
 import sys, os
 
@@ -370,6 +371,224 @@ def e_state(p, subjects, proposition):
     """Thin pass-through to the frozen engine's proposition_state. The engine is
     the sole authority; this never computes state itself."""
     return p.engine.proposition_state(subjects, canonical_form(proposition), p.now())
+
+
+ERASURE_NOTE = "[erased on request]"
+
+
+def _forget_chunks(ids, n=400):
+    ids = list(ids)
+    for i in range(0, len(ids), n):
+        yield ids[i:i + n]
+
+
+def _forget_entity(p, entity_id: str, email, requested_by: str):
+    """The right to be forgotten, executed for real.
+
+    Retraction is not erasure: the append-only log keeps history, and GDPR's
+    Article 17 means the personal data is GONE. So this rewrites the log --
+    every op that references the entity, everything that cascades from those
+    (retracts of its claims, supersedes over them, derives that grounded
+    them), the events that carried only its words (labels are quoted
+    sentences), and every projection row those touched: evidence quotes,
+    fingerprints, scopes, edges, candidate rows, reinforcements, hypotheses,
+    resolutions, proposals, tensions, decisions, source records. Evidence
+    quotes on SURVIVING beliefs that came from the same message are redacted,
+    because the sentence is the person's even when the belief is a company's.
+
+    Order of operations is the safety: the pruned log is REPLAYED through a
+    scratch engine first, and if replay would break, nothing is changed. Only
+    a verified log is written, then the live project is rebuilt from it the
+    same way boot does. What remains afterwards is an erasures row holding a
+    hash, a count, and a date -- proof it happened, retaining nothing.
+
+    Returns (report, None) or (None, error)."""
+    db = STORE.db
+    rows = [(r["seq"], r["kind"], json.loads(decrypt_content(r["args"])))
+            for r in db.execute(
+                "SELECT seq, kind, args FROM ops WHERE project_id=? ORDER BY seq", (p.id,))]
+    event_ids = {a["id"] for _s, k, a in rows if k == "event"}
+
+    removed_seq: set = set()
+    removed_assert: set = set()
+    removed_events: set = set()
+    removed_cors: set = set()
+    for seq, kind, a in rows:
+        if kind in ("assert", "supersede", "retract") and entity_id in (a.get("subjects") or []):
+            removed_seq.add(seq)
+            removed_assert.add(a["id"])
+        elif kind == "entity" and a.get("id") == entity_id:
+            removed_seq.add(seq)
+        elif kind == "corefer" and entity_id in (a.get("entity_a"), a.get("entity_b")):
+            removed_seq.add(seq)
+            removed_cors.add(a["id"])
+
+    # Cascade to a fixpoint: anything that referenced what is going must go
+    # too, or the log would no longer replay.
+    changed = True
+    while changed:
+        changed = False
+        for seq, kind, a in rows:
+            if seq in removed_seq:
+                continue
+            if kind == "retract" and a.get("old") in removed_assert:
+                removed_seq.add(seq); removed_assert.add(a["id"]); changed = True
+            elif kind == "supersede" and set(a.get("olds") or []) & removed_assert:
+                removed_seq.add(seq); removed_assert.add(a["id"]); changed = True
+            elif kind == "derive" and (
+                    a.get("consequent") in removed_assert
+                    or set(a.get("antecedents") or []) & (removed_assert | removed_events)):
+                removed_seq.add(seq); changed = True
+            elif kind == "split" and a.get("cor") in removed_cors:
+                removed_seq.add(seq); changed = True
+        # An event whose every referencing derive was removed carried only the
+        # erased person's words; it goes. One with surviving references stays,
+        # label redacted below (the quote is theirs even if a belief is not).
+        ev_refs: dict = {}
+        for seq, kind, a in rows:
+            if kind == "derive":
+                for ant in (a.get("antecedents") or []):
+                    if ant in event_ids:
+                        ev_refs.setdefault(ant, []).append(seq in removed_seq)
+        for seq, kind, a in rows:
+            if kind == "event" and seq not in removed_seq:
+                refs = ev_refs.get(a.get("id"), [])
+                if refs and all(refs):
+                    removed_seq.add(seq); removed_events.add(a["id"]); changed = True
+    redact_events = {evid for evid, refs in ev_refs.items()
+                     if any(refs) and not all(refs)}
+
+    if not removed_seq and not redact_events:
+        return None, "nothing on record references this entity"
+
+    # VERIFY before touching anything: the pruned log must replay cleanly.
+    prow = STORE.project(p.id)
+    scratch = "__forget_verify_" + os.urandom(6).hex()
+    sp = Project(scratch, prow["name"], prow["env"], prow["org_id"], False)
+    try:
+        for seq, kind, a in rows:
+            if seq in removed_seq:
+                continue
+            if kind == "event" and a.get("id") in redact_events:
+                a = {**a, "label": ERASURE_NOTE}
+            apply_op(sp, kind, a)
+    except Exception as ex:
+        return None, (f"erasure would break the log's replay "
+                      f"({type(ex).__name__}: {ex}); nothing was changed")
+    finally:
+        _DECLARED_PAIRS.pop(scratch, None)
+        CONTRADICTIONS.pop(scratch, None)
+
+    # The message ids whose quotes are the person's: used to redact surviving
+    # evidence rows and to drop their raw source records.
+    obs_ids = set()
+    for chunk in _forget_chunks(removed_assert):
+        q = ",".join("?" * len(chunk))
+        for r in db.execute(f"SELECT source_record_id FROM assertion_evidence "
+                            f"WHERE project_id=? AND assertion_id IN ({q})",
+                            (p.id, *chunk)):
+            if r["source_record_id"]:
+                obs_ids.add(r["source_record_id"])
+
+    removed: dict = {"ops": len(removed_seq)}
+    redacted: dict = {"event_labels": 0, "evidence_quotes": 0}
+
+    def _purge(table, where, params, key=None):
+        try:
+            cur = db.execute(f"DELETE FROM {table} WHERE project_id=? AND {where}",
+                             (p.id, *params))
+            n = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+        except Exception:
+            n = 0
+        if n:
+            removed[key or table] = removed.get(key or table, 0) + n
+
+    for chunk in _forget_chunks(removed_seq):
+        q = ",".join("?" * len(chunk))
+        db.execute(f"DELETE FROM ops WHERE seq IN ({q})", tuple(chunk))
+    for seq, kind, a in rows:
+        if kind == "event" and seq not in removed_seq and a.get("id") in redact_events:
+            db.execute("UPDATE ops SET args=? WHERE seq=?",
+                       (encrypt_content(json.dumps({**a, "label": ERASURE_NOTE})), seq))
+            redacted["event_labels"] += 1
+
+    for chunk in _forget_chunks(removed_assert):
+        q = ",".join("?" * len(chunk))
+        _purge("assertion_evidence", f"assertion_id IN ({q})", chunk)
+        for table in ("fact_fingerprints", "memory_scopes", "memory_class",
+                      "memory_reinforcements", "recall_counts", "review_queue",
+                      "memory_scan_results", "rule_conclusions",
+                      "candidate_subjects", "candidate_tokens", "memory_edges"):
+            _purge(table, f"assertion_id IN ({q})", chunk)
+        _purge("hypotheses", f"born_from IN ({q})", chunk)
+    for chunk in _forget_chunks(obs_ids):
+        q = ",".join("?" * len(chunk))
+        try:
+            cur = db.execute(f"UPDATE assertion_evidence SET evidence=? "
+                             f"WHERE project_id=? AND source_record_id IN ({q})",
+                             (encrypt_content(ERASURE_NOTE), p.id, *chunk))
+            redacted["evidence_quotes"] += cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+        except Exception:
+            pass
+        _purge("source_records", f"id IN ({q})", chunk)
+    _purge("candidate_subjects", "subject=?", (entity_id,))
+    _purge("memory_edges", "(src=? OR dst=?)", (entity_id, entity_id))
+    _purge("entity_resolutions", "(resolved_entity=? OR raw_key=? OR raw_key=?)",
+           (entity_id, entity_id, email or entity_id))
+    _purge("hypotheses", "(subject=? OR generator=?)", (entity_id, entity_id))
+    _purge("merge_proposals", "(entity_a=? OR entity_b=?)", (entity_id, entity_id))
+    _purge("constraint_tensions", "entity=?", (entity_id,))
+    _purge("fact_decisions", "subject=?", (entity_id,))
+    _purge("relationship_overrides", "(key=? OR key=?)", (entity_id, email or entity_id))
+    if email:
+        # Raw messages from the person, found by decrypting payloads: a scan is
+        # acceptable for the one-off cost of a real erasure request.
+        doomed = []
+        try:
+            for r in db.execute("SELECT id, payload FROM source_records WHERE project_id=?",
+                                (p.id,)):
+                try:
+                    payload = json.loads(decrypt_content(r["payload"]))
+                except Exception:
+                    continue
+                sender = str(payload.get("from") or payload.get("from_email") or "")
+                if email.lower() in sender.lower():
+                    doomed.append(r["id"])
+        except Exception:
+            pass
+        for chunk in _forget_chunks(doomed):
+            q = ",".join("?" * len(chunk))
+            _purge("source_records", f"id IN ({q})", chunk, key="source_records")
+            for table in ("message_classifications", "semantic_analyses"):
+                _purge(table, f"source_record_id IN ({q})", chunk)
+    db.commit()
+
+    # Rebuild the live project from the rewritten log, exactly the way boot
+    # does, then reconcile the projections against the fresh engine.
+    CONTRADICTIONS.pop(p.id, None)
+    _DECLARED_PAIRS.pop(p.id, None)
+    newp = Project(p.id, prow["name"], prow["env"], prow["org_id"], bool(prow["is_demo"]))
+    CONTRADICTIONS.setdefault(p.id, [])
+    _DECLARED_PAIRS.setdefault(p.id, set())
+    for op in STORE.ops_for(p.id):
+        newp.clock = max(newp.clock, op["clock"])
+        apply_op(newp, op["kind"], op["args"])
+    PROJECTS[p.id] = newp
+    try:
+        _reconcile_projections(newp)
+    except Exception:
+        pass
+
+    db.execute("INSERT INTO erasures(project_id, entity_hash, requested_by, removed, ts) "
+               "VALUES(?,?,?,?,?)",
+               (p.id, hashlib.sha256(entity_id.encode()).hexdigest()[:16],
+                requested_by, json.dumps({"removed": removed, "redacted": redacted}),
+                time.time()))
+    db.commit()
+    return {"forgotten": entity_id, "removed": removed, "redacted": redacted,
+            "verified_replay": True,
+            "note": "history was rewritten and re-verified; an erasures row "
+                    "holds a hash, counts, and a date, nothing more"}, None
 
 
 def boot():
@@ -769,6 +988,32 @@ import conflict as _conflict
 import graph as _graph
 import brief as _brief
 import candidate_index as _cand_index
+import commons as _commons
+STORE.db.executescript(_commons.COMMONS_SCHEMA)
+STORE.db.commit()
+# The record that an erasure HAPPENED, without re-retaining what was erased:
+# the entity is stored as a hash, so the log can prove compliance ("we erased
+# this subject's data on this date, this many records") while holding nothing
+# a subject-access request would surface.
+STORE.db.executescript("""
+CREATE TABLE IF NOT EXISTS erasures(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, project_id TEXT NOT NULL,
+  entity_hash TEXT NOT NULL, requested_by TEXT NOT NULL,
+  removed TEXT NOT NULL, ts REAL NOT NULL);
+""")
+STORE.db.commit()
+# The commons collector role is CONFIGURATION, not a user feature: a stock
+# install answers 404 on every bank route and shows no bank page. The one
+# instance the project's creator runs sets this, and contributions from
+# consenting installs pool there.
+BANK_COLLECTOR = os.environ.get("OMEM_BANK_COLLECTOR", "0") == "1"
+# Contribution is the operator's explicit choice: unset means no network call,
+# ever. Set, it receives exactly the anonymous bank written to disk locally.
+COMMONS_URL = (os.environ.get("OMEM_COMMONS_URL") or "").strip()
+# Whether the collector also OFFERS its corpus publicly as a training dataset
+# (GET /v1/commons/dataset). Off by default: publishing is the creator's
+# deliberate act, flipped when they are ready to hand labs a URL.
+DATASET_PUBLIC = os.environ.get("OMEM_COMMONS_DATASET_PUBLIC", "0") == "1"
 STORE.db.executescript(_cand_index.INDEX_SCHEMA)
 STORE.db.commit()
 STORE.db.executescript(_graph.GRAPH_SCHEMA)
@@ -1121,6 +1366,10 @@ HEAL_STORE = HEAL.HealingStore(STORE.db)
 from security import RateLimiter, OAuthStateStore, totp_secret, totp_code, totp_verify
 from backups import BackupManager
 AUTH_LIMITER = RateLimiter(capacity=5, refill_per_sec=0.2)
+# Commons contributions: a consenting install reports at most every backup
+# interval, so a modest per-IP budget is generous for honest traffic and a
+# wall for anything else.
+COMMONS_LIMITER = RateLimiter(capacity=10, refill_per_sec=0.5)
 
 # P9.4: per-tenant rate limit for authenticated DATA endpoints. Protects against
 # an authenticated caller exhausting server resources with expensive recall /
@@ -1191,6 +1440,70 @@ METRICS = _Metrics()
 # generous for legitimate content; env-tunable.
 MAX_TEXT_CHARS = int(os.environ.get("OMEM_MAX_TEXT_CHARS", str(100_000)))
 BACKUPS = BackupManager(STORE.db)
+
+
+def _bank_markdown(patterns: list) -> str:
+    """The publishable rendering of the bank. This text is written to be
+    quoted in an article, so it explains itself: what it is, why nothing in
+    it can identify anyone, and where each number comes from."""
+    lines = ["# What people are like, in counts", "",
+             "Regularities OMEM has learned about people in general, pooled",
+             "from installations whose operators chose to contribute. Every",
+             "line is a count over a population. No name, identifier, quote,",
+             "or extracted value can appear here: the bank refuses such tokens",
+             "at both the door they leave and the door they enter.", ""]
+    for p in patterns:
+        total = p["support"] + p["refute"]
+        src = f", seen in {p['sources']} installs" if p.get("sources", 0) > 1 else ""
+        lines.append(
+            f"- **{p['antecedent'].replace('_', ' ')}** usually comes with "
+            f"**{p['consequent'].replace('_', ' ')}**: held for "
+            f"{p['support']} of {total} subjects with a stance "
+            f"({round(p['rate'] * 100)}%{src})")
+    if not patterns:
+        lines.append("_No pattern has repeated across enough subjects yet._")
+    lines += ["", f"Exported from OMEM on {time.strftime('%Y-%m-%d')}."]
+    return "\n".join(lines)
+
+
+def _write_bank_export(dest_dir):
+    """Write the all-projects anonymous bank beside the database backups. The
+    directory is 0700 on the operator's own machine, and the CONTENT is
+    anonymous by construction (hypotheses.bank refuses identifying tokens), so
+    a copy that outlives this laptop leaks nothing. Riding the backup run is
+    the failsafe: point OMEM_BACKUP_DIR at a synced or mounted volume and the
+    bank survives the machine."""
+    rows = _hypo.bank(STORE.db, list(PROJECTS.keys()))
+    with open(os.path.join(dest_dir, "intelligence-bank.json"), "w", encoding="utf-8") as f:
+        json.dump({"patterns": rows, "exported": time.time()}, f, indent=1)
+    with open(os.path.join(dest_dir, "intelligence-bank.md"), "w", encoding="utf-8") as f:
+        f.write(_bank_markdown(rows))
+    # CONTRIBUTION, and the whole consent model in one condition: this block
+    # runs only when the operator said yes -- either to the first-open prompt
+    # (recorded, revocable in Settings) or by setting OMEM_COMMONS_URL, which
+    # is itself an explicit act. What is sent is byte-for-byte what was just
+    # written to their own disk above -- counts over populations under a
+    # random instance pseudonym -- so consent is informed by a file they can
+    # open. No answer, or no: no network call exists. A collector never
+    # contributes to itself.
+    try:
+        consented = bool(COMMONS_URL) or _commons.get_choice(STORE.db) == "yes"
+    except Exception:
+        consented = False
+    if consented and rows and not BANK_COLLECTOR:
+        try:
+            url = COMMONS_URL or _commons.DEFAULT_COMMONS_URL
+            payload = json.dumps({"instance": _commons.instance_id(STORE.db),
+                                  "patterns": rows}).encode()
+            req = urllib.request.Request(
+                url.rstrip("/") + "/v1/commons", data=payload,
+                headers={"Content-Type": "application/json"}, method="POST")
+            urllib.request.urlopen(req, timeout=5).read()
+        except Exception:
+            pass  # the commons is a gift, never a dependency
+
+
+BACKUPS.extra_writer = _write_bank_export
 SCHEDULER.backup_manager = BACKUPS
 # The scheduler tick is the only thing running on a quiet server, so it is what
 # keeps the writer lock alive; otherwise an idle-but-healthy holder would look
@@ -1277,8 +1590,13 @@ if os.environ.get("OMEM_SEED_DEMO", "0") == "1":
 
 
 # ── Response shaping (assembles frozen-query results; no new semantics) ──────
-def shape_assertion(p: Project, aid: str, T: int | None = None) -> dict:
-    """Assemble a UI assertion object entirely from the engine's own records."""
+def shape_assertion(p: Project, aid: str, T: int | None = None,
+                    recorded_at: float | None = None) -> dict:
+    """Assemble a UI assertion object entirely from the engine's own records.
+
+    recorded_at is the real wall-clock moment this was written (from the op
+    log), passed in by callers that built the map once for a whole list. It is
+    display-only: the engine still reasons in the logical assertion_time."""
     e = p.engine
     a = e.store.assertion(aid)
     if a is None:
@@ -1302,6 +1620,7 @@ def shape_assertion(p: Project, aid: str, T: int | None = None) -> dict:
         "grounded": grounded,
         "provenance_count": len(prov_ids),
         "is_retraction": a.proposition == RETRACTED,
+        "recorded_at": recorded_at,
         "object": "assertion",
     }
 
@@ -1322,12 +1641,12 @@ def shape_agent(p: Project, aid: str) -> dict:
             "object": "agent"} if ag else None
 
 
-def shape_event(p: Project, vid: str) -> dict:
+def shape_event(p: Project, vid: str, recorded_at: float | None = None) -> dict:
     lbl = p.labels.get(vid, {})
     ev = p.engine.store.event(vid)
     return {"id": vid, "kind": getattr(ev, "kind", lbl.get("event_kind")),
             "label": lbl.get("label"), "event_time": getattr(ev, "event_time", None),
-            "object": "event"} if ev else None
+            "recorded_at": recorded_at, "object": "event"} if ev else None
 
 
 # ── HTTP handler ─────────────────────────────────────────────────────────────
@@ -1447,7 +1766,10 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             return {}
 
-    PUBLIC = {("v1","health"), ("v1","signup"), ("v1","session")}
+    # /v1/commons is public ONLY in the sense that a consenting install needs no
+    # account here to contribute; the route itself 404s unless this instance is
+    # the collector, is IP rate-limited, and re-validates every token.
+    PUBLIC = {("v1","health"), ("v1","signup"), ("v1","session"), ("v1","commons")}
 
     def _effective_agent(self, auth, requested):
         """Resolve the agent identity for this request.
@@ -1874,7 +2196,9 @@ class Handler(BaseHTTPRequestHandler):
         self._req_start = time.perf_counter(); self._metrics_recorded = False
         self._dealias_path()
         u = urlparse(self.path)
-        parts = [x for x in u.path.split("/") if x]
+        # unquote per segment: an id with a reserved char (the demo uses
+        # a:alice-email) arrives percent-encoded and must match the stored id.
+        parts = [unquote(x) for x in u.path.split("/") if x]
         qs = parse_qs(u.query)
         try:
             auth = self._guard(parts, qs)
@@ -1964,7 +2288,19 @@ class Handler(BaseHTTPRequestHandler):
                 # one signup attempt anyway, and a dashboard that guessed wrong
                 # would either lock out local users or silently auto-log-in.
                 "auth": AUTH_MODE,
+                # Whether this instance is the commons collector. The dashboard
+                # uses it to show or hide the bank; a stock install is not one.
+                "commons_collector": BANK_COLLECTOR,
             }
+            # Should the dashboard ask, once, whether to contribute to the
+            # commons? Only when nobody has answered: not a collector, no
+            # recorded choice, no env override (setting OMEM_COMMONS_URL is
+            # itself the operator's explicit act of consent).
+            try:
+                body["commons_ask"] = (not BANK_COLLECTOR and not COMMONS_URL
+                                       and _commons.get_choice(STORE.db) is None)
+            except Exception:
+                body["commons_ask"] = False
             return self._send(200 if ready else 503, body)
         # ── Google redirects the BROWSER here after consent ──
         if parts == ["oauth", "gmail", "callback"] or parts == ["v1", "oauth", "gmail", "callback"]:
@@ -2767,6 +3103,90 @@ class Handler(BaseHTTPRequestHandler):
                  "is_demo": p.is_demo}
                 for p in PROJECTS.values() if p.id in allowed]})
 
+        # ── the commons as a training corpus. Two doors to one payload:
+        # /v1/commons-dataset is the owner's (session, collector only), for
+        # downloading and publishing by hand; /v1/commons/dataset is the
+        # public offer, alive only when the creator flips
+        # OMEM_COMMONS_DATASET_PUBLIC=1, rate limited, same anonymous corpus.
+        if parts == ["v1", "commons-dataset"] or parts == ["v1", "commons", "dataset"]:
+            if not BANK_COLLECTOR:
+                return self._err(404, "not_found", "not found")
+            if parts == ["v1", "commons", "dataset"]:
+                if not DATASET_PUBLIC:
+                    return self._err(404, "not_found", "not found")
+                ip = self.client_address[0] if self.client_address else "unknown"
+                if not COMMONS_LIMITER.allow(f"dataset:{ip}"):
+                    return self._err(429, "rate_limited", "Slow down and retry.")
+            elif not (isinstance(auth, dict) and "user" in auth):
+                return self._err(403, "permission", "session required")
+            contribs = _commons.latest_per_instance(STORE.db)
+            rows = _commons.merged(_hypo.bank(STORE.db, list(PROJECTS.keys())), contribs)
+            stats = _commons.analytics(rows, contribs, STORE.db)
+            return self._send(200, {
+                "patterns": len(rows),
+                "license": _commons.DATASET_LICENSE,
+                "jsonl": _commons.dataset_jsonl(rows),
+                "card": _commons.dataset_card(rows, stats),
+                "public": DATASET_PUBLIC,
+                "note": "counts over populations; nothing identifying can appear, "
+                        "by construction"})
+
+        # ── the operator's commons decision, for the Settings toggle. Session
+        # only: this is an instance-level choice, not something an API key
+        # (or the /v1/commons prefix, which is public for contributions)
+        # should reach. Hence its own path segment.
+        if parts == ["v1", "commons-choice"]:
+            if "user" not in auth:
+                return self._err(403, "permission", "session required")
+            return self._send(200, {
+                "contribute": _commons.get_choice(STORE.db),
+                "env_override": bool(COMMONS_URL),
+                "url": COMMONS_URL or _commons.DEFAULT_COMMONS_URL,
+                "collector": BANK_COLLECTOR})
+
+        # ── the commons bank: the creator's view. Not a user feature -- a
+        # stock install answers 404 here (BANK_COLLECTOR off) and shows no
+        # bank page. On the one collector instance, this merges the operator's
+        # own learned priors with every consenting install's contribution,
+        # and computes the analytics over the pool. Session-only and
+        # owner-only on top of the role gate.
+        if parts == ["v1", "org", "bank"]:
+            if not BANK_COLLECTOR:
+                return self._err(404, "not_found", "not found")
+            if "user" not in auth:
+                return self._err(403, "permission",
+                                 "the bank is session-only; API keys are project-scoped")
+            owned = []
+            for r in STORE.projects_for_user(auth["user"]["id"]):
+                org = self._org_of_project(r["id"])
+                if org and self._require(auth, "bank.read", org, r["id"]):
+                    owned.append(r["id"])
+            if not owned:
+                return self._err(403, "permission",
+                                 "the intelligence bank is for the instance owner")
+            own = _hypo.bank(STORE.db, owned)
+            contribs = _commons.latest_per_instance(STORE.db)
+            patterns = _commons.merged(own, contribs)
+            bank_file = os.path.join(BACKUPS.dir, "intelligence-bank.json")
+            try:
+                last_backup = BACKUPS.status()
+            except Exception:
+                last_backup = None
+            return self._send(200, {
+                "patterns": patterns,
+                "projects": len(owned),
+                "analytics": _commons.analytics(patterns, contribs, STORE.db),
+                "markdown": _bank_markdown(patterns),
+                "note": "counts about subjects in general; no name, identifier, "
+                        "quote, or value is stored or exported, and contributions "
+                        "are re-validated at the door",
+                "failsafe": {
+                    "backup_dir": BACKUPS.dir,
+                    "bank_file": bank_file,
+                    "bank_file_written": os.path.exists(bank_file),
+                    "last_backup": last_backup,
+                }})
+
         p = self._proj(qs)
         if p is None:
             return self._err(404, "not_found", "project not found")
@@ -2780,8 +3200,26 @@ class Handler(BaseHTTPRequestHandler):
                             and a.proposition != RETRACTED]
             grounded = sum(1 for a in open_beliefs if e.provenance(a.id)[1] == "GROUNDED")
             conflicts = e.conflicts(p.now())
+            # The clock: what real moment each LOGICAL time corresponds to, so the
+            # "as of" control can travel in dates and times instead of tick
+            # numbers. Keyed by tick, earliest real ts wins; assertions and events
+            # both stamp a tick, so both feed it.
+            _ts_map = STORE.assert_timestamps(p.id)
+            _clock: dict[int, float] = {}
+            for _a in assertions:
+                _ts = _ts_map.get(_a.id)
+                _t = _a.assertion_time
+                if _ts is not None and (_t not in _clock or _ts < _clock[_t]):
+                    _clock[_t] = _ts
+            for _ev in e.store.events():
+                _ts = _ts_map.get(_ev.id)
+                _t = getattr(_ev, "event_time", None)
+                if _ts is not None and _t is not None and (_t not in _clock or _ts < _clock[_t]):
+                    _clock[_t] = _ts
+            clock = [{"t": _t, "ts": _clock[_t]} for _t in sorted(_clock)]
             return self._send(200, {
                 "now": p.now(),
+                "clock": clock,
                 "counts": {
                     "entities": len(list(e.store.entities())),
                     "agents": len(list(e.store.agents())),
@@ -2803,6 +3241,7 @@ class Handler(BaseHTTPRequestHandler):
             if _err:
                 return
             open_only = qs.get("open", [None])[0] == "true"
+            ts_map = STORE.assert_timestamps(p.id)   # real recorded time, once
             rows = []
             for a in e.store.assertions():
                 if subj and subj not in a.subjects:
@@ -2813,7 +3252,7 @@ class Handler(BaseHTTPRequestHandler):
                     continue
                 if open_only and not e.ledger.is_open_at(a, T):
                     continue
-                rows.append(shape_assertion(p, a.id, T))
+                rows.append(shape_assertion(p, a.id, T, recorded_at=ts_map.get(a.id)))
             rows.sort(key=lambda r: r["assertion_time"])
             return self._send(200, {"as_of": T, "data": rows})
 
@@ -2825,7 +3264,8 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if not _viewer_scope_ok(p.id, parts[2], _v, qs.get("user", [None])[0]):
                 return self._err(404, "not_found", "assertion not found")
-            sa = shape_assertion(p, parts[2], T)
+            sa = shape_assertion(p, parts[2], T,
+                                 recorded_at=STORE.assert_timestamps(p.id).get(parts[2]))
             return self._send(200, sa) if sa else self._err(404, "not_found", "assertion not found")
 
         # /v1/assertions/{id}/why - the signature explanation, all from frozen queries
@@ -2843,6 +3283,7 @@ class Handler(BaseHTTPRequestHandler):
             prov_ids, grounded = e.provenance(aid)
             state = e.proposition_state(list(a.subjects), a.proposition, T)
             chain = e.revision_chain(aid)
+            tsm = STORE.assert_timestamps(p.id)   # real recorded times, once
             # contradictions: open assertions conflicting with THIS assertion at
             # T. Use the P7 narrow query (only aid's neighbourhood) instead of
             # the full O(n²) engine.conflicts(T) - byte-identical for pairs
@@ -2858,7 +3299,7 @@ class Handler(BaseHTTPRequestHandler):
                 other = [x for x in pair if x != aid][0]
                 if not _viewer_scope_ok(p.id, other, _v, qs.get("user", [None])[0]):
                     continue
-                contradictory.append(shape_assertion(p, other, T))
+                contradictory.append(shape_assertion(p, other, T, recorded_at=tsm.get(other)))
             prov_nodes = []
             for pid in prov_ids:
                 kind = ("event" if e.store.event(pid) else
@@ -2877,13 +3318,13 @@ class Handler(BaseHTTPRequestHandler):
                             for r in _consol.reinforcement_rows(STORE.db, p.id, aid)})
             _cscore, _cwhy = _confidence.effective(a.confidence, _support)
             return self._send(200, {
-                "assertion": shape_assertion(p, aid, T),
+                "assertion": shape_assertion(p, aid, T, recorded_at=tsm.get(aid)),
                 "as_of": T,
                 "state": state,
                 "confidence": {"score": _cscore, "because": _cwhy},
                 "grounded": grounded == "GROUNDED",
                 "provenance": {"nodes": prov_nodes, "edges": edges},
-                "revision_chain": [shape_assertion(p, c, T) for c in chain],
+                "revision_chain": [shape_assertion(p, c, T, recorded_at=tsm.get(c)) for c in chain],
                 "evidence": INGEST.evidence_for(p.id, aid),
                 "source": (lambda sr: {
                     "id": sr["id"], "external_id": sr["external_id"],
@@ -2947,7 +3388,54 @@ class Handler(BaseHTTPRequestHandler):
 
         # /v1/entities , /v1/entities/{id} , /v1/entities/{id}/beliefs
         if parts == ["v1", "entities"]:
-            return self._send(200, {"data": [shape_entity(p, en.id) for en in e.store.entities()]})
+            # Search / sort / paginate, so a project with a million entities is
+            # navigable instead of shipped whole to the browser. `q` substring-
+            # matches id and label; `sort` is name|id|type|connections; `limit`
+            # + `offset` page the result. With no limit the whole set still
+            # comes back, so existing callers are unchanged.
+            q = (qs.get("q", [""])[0] or "").strip().lower()
+            sort = qs.get("sort", ["name"])[0] or "name"
+            _raw_limit = qs.get("limit", [None])[0]
+            try:
+                limit = _clamp_limit(_raw_limit, 2000, 5000) if _raw_limit else None
+            except (TypeError, ValueError):
+                limit = None
+            try:
+                offset = max(0, int(qs.get("offset", ["0"])[0]))
+            except (TypeError, ValueError):
+                offset = 0
+            deg: dict = {}
+            if sort == "connections":
+                for _r in STORE.db.execute(
+                        "SELECT src AS n, COUNT(*) c FROM memory_edges WHERE project_id=? GROUP BY src", (p.id,)):
+                    deg[_r["n"]] = deg.get(_r["n"], 0) + _r["c"]
+                for _r in STORE.db.execute(
+                        "SELECT dst AS n, COUNT(*) c FROM memory_edges WHERE project_id=? GROUP BY dst", (p.id,)):
+                    deg[_r["n"]] = deg.get(_r["n"], 0) + _r["c"]
+            rows = []
+            for en in e.store.entities():
+                lbl = p.labels.get(en.id) or {}
+                label = lbl.get("label")
+                disp = label or en.id
+                if q and q not in en.id.lower() and q not in disp.lower():
+                    continue
+                row = {"id": en.id, "type": getattr(en, "type", None) or lbl.get("type"),
+                       "label": label}
+                if sort == "connections":
+                    row["connections"] = deg.get(en.id, 0)
+                rows.append(row)
+            if sort == "id":
+                rows.sort(key=lambda r: r["id"])
+            elif sort == "type":
+                rows.sort(key=lambda r: ((r["type"] or "~"), (r["label"] or r["id"]).lower()))
+            elif sort == "connections":
+                rows.sort(key=lambda r: (-r["connections"], (r["label"] or r["id"]).lower()))
+            else:  # name
+                rows.sort(key=lambda r: (r["label"] or r["id"]).lower())
+            total = len(rows)
+            page = rows[offset:offset + limit] if limit is not None else rows
+            return self._send(200, {"data": page, "total": total, "offset": offset,
+                                    "limit": limit if limit is not None else total})
         if len(parts) == 3 and parts[:2] == ["v1", "entities"]:
             se = shape_entity(p, parts[2])
             return self._send(200, se) if se else self._err(404, "not_found", "entity not found")
@@ -2977,7 +3465,9 @@ class Handler(BaseHTTPRequestHandler):
             if _err:
                 return
             _u = qs.get("user", [None])[0]
-            claims = [shape_assertion(p, a.id, T) for a in e.store.assertions()
+            tsm = STORE.assert_timestamps(p.id)
+            claims = [shape_assertion(p, a.id, T, recorded_at=tsm.get(a.id))
+                      for a in e.store.assertions()
                       if a.agent == parts[2] and _viewer_scope_ok(p.id, a.id, _v, _u)]
             sa["claims"] = claims
             return self._send(200, sa)
@@ -2989,7 +3479,9 @@ class Handler(BaseHTTPRequestHandler):
         # /v1/timeline
         if parts == ["v1", "timeline"]:
             ids = e.timeline(T)
-            return self._send(200, {"as_of": T, "events": [shape_event(p, i) for i in ids]})
+            tsm = STORE.assert_timestamps(p.id)
+            return self._send(200, {"as_of": T,
+                "events": [shape_event(p, i, recorded_at=tsm.get(i)) for i in ids]})
 
         # /v1/conflicts
         if parts == ["v1", "conflicts"]:
@@ -3012,6 +3504,7 @@ class Handler(BaseHTTPRequestHandler):
                 _pairs = _cn.conflicts_for(e, _open_ids, T, pview=_pview)
             except Exception:
                 _pairs = e.conflicts(T)
+            tsm = STORE.assert_timestamps(p.id)
             for pair in _pairs:
                 a, b = tuple(pair)
                 # a conflict pair is only visible if the caller may see BOTH
@@ -3020,7 +3513,8 @@ class Handler(BaseHTTPRequestHandler):
                 if not (_viewer_scope_ok(p.id, a, _v, _u)
                         and _viewer_scope_ok(p.id, b, _v, _u)):
                     continue
-                out.append({"pair": [shape_assertion(p, a, T), shape_assertion(p, b, T)]})
+                out.append({"pair": [shape_assertion(p, a, T, recorded_at=tsm.get(a)),
+                                     shape_assertion(p, b, T, recorded_at=tsm.get(b))]})
             return self._send(200, {"as_of": T, "conflicts": out})
 
         # /v1/coreference/partition
@@ -3128,7 +3622,9 @@ class Handler(BaseHTTPRequestHandler):
         self._req_start = time.perf_counter(); self._metrics_recorded = False
         self._dealias_path()
         u = urlparse(self.path)
-        parts = [x for x in u.path.split("/") if x]
+        # unquote per segment: an id with a reserved char (the demo uses
+        # a:alice-email) arrives percent-encoded and must match the stored id.
+        parts = [unquote(x) for x in u.path.split("/") if x]
         if not any(len(parts) == 3 and parts[:2] == r for r in self._DELETE_ROUTES):
             self._allow = "GET, POST, OPTIONS"
             self._err(405, "invalid_request",
@@ -3141,7 +3637,9 @@ class Handler(BaseHTTPRequestHandler):
         self._req_start = time.perf_counter(); self._metrics_recorded = False
         self._dealias_path()
         u = urlparse(self.path)
-        parts = [x for x in u.path.split("/") if x]
+        # unquote per segment: an id with a reserved char (the demo uses
+        # a:alice-email) arrives percent-encoded and must match the stored id.
+        parts = [unquote(x) for x in u.path.split("/") if x]
         qs = parse_qs(u.query)
         try:
             self._oversized = False
@@ -3173,6 +3671,62 @@ class Handler(BaseHTTPRequestHandler):
             self._err(500, "server", f"{type(ex).__name__}: {ex}")
 
     def _route_post(self, parts, qs, body, auth):
+        # ── the commons: a consenting install contributes its anonymous bank.
+        # 404 unless this instance is the collector; per-IP rate limit; every
+        # token re-checked with the same refusal the bank applies locally, so
+        # a modified contributor cannot push an identity or a value in here.
+        if parts == ["v1", "commons"]:
+            if not BANK_COLLECTOR:
+                return self._err(404, "not_found", "not found")
+            ip = self.client_address[0] if self.client_address else "unknown"
+            if not COMMONS_LIMITER.allow(f"commons:{ip}"):
+                return self._err(429, "rate_limited", "Slow down and retry.")
+            clean, verr = _commons.validate(body)
+            if verr:
+                return self._err(422, "invalid_request", verr)
+            _commons.store(STORE.db, body["instance"], clean)
+            return self._send(201, {"accepted": len(clean), "object": "contribution"})
+
+        # ── the right to be forgotten: POST /v1/entities/{id}/forget. Erases a
+        # person (or any entity) from the record for real: the op log is
+        # rewritten, cascades removed, surviving evidence quotes redacted, and
+        # the pruned log replay-verified BEFORE anything is touched. `confirm`
+        # must repeat the id; `email` additionally purges raw messages from
+        # that address. Admin act (erasure.execute).
+        if len(parts) == 4 and parts[:2] == ["v1", "entities"] and parts[3] == "forget":
+            p = self._proj(qs)
+            if p is None:
+                return self._err(404, "not_found", "project not found")
+            org = self._org_of_project(p.id)
+            if not self._require(auth, "erasure.execute", org, p.id):
+                return self._err(403, "permission", "requires erasure.execute (admin)")
+            eid = parts[2]
+            if body.get("confirm") != eid:
+                return self._err(422, "invalid_request",
+                                 "pass confirm=<the entity id> to erase; this cannot be undone",
+                                 param="confirm")
+            known = eid in p.labels or any(en.id == eid for en in p.engine.store.entities())
+            if not known:
+                return self._err(404, "not_found", "entity not found")
+            _who = auth["user"]["email"] if isinstance(auth, dict) and "user" in auth else "api-key"
+            report, ferr = _forget_entity(p, eid, (body.get("email") or "").strip() or None, _who)
+            if ferr:
+                return self._err(409, "conflict", ferr)
+            self._logreq(p, "POST", f"/v1/entities/{eid}/forget", 200, "erased an entity")
+            return self._send(200, report)
+
+        # ── the operator answers the commons question (first-open prompt, or
+        # the Settings toggle later). Either answer is durable and revocable.
+        if parts == ["v1", "commons-choice"]:
+            if "user" not in auth:
+                return self._err(403, "permission", "session required")
+            c = body.get("contribute")
+            if not isinstance(c, bool):
+                return self._err(422, "invalid_request",
+                                 "contribute must be true or false", param="contribute")
+            _commons.set_choice(STORE.db, c)
+            return self._send(200, {"contribute": "yes" if c else "no"})
+
         # ── account ──
         if parts == ["v1", "signup"]:
             email = (body.get("email") or "").strip()
@@ -4349,15 +4903,33 @@ class Handler(BaseHTTPRequestHandler):
                     at = int(at)
                 except (TypeError, ValueError):
                     at = "now"  # malformed event time -> treat as observed-now
-            source = body.get("source") or _mint_global("obs")
+            _raw_source = body.get("source")
+            source = _raw_source or _mint_global("obs")
             if agent not in p.labels:
                 record(p, "agent", {"id": agent, "kind": "system", "label": agent})
 
             ident = _org_identity(p.id)
-            payload = {"subject": inter.get("topic") or source, "body": text,
+            # `source` may be a dict ({kind, external_id, title, ...}) or a bare
+            # id string. The extractor wants STRINGS: a dict reached
+            # `subject[:80]` as `dict[slice]`, which raised the opaque
+            # "slice(None, 80, None)" and made every observe look like the
+            # offline extractor could not run. Pull a title and an id out of it.
+            #
+            # A TITLE only exists when the caller supplied a source. When they
+            # did not, `source` above is a minted obs-id, and that id must NOT
+            # become the event's label -- doing so is what put "obs_ab12..." on
+            # the timeline in place of the sentence that was actually observed.
+            _src_title = ((_raw_source.get("title") or _raw_source.get("subject")
+                           or _raw_source.get("external_id")) if isinstance(_raw_source, dict)
+                          else (_raw_source if isinstance(_raw_source, str) else None))
+            _src_id = ((_raw_source.get("external_id") or _raw_source.get("id")
+                        or _raw_source.get("message_id")) if isinstance(_raw_source, dict)
+                       else (_raw_source if isinstance(_raw_source, str) else None))
+            _src_id = _src_id or _mint_global("obs")
+            payload = {"subject": inter.get("topic") or _src_title or "message", "body": text,
                        "from": speaker, "to": audience, "at": at,
                        "thread_id": inter.get("thread_id"),
-                       "message_id": source, "headers": {}}
+                       "message_id": _src_id, "headers": {}}
             if ENT.setting(p.id, "llm_enabled") == "1" and providers.llm_configured():
                 ext = _semantic_extractor_for(
                     {"project_id": p.id, "id": f"observe:{agent}"}, ident)
@@ -4410,7 +4982,8 @@ class Handler(BaseHTTPRequestHandler):
             # temporal-diversity policy depends on. For an explicit 'at', use it.
             _obs_event_T = p.tick() if at in ("now", None) else int(at)
             record(p, "event", {"id": ev, "ekind": "observation",
-                                "event_time": _obs_event_T, "label": source})
+                                "event_time": _obs_event_T,
+                                "label": _src_title or (text[:80] if text else "observation")})
             out = []
             for f in facts:
                 subj = f["subject"]
@@ -4497,6 +5070,21 @@ class Handler(BaseHTTPRequestHandler):
                 if f.get("relation") and isinstance(_rt, dict) and _rt.get("id"):
                     _graph.record_edge(STORE.db, p.id, aid, subj["id"],
                                        f["relation"], _rt["id"])
+                # Persist the phrase this memory was drawn from, so /why can
+                # quote the ACTUAL source text (never regenerated). The ingest
+                # pipeline records this for connector facts; observe formed the
+                # same grounded memory but skipped the row, so every observed
+                # belief reached the "why" surface with nothing to show and read
+                # as if it had been asserted out of thin air.
+                if f.get("evidence"):
+                    try:
+                        STORE.db.execute(
+                            "INSERT OR REPLACE INTO assertion_evidence VALUES(?,?,?,?,?,?,?)",
+                            (aid, p.id, _src_id, encrypt_content(f.get("evidence")),
+                             f.get("confidence"), type(ext).__name__, time.time()))
+                        STORE.db.commit()
+                    except Exception:
+                        pass
                 # PRIVATE BY DEFAULT: an agent's observation is its own memory
                 # unless the caller explicitly widens it. Sharing later is an
                 # explicit promotion (POST /v1/memory/share).

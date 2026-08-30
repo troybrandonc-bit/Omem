@@ -14,10 +14,10 @@
  * be wrapped in a suspense boundary", a build error, not a runtime one.
  */
 import { Suspense, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { api, isGrounded, type WhyResult } from "@/lib/api";
+import { api, isGrounded, formatWhen, type WhyResult } from "@/lib/api";
 import { useApp } from "@/components/providers";
 import { StateBadge, Badge, Card, Skeleton, IntervalStrip, Button } from "@/components/ui/primitives";
 import { ProvenanceDAG } from "@/components/viz/provenance-dag";
@@ -48,8 +48,13 @@ function AssertionDetailInner() {
       {/* Header: claim, state, and the facts that matter, one dense block. */}
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="display text-lg leading-tight">{titleOf(a)}</h1>
-          <div className="mono mt-1 text-2xs text-muted">{a.proposition}</div>
+          <h1 className="display text-2xl leading-tight">
+            {why.subjects.length > 1
+              ? why.subjects.map(s => s?.label || s?.id).filter(Boolean).join(" + ")
+              : (why.subjects[0]?.label || why.subjects[0]?.id || "Unknown subject")}
+            <span className="text-faint"> &rarr; </span>
+            {a.proposition}
+          </h1>
         </div>
         <div className="flex items-center gap-2">
           {asOf !== null && <Badge tone="unknown">as of t={asOf}</Badge>}
@@ -62,8 +67,9 @@ function AssertionDetailInner() {
           className="font-medium text-fg hover:text-accent">{why.subjects[0]?.label || why.subjects[0]?.id || "unknown"}</Link></span>
         <span>asserted by <Link href={`/agent?id=${encodeURIComponent(a.agent)}`}
           className="font-medium text-fg hover:text-accent">{why.agent?.label || a.agent}</Link></span>
-        <span>at <span className="num text-fg">t={a.assertion_time}</span></span>
-        {a.confidence !== null && <span>source confidence <span className="num text-fg">{a.confidence}</span></span>}
+        {(() => { const w = formatWhen(a.recorded_at, a.assertion_time);
+          return w.text ? <span title={w.title}>recorded <span className="text-fg">{w.text}</span></span> : null; })()}
+        {a.confidence !== null && <span>source confidence <span className="num text-fg">{Math.round(a.confidence * 100)}%</span></span>}
         <span className={isGrounded(why.grounded) ? "text-believed" : "text-unknown"}>
           {isGrounded(why.grounded) ? "grounded in an event" : "not grounded"}
         </span>
@@ -80,12 +86,17 @@ function AssertionDetailInner() {
             <header className="border-b px-4 py-2.5"><div className="tech-label">Belief over time</div></header>
             <div className="px-4 py-3">
               <IntervalStrip start={a.belief_interval.start} end={a.belief_interval.end} now={now} min={0} max={Math.max(now, a.belief_interval.start + 1)} />
-              <div className="mono mt-1.5 text-2xs text-muted">
-                [{a.belief_interval.start}, {a.belief_interval.end ?? "open"})
-              </div>
-              <p className="mt-2 text-2xs leading-relaxed text-faint">
-                Half-open interval: believed from t={a.belief_interval.start}
-                {a.belief_interval.end === null ? " with no end recorded." : ` until t=${a.belief_interval.end}.`}
+              <p className="mt-3 text-2xs leading-relaxed text-faint">
+                {(() => {
+                  const start = formatWhen(a.recorded_at, a.belief_interval.start);
+                  const cAt = why.contradictions
+                    .map(c => c.recorded_at)
+                    .filter((x): x is number => x != null)
+                    .sort((p, q) => p - q)[0];
+                  if (cAt != null) return <>Believed since {start.text}. Contradicted {formatWhen(cAt).text}, and OMEM keeps both sides on the record.</>;
+                  if (a.belief_interval.end === null) return <>Believed since {start.text}, still open, with no end recorded.</>;
+                  return <>Believed since {start.text}, until it was superseded.</>;
+                })()}
               </p>
             </div>
             {why.subjects.length > 1 && (
@@ -110,13 +121,28 @@ function AssertionDetailInner() {
             <div className="mb-2 flex items-center justify-between">
               <div className="tech-label">Supporting evidence / provenance</div>
               {isGrounded(why.grounded)
-                ? <Badge tone="believed">reaches an event</Badge>
-                : <Badge tone="unknown">no event root</Badge>}
+                ? <Badge tone="believed">grounded in an event</Badge>
+                : <Badge tone="unknown">not grounded in an event</Badge>}
             </div>
             {why.provenance.nodes.length > 0
               ? <ProvenanceDAG nodes={why.provenance.nodes} edges={why.provenance.edges} rootId={a.id} />
-              : <div className="py-6 text-center text-sm text-muted">No derivations recorded. This belief was asserted directly, without cited evidence.</div>}
+              : <div className="py-6 text-center text-sm leading-relaxed text-muted">
+                  A direct claim by <span className="font-medium text-fg">{why.agent?.label || a.agent}</span>
+                  {(() => { const w = formatWhen(a.recorded_at, a.assertion_time);
+                    return w.text ? <>, <span className="text-fg">{w.text}</span></> : null; })()}, not drawn from any email, ticket, or event.
+                  <br />That is what <span className="text-unknown">ungrounded</span> means: there is nothing behind it to check it against, so it carries less weight than a grounded belief.
+                </div>}
           </Card>
+
+          {/* An ungrounded claim rests on the agent's word alone, so the recourse
+              is to question it: hold the agent to account, or take it off the
+              record. A grounded claim is challenged by disproving its evidence,
+              which is a different move, so this only shows when ungrounded. */}
+          {!isGrounded(why.grounded) && a.open && !a.is_retraction && (
+            <QuestionBelief id={a.id} agentLabel={why.agent?.label || a.agent}
+              recordedAt={a.recorded_at} tick={a.assertion_time}
+              confidence={why.confidence?.score ?? a.confidence ?? null} />
+          )}
 
           {/* contradictions */}
           {why.contradictions.length > 0 && (
@@ -129,7 +155,8 @@ function AssertionDetailInner() {
                   className="mb-2 flex items-center justify-between rounded-md border border-[color:var(--conflict)]/30 bg-[color:var(--conflict)]/5 px-3 py-2 hover:bg-[color:var(--conflict)]/10">
                   <div>
                     <div className="text-sm font-medium">{c.label || c.proposition}</div>
-                    <div className="text-2xs text-faint">by {c.agent} / t={c.assertion_time}</div>
+                    {(() => { const w = formatWhen(c.recorded_at, c.assertion_time);
+                      return <div className="text-2xs text-faint" title={w.title}>by {c.agent.replace(/^agent:/, "")}{w.text ? ` · ${w.text}` : ""}</div>; })()}
                   </div>
                   <Badge tone="conflict">opposing</Badge>
                 </Link>
@@ -155,7 +182,8 @@ function AssertionDetailInner() {
                     </div>
                     <Link href={`/assertion?id=${encodeURIComponent(r.id)}`} className="flex-1 py-1 hover:text-accent">
                       <div className="text-sm">{r.is_retraction ? <span className="text-conflict">retracted</span> : (r.label || r.proposition)}</div>
-                      <div className="text-2xs text-faint">t={r.assertion_time} {r.id === a.id && "· viewing"}</div>
+                      {(() => { const w = formatWhen(r.recorded_at, r.assertion_time);
+                        return <div className="text-2xs text-faint" title={w.title}>{w.text}{r.id === a.id && " · viewing"}</div>; })()}
                     </Link>
                   </div>
                 ))}
@@ -171,11 +199,72 @@ function AssertionDetailInner() {
 // A readable title. Extraction labels are "<subject line> \u2192 <proposition>";
 // when the source had no subject line the label degrades to a bare arrow, so we
 // fall back to the proposition rather than rendering "\u2192 something".
-function titleOf(a: { label?: string | null; proposition: string }): string {
-  const raw = (a.label ?? "").trim();
-  const cleaned = raw.replace(/^[\u2192>\-\s]+/, "").trim();
-  if (!cleaned || cleaned === a.proposition) return a.proposition;
-  return cleaned;
+// An ungrounded belief has no evidence to interrogate, so "why" would dead-end
+// at the agent. This turns that dead end into the two real moves a person has:
+// see who is accountable for the claim, and, if they reject it, take it off the
+// record. The retraction is append-only -- nothing is erased -- and it is filed
+// under a reviewer agent standing for the person, never under the agent being
+// questioned, which would misread as that agent changing its mind.
+function QuestionBelief({ id, agentLabel, recordedAt, tick, confidence }:
+  { id: string; agentLabel: string; recordedAt?: number | null; tick?: number; confidence: number | null }) {
+  const { project } = useApp();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const when = formatWhen(recordedAt, tick);
+  const agent = agentLabel.replace(/^agent:/, "");
+  const retract = useMutation({
+    mutationFn: async () => {
+      // The agent must exist before it can act on the record; a repeat create is
+      // harmless, so ensure it, then retract under it.
+      try {
+        await api.createAgent(project, { id: "reviewer:you", kind: "system", label: "You (dashboard)" });
+      } catch { /* already exists */ }
+      return api.retract(project, id, { agent: "reviewer:you" });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["why", project, id] }),
+  });
+  return (
+    <Card className="p-4">
+      <div className="tech-label mb-1.5">Question this belief</div>
+      <p className="text-sm leading-relaxed text-muted">
+        Nothing grounds this in an event, so the one thing behind it is that{" "}
+        <span className="font-medium text-fg">{agent}</span> said so
+        {when.text && <>, <span className="text-fg">{when.text}</span></>}
+        {confidence != null && <> at {Math.round(confidence * 100)}% confidence</>}. That agent is
+        accountable for it. If you do not accept it, you can take it off the record.
+      </p>
+      {retract.isSuccess ? (
+        <p className="mt-3 text-2xs text-conflict">
+          Retracted. It stays in the history below, marked retracted by you, and is no longer believed.
+        </p>
+      ) : !open ? (
+        <button onClick={() => setOpen(true)}
+          className="mt-3 text-xs font-semibold text-accent hover:underline">
+          Challenge this claim
+        </button>
+      ) : (
+        <div className="mt-3 rounded-md border bg-raised/50 p-3">
+          <p className="text-2xs leading-relaxed text-muted">
+            Retracting records that <span className="font-medium text-fg">you</span> no longer accept this
+            claim. OMEM keeps it in the append-only history, marked retracted, so nothing is erased. It just
+            stops being believed.
+          </p>
+          {retract.isError && (
+            <p className="mt-1.5 text-2xs text-conflict">
+              Could not retract: {retract.error instanceof Error ? retract.error.message : "request failed"}.
+            </p>
+          )}
+          <div className="mt-2.5 flex items-center gap-3">
+            <Button variant="danger" size="sm" onClick={() => retract.mutate()} disabled={retract.isPending}>
+              {retract.isPending ? "Retracting…" : "Retract this claim"}
+            </Button>
+            <button onClick={() => setOpen(false)} disabled={retract.isPending}
+              className="text-2xs text-muted hover:text-fg">Cancel</button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
 }
 
 // State explanation. Every branch maps exactly onto the frozen proposition_state

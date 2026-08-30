@@ -19,6 +19,8 @@ interface Ctx {
   now: number; setNow: (n: number) => void;
   theme: "dark" | "light"; toggleTheme: () => void;
   boot: Boot; mode: AuthMode | null; retryBoot: () => void;
+  collector: boolean;
+  commonsAsk: boolean; dismissCommonsAsk: () => void;
 }
 const AppCtx = createContext<Ctx>(null as any);
 export const useApp = () => useContext(AppCtx);
@@ -46,6 +48,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   const [boot, setBoot] = useState<Boot>("connecting");
   const [mode, setMode] = useState<AuthMode | null>(null);
+  // Whether the server is the commons collector; decides if the bank exists.
+  const [collector, setCollector] = useState(false);
+  // First-open commons question: true until somebody answers it (or an env
+  // override made the answer). Cleared locally once the prompt records one.
+  const [commonsAsk, setCommonsAsk] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const retryBoot = () => { setBoot("connecting"); setAttempt(a => a + 1); };
 
@@ -75,6 +82,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
       try {
         const h = await api.health();
         m = h.auth === "password" ? "password" : "local";
+        setCollector(!!h.commons_collector);
+        setCommonsAsk(!!h.commons_ask);
       } catch {
         if (!cancelled) { setMode(null); setBoot("unreachable"); }
         return;
@@ -196,7 +205,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={qc}>
       <AppCtx.Provider value={{ project, setProject, asOf, setAsOf, now, setNow, theme, toggleTheme,
-                                boot, mode, retryBoot }}>
+                                boot, mode, retryBoot, collector,
+                                commonsAsk, dismissCommonsAsk: () => setCommonsAsk(false) }}>
         {children}
       </AppCtx.Provider>
     </QueryClientProvider>

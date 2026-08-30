@@ -21,7 +21,7 @@ export default function Usage() {
   return (
     <div className="space-y-5">
       <div className="flex items-baseline justify-between">
-        <h1 className="display text-lg">Usage</h1>
+        <h1 className="display text-2xl">Usage</h1>
         {billing && <span className="text-sm text-muted">Plan: <span className="font-semibold text-fg">{billing.plans[billing.plan]?.name ?? billing.plan}</span></span>}
       </div>
 
