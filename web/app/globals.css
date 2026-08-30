@@ -57,6 +57,22 @@
 :root {
   color-scheme: light;
 
+  /* Type is the platform's own system family, not a webfont. On Apple hardware
+     that is San Francisco -- SF Pro for text and display, SF Mono for code --
+     resolved through the -apple-system / ui-* keywords; on Windows it falls to
+     Segoe UI and Cascadia/Consolas, on Linux to the system UI face. This is the
+     Apple approach to type on the web: use the OS font rather than approximate
+     it with Inter, and it also means the dashboard now downloads no font files
+     at all, which the "runs on your own machine, no external services" claim
+     always implied it should. font-optical-sizing lets SF switch to its display
+     cut at large sizes on its own. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", ui-sans-serif,
+    "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", ui-sans-serif,
+    "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Monaco,
+    "Cascadia Code", "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
+
   /* Surfaces: cool neutral. Elevation moves in ~2% steps. You feel it, you do
      not see it. Sidebar shares --bg with the canvas on purpose; a different
      colour there splits the screen into two worlds.
@@ -275,10 +291,11 @@ html, body { color: var(--fg); }
 
 body {
   margin: 0;
-  /* IBM Plex was drawn for technical and institutional documentation, which is
-     what this is. The family arrives via next/font (app/fonts.ts), so the stack
-     below is the metrics-matched fallback, not a network race. */
-  font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  /* The system UI family (SF Pro on Apple), defined once in :root. */
+  font-family: var(--font-sans);
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   /* The instrument base, in rem rather than px. 0.8125rem is the same 13px it
      has always been at the default root -- and it is 16px for somebody who has
      set their browser text size to 125%, which used to change nothing here at

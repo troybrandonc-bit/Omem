@@ -2,7 +2,6 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Providers } from "@/components/providers";
 import { Shell } from "@/components/shell";
-import { fontVars } from "./fonts";
 
 export const metadata: Metadata = {
   title: {
@@ -53,7 +52,7 @@ document.documentElement.style.colorScheme=d?"dark":"light";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={fontVars} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>

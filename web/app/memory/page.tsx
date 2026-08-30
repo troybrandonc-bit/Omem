@@ -273,7 +273,8 @@ function WhyPanel({ id }: { id: string }) {
         </blockquote>
       )}
       <Link href={`/assertion?id=${encodeURIComponent(id)}`}
-        className="mt-2.5 inline-block font-semibold text-accent hover:underline">Open full detail →</Link>
+        className="mt-2.5 inline-block font-semibold text-accent hover:underline">
+        {grounded ? "Open full detail →" : "Question this belief →"}</Link>
     </div>
   );
 }
