@@ -6,6 +6,7 @@ installs are gifts that must be checked at the door: identifying tokens
 refused, counts sane, one snapshot per instance (never cumulative), and the
 analytics computed from what survived.
 """
+import json
 import os
 import sqlite3
 import sys
@@ -66,21 +67,21 @@ check("below-floor pattern skipped quietly, not an error",
       err is None and clean == [])
 
 print("== one snapshot per instance, never cumulative ==")
-commons.store(con, "instA", [{"antecedent": "a1", "consequent": "c1",
+commons.store(con, "instA", [{"antecedent": "likes_alpha", "consequent": "likes_beta",
                               "support": 5, "refute": 0, "subjects": 5}])
 time.sleep(0.01)
-commons.store(con, "instA", [{"antecedent": "a1", "consequent": "c1",
+commons.store(con, "instA", [{"antecedent": "likes_alpha", "consequent": "likes_beta",
                               "support": 9, "refute": 1, "subjects": 10}])
-commons.store(con, "instB", [{"antecedent": "a1", "consequent": "c1",
+commons.store(con, "instB", [{"antecedent": "likes_alpha", "consequent": "likes_beta",
                               "support": 4, "refute": 0, "subjects": 4}])
 latest = commons.latest_per_instance(con)
 check("two instances, latest snapshot each", len(latest) == 2)
 check("instA counted at its newest report", latest["instA"][1][0]["support"] == 9)
 
 print("== merging own priors with contributions ==")
-own = [{"antecedent": "a1", "consequent": "c1", "support": 6, "refute": 2, "subjects": 8}]
+own = [{"antecedent": "likes_alpha", "consequent": "likes_beta", "support": 6, "refute": 2, "subjects": 8}]
 rows = commons.merged(own, latest)
-r = next(x for x in rows if (x["antecedent"], x["consequent"]) == ("a1", "c1"))
+r = next(x for x in rows if (x["antecedent"], x["consequent"]) == ("likes_alpha", "likes_beta"))
 check("support sums across own + both instances", r["support"] == 6 + 9 + 4, r)
 check("sources counts every install, own included", r["sources"] == 3)
 check("rate recomputed over the pool", abs(r["rate"] - (19 / 22)) < 0.01, r["rate"])
@@ -98,6 +99,21 @@ check("scheduling covers unavailable days",
       commons.category_of("unavailable_fridays") == "scheduling")
 check("commercial category recognised",
       commons.category_of("prefers_annual_billing") == "commercial")
+
+print("== the training corpus ==")
+jl = commons.dataset_jsonl(rows)
+jlines = [json.loads(x) for x in jl.strip().splitlines()]
+check("one JSON line per pattern", len(jlines) == len(rows))
+check("every line carries text, counts and a category",
+      all(l.get("text") and "support" in l and l.get("category") for l in jlines))
+check("no line carries an identifying token",
+      all(not commons._identifying(l["antecedent"])
+          and not commons._identifying(l["consequent"]) for l in jlines))
+card = commons.dataset_card(rows, a)
+check("the card names the license", commons.DATASET_LICENSE in card)
+check("the card explains the consent story", "opt-in" in card)
+check("the card treats patterns as priors, not rules",
+      "never rules about individuals" in card)
 
 print("== the operator's decision: durable, revocable, never presumed ==")
 check("never asked reads as None (no send happens on None)",

@@ -184,6 +184,87 @@ def category_of(token: str) -> str:
     return "other"
 
 
+# ── the commons as a training corpus ─────────────────────────────────────────
+# The same anonymous regularities, shaped for machine consumption: JSONL with
+# both the structured counts and a natural-language rendering per line, plus a
+# dataset card that explains provenance, consent, and limits, so a lab can use
+# it responsibly without a single email back and forth.
+
+DATASET_LICENSE = "CC BY 4.0"
+
+
+def _sentence(p: dict) -> str:
+    a = p["antecedent"].replace("_", " ")
+    c = p["consequent"].replace("_", " ")
+    total = p["support"] + p["refute"]
+    pct = round(p["rate"] * 100)
+    src = (f", observed across {p['sources']} independent installations"
+           if p.get("sources", 0) > 1 else "")
+    return (f"Subjects who hold '{a}' usually also hold '{c}': this held for "
+            f"{p['support']} of the {total} with a stance ({pct}%){src}.")
+
+
+def dataset_jsonl(rows: list) -> str:
+    lines = []
+    for p in rows:
+        lines.append(json.dumps({
+            "antecedent": p["antecedent"], "consequent": p["consequent"],
+            "support": p["support"], "refute": p["refute"],
+            "subjects": p["subjects"], "rate": p["rate"],
+            "sources": p.get("sources", 1), "category": category_of(p["consequent"]),
+            "text": _sentence(p)}, ensure_ascii=False))
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
+def dataset_card(rows: list, stats: dict) -> str:
+    """The dataset card, written to travel with the file. Outward-facing text,
+    so it explains consent and limits in plain sentences."""
+    return "\n".join([
+        "# The OMEM commons dataset",
+        "",
+        "Regularities in human working behaviour, expressed as counts over",
+        "populations. Built to give AI systems a better understanding of what",
+        "people are like in general, without holding a single fact about any",
+        "person.",
+        "",
+        "## How it was collected",
+        "",
+        "Each line was learned by an OMEM installation from its own memory and",
+        "contributed by that installation's operator, who answered an explicit",
+        "opt-in question. Contributions carry a random pseudonym and are",
+        "re-validated on arrival: any token that could embed a name, an",
+        "identifier, or an extracted value is refused at the door.",
+        "",
+        "## What a line can never contain",
+        "",
+        "No names, no organisations, no message text, no prices or terms, no",
+        "identifiers of any kind. A line is two behaviour tokens and the counts",
+        "of subjects who held both, held one and opposed the other, or were",
+        "silent. Truly anonymous counts of this kind are not personal data.",
+        "",
+        "## Schema",
+        "",
+        "One JSON object per line: antecedent, consequent, support, refute,",
+        "subjects, rate, sources (independent installations), category, and",
+        "text (a natural-language rendering of the same numbers).",
+        "",
+        "## Scale",
+        "",
+        f"{len(rows)} patterns, {stats.get('stances', 0)} stances, "
+        f"{stats.get('contributors', 0) + 1} contributing installations.",
+        "",
+        "## License and intended use",
+        "",
+        f"{DATASET_LICENSE}, attribution to \"the OMEM commons\". Intended for",
+        "training and evaluating AI systems on human behavioural priors.",
+        "Rates are population tendencies, never rules about individuals; a",
+        "model trained on them should treat every pattern as a prior a real",
+        "person can and will contradict.",
+        "",
+        f"Exported from OMEM on {time.strftime('%Y-%m-%d')}.",
+        ""])
+
+
 def analytics(rows: list, contribs: dict, db) -> dict:
     """What the creator wants to know at a glance: how much human regularity
     the commons holds, where it comes from, and what kind it is."""

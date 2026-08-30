@@ -437,6 +437,8 @@ export const api = {
   /** The joint intelligence bank: those regularities merged across every
    *  project the caller OWNS. Owner-only and session-only on the server. */
   bank: () => req<BankResult>("GET", "/v1/org/bank"),
+  /** The commons as a training corpus: JSONL plus its dataset card. */
+  commonsDataset: () => req<{ patterns: number; license: string; jsonl: string; card: string; public: boolean; note: string }>("GET", "/v1/commons-dataset"),
   beginGmail: (p: string, name?: string) => req<{ connector_id: string; auth_url: string | null; real: boolean; note?: string; required_env?: string[] }>("POST", `/v1/oauth/gmail/begin?project=${enc(p)}`, { name }),
   gmailCallback: (
     p: string,

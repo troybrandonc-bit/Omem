@@ -373,6 +373,224 @@ def e_state(p, subjects, proposition):
     return p.engine.proposition_state(subjects, canonical_form(proposition), p.now())
 
 
+ERASURE_NOTE = "[erased on request]"
+
+
+def _forget_chunks(ids, n=400):
+    ids = list(ids)
+    for i in range(0, len(ids), n):
+        yield ids[i:i + n]
+
+
+def _forget_entity(p, entity_id: str, email, requested_by: str):
+    """The right to be forgotten, executed for real.
+
+    Retraction is not erasure: the append-only log keeps history, and GDPR's
+    Article 17 means the personal data is GONE. So this rewrites the log --
+    every op that references the entity, everything that cascades from those
+    (retracts of its claims, supersedes over them, derives that grounded
+    them), the events that carried only its words (labels are quoted
+    sentences), and every projection row those touched: evidence quotes,
+    fingerprints, scopes, edges, candidate rows, reinforcements, hypotheses,
+    resolutions, proposals, tensions, decisions, source records. Evidence
+    quotes on SURVIVING beliefs that came from the same message are redacted,
+    because the sentence is the person's even when the belief is a company's.
+
+    Order of operations is the safety: the pruned log is REPLAYED through a
+    scratch engine first, and if replay would break, nothing is changed. Only
+    a verified log is written, then the live project is rebuilt from it the
+    same way boot does. What remains afterwards is an erasures row holding a
+    hash, a count, and a date -- proof it happened, retaining nothing.
+
+    Returns (report, None) or (None, error)."""
+    db = STORE.db
+    rows = [(r["seq"], r["kind"], json.loads(decrypt_content(r["args"])))
+            for r in db.execute(
+                "SELECT seq, kind, args FROM ops WHERE project_id=? ORDER BY seq", (p.id,))]
+    event_ids = {a["id"] for _s, k, a in rows if k == "event"}
+
+    removed_seq: set = set()
+    removed_assert: set = set()
+    removed_events: set = set()
+    removed_cors: set = set()
+    for seq, kind, a in rows:
+        if kind in ("assert", "supersede", "retract") and entity_id in (a.get("subjects") or []):
+            removed_seq.add(seq)
+            removed_assert.add(a["id"])
+        elif kind == "entity" and a.get("id") == entity_id:
+            removed_seq.add(seq)
+        elif kind == "corefer" and entity_id in (a.get("entity_a"), a.get("entity_b")):
+            removed_seq.add(seq)
+            removed_cors.add(a["id"])
+
+    # Cascade to a fixpoint: anything that referenced what is going must go
+    # too, or the log would no longer replay.
+    changed = True
+    while changed:
+        changed = False
+        for seq, kind, a in rows:
+            if seq in removed_seq:
+                continue
+            if kind == "retract" and a.get("old") in removed_assert:
+                removed_seq.add(seq); removed_assert.add(a["id"]); changed = True
+            elif kind == "supersede" and set(a.get("olds") or []) & removed_assert:
+                removed_seq.add(seq); removed_assert.add(a["id"]); changed = True
+            elif kind == "derive" and (
+                    a.get("consequent") in removed_assert
+                    or set(a.get("antecedents") or []) & (removed_assert | removed_events)):
+                removed_seq.add(seq); changed = True
+            elif kind == "split" and a.get("cor") in removed_cors:
+                removed_seq.add(seq); changed = True
+        # An event whose every referencing derive was removed carried only the
+        # erased person's words; it goes. One with surviving references stays,
+        # label redacted below (the quote is theirs even if a belief is not).
+        ev_refs: dict = {}
+        for seq, kind, a in rows:
+            if kind == "derive":
+                for ant in (a.get("antecedents") or []):
+                    if ant in event_ids:
+                        ev_refs.setdefault(ant, []).append(seq in removed_seq)
+        for seq, kind, a in rows:
+            if kind == "event" and seq not in removed_seq:
+                refs = ev_refs.get(a.get("id"), [])
+                if refs and all(refs):
+                    removed_seq.add(seq); removed_events.add(a["id"]); changed = True
+    redact_events = {evid for evid, refs in ev_refs.items()
+                     if any(refs) and not all(refs)}
+
+    if not removed_seq and not redact_events:
+        return None, "nothing on record references this entity"
+
+    # VERIFY before touching anything: the pruned log must replay cleanly.
+    prow = STORE.project(p.id)
+    scratch = "__forget_verify_" + os.urandom(6).hex()
+    sp = Project(scratch, prow["name"], prow["env"], prow["org_id"], False)
+    try:
+        for seq, kind, a in rows:
+            if seq in removed_seq:
+                continue
+            if kind == "event" and a.get("id") in redact_events:
+                a = {**a, "label": ERASURE_NOTE}
+            apply_op(sp, kind, a)
+    except Exception as ex:
+        return None, (f"erasure would break the log's replay "
+                      f"({type(ex).__name__}: {ex}); nothing was changed")
+    finally:
+        _DECLARED_PAIRS.pop(scratch, None)
+        CONTRADICTIONS.pop(scratch, None)
+
+    # The message ids whose quotes are the person's: used to redact surviving
+    # evidence rows and to drop their raw source records.
+    obs_ids = set()
+    for chunk in _forget_chunks(removed_assert):
+        q = ",".join("?" * len(chunk))
+        for r in db.execute(f"SELECT source_record_id FROM assertion_evidence "
+                            f"WHERE project_id=? AND assertion_id IN ({q})",
+                            (p.id, *chunk)):
+            if r["source_record_id"]:
+                obs_ids.add(r["source_record_id"])
+
+    removed: dict = {"ops": len(removed_seq)}
+    redacted: dict = {"event_labels": 0, "evidence_quotes": 0}
+
+    def _purge(table, where, params, key=None):
+        try:
+            cur = db.execute(f"DELETE FROM {table} WHERE project_id=? AND {where}",
+                             (p.id, *params))
+            n = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+        except Exception:
+            n = 0
+        if n:
+            removed[key or table] = removed.get(key or table, 0) + n
+
+    for chunk in _forget_chunks(removed_seq):
+        q = ",".join("?" * len(chunk))
+        db.execute(f"DELETE FROM ops WHERE seq IN ({q})", tuple(chunk))
+    for seq, kind, a in rows:
+        if kind == "event" and seq not in removed_seq and a.get("id") in redact_events:
+            db.execute("UPDATE ops SET args=? WHERE seq=?",
+                       (encrypt_content(json.dumps({**a, "label": ERASURE_NOTE})), seq))
+            redacted["event_labels"] += 1
+
+    for chunk in _forget_chunks(removed_assert):
+        q = ",".join("?" * len(chunk))
+        _purge("assertion_evidence", f"assertion_id IN ({q})", chunk)
+        for table in ("fact_fingerprints", "memory_scopes", "memory_class",
+                      "memory_reinforcements", "recall_counts", "review_queue",
+                      "memory_scan_results", "rule_conclusions",
+                      "candidate_subjects", "candidate_tokens", "memory_edges"):
+            _purge(table, f"assertion_id IN ({q})", chunk)
+        _purge("hypotheses", f"born_from IN ({q})", chunk)
+    for chunk in _forget_chunks(obs_ids):
+        q = ",".join("?" * len(chunk))
+        try:
+            cur = db.execute(f"UPDATE assertion_evidence SET evidence=? "
+                             f"WHERE project_id=? AND source_record_id IN ({q})",
+                             (encrypt_content(ERASURE_NOTE), p.id, *chunk))
+            redacted["evidence_quotes"] += cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+        except Exception:
+            pass
+        _purge("source_records", f"id IN ({q})", chunk)
+    _purge("candidate_subjects", "subject=?", (entity_id,))
+    _purge("memory_edges", "(src=? OR dst=?)", (entity_id, entity_id))
+    _purge("entity_resolutions", "(resolved_entity=? OR raw_key=? OR raw_key=?)",
+           (entity_id, entity_id, email or entity_id))
+    _purge("hypotheses", "(subject=? OR generator=?)", (entity_id, entity_id))
+    _purge("merge_proposals", "(entity_a=? OR entity_b=?)", (entity_id, entity_id))
+    _purge("constraint_tensions", "entity=?", (entity_id,))
+    _purge("fact_decisions", "subject=?", (entity_id,))
+    _purge("relationship_overrides", "(key=? OR key=?)", (entity_id, email or entity_id))
+    if email:
+        # Raw messages from the person, found by decrypting payloads: a scan is
+        # acceptable for the one-off cost of a real erasure request.
+        doomed = []
+        try:
+            for r in db.execute("SELECT id, payload FROM source_records WHERE project_id=?",
+                                (p.id,)):
+                try:
+                    payload = json.loads(decrypt_content(r["payload"]))
+                except Exception:
+                    continue
+                sender = str(payload.get("from") or payload.get("from_email") or "")
+                if email.lower() in sender.lower():
+                    doomed.append(r["id"])
+        except Exception:
+            pass
+        for chunk in _forget_chunks(doomed):
+            q = ",".join("?" * len(chunk))
+            _purge("source_records", f"id IN ({q})", chunk, key="source_records")
+            for table in ("message_classifications", "semantic_analyses"):
+                _purge(table, f"source_record_id IN ({q})", chunk)
+    db.commit()
+
+    # Rebuild the live project from the rewritten log, exactly the way boot
+    # does, then reconcile the projections against the fresh engine.
+    CONTRADICTIONS.pop(p.id, None)
+    _DECLARED_PAIRS.pop(p.id, None)
+    newp = Project(p.id, prow["name"], prow["env"], prow["org_id"], bool(prow["is_demo"]))
+    CONTRADICTIONS.setdefault(p.id, [])
+    _DECLARED_PAIRS.setdefault(p.id, set())
+    for op in STORE.ops_for(p.id):
+        newp.clock = max(newp.clock, op["clock"])
+        apply_op(newp, op["kind"], op["args"])
+    PROJECTS[p.id] = newp
+    try:
+        _reconcile_projections(newp)
+    except Exception:
+        pass
+
+    db.execute("INSERT INTO erasures(project_id, entity_hash, requested_by, removed, ts) "
+               "VALUES(?,?,?,?,?)",
+               (p.id, hashlib.sha256(entity_id.encode()).hexdigest()[:16],
+                requested_by, json.dumps({"removed": removed, "redacted": redacted}),
+                time.time()))
+    db.commit()
+    return {"forgotten": entity_id, "removed": removed, "redacted": redacted,
+            "verified_replay": True,
+            "note": "history was rewritten and re-verified; an erasures row "
+                    "holds a hash, counts, and a date, nothing more"}, None
+
+
 def boot():
     """Rehydrate every project by replaying its op log through a fresh engine,
     then reconcile above-engine PROJECTIONS (P5 graph edges, P7 candidate index)
@@ -773,6 +991,17 @@ import candidate_index as _cand_index
 import commons as _commons
 STORE.db.executescript(_commons.COMMONS_SCHEMA)
 STORE.db.commit()
+# The record that an erasure HAPPENED, without re-retaining what was erased:
+# the entity is stored as a hash, so the log can prove compliance ("we erased
+# this subject's data on this date, this many records") while holding nothing
+# a subject-access request would surface.
+STORE.db.executescript("""
+CREATE TABLE IF NOT EXISTS erasures(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, project_id TEXT NOT NULL,
+  entity_hash TEXT NOT NULL, requested_by TEXT NOT NULL,
+  removed TEXT NOT NULL, ts REAL NOT NULL);
+""")
+STORE.db.commit()
 # The commons collector role is CONFIGURATION, not a user feature: a stock
 # install answers 404 on every bank route and shows no bank page. The one
 # instance the project's creator runs sets this, and contributions from
@@ -781,6 +1010,10 @@ BANK_COLLECTOR = os.environ.get("OMEM_BANK_COLLECTOR", "0") == "1"
 # Contribution is the operator's explicit choice: unset means no network call,
 # ever. Set, it receives exactly the anonymous bank written to disk locally.
 COMMONS_URL = (os.environ.get("OMEM_COMMONS_URL") or "").strip()
+# Whether the collector also OFFERS its corpus publicly as a training dataset
+# (GET /v1/commons/dataset). Off by default: publishing is the creator's
+# deliberate act, flipped when they are ready to hand labs a URL.
+DATASET_PUBLIC = os.environ.get("OMEM_COMMONS_DATASET_PUBLIC", "0") == "1"
 STORE.db.executescript(_cand_index.INDEX_SCHEMA)
 STORE.db.commit()
 STORE.db.executescript(_graph.GRAPH_SCHEMA)
@@ -2870,6 +3103,34 @@ class Handler(BaseHTTPRequestHandler):
                  "is_demo": p.is_demo}
                 for p in PROJECTS.values() if p.id in allowed]})
 
+        # ── the commons as a training corpus. Two doors to one payload:
+        # /v1/commons-dataset is the owner's (session, collector only), for
+        # downloading and publishing by hand; /v1/commons/dataset is the
+        # public offer, alive only when the creator flips
+        # OMEM_COMMONS_DATASET_PUBLIC=1, rate limited, same anonymous corpus.
+        if parts == ["v1", "commons-dataset"] or parts == ["v1", "commons", "dataset"]:
+            if not BANK_COLLECTOR:
+                return self._err(404, "not_found", "not found")
+            if parts == ["v1", "commons", "dataset"]:
+                if not DATASET_PUBLIC:
+                    return self._err(404, "not_found", "not found")
+                ip = self.client_address[0] if self.client_address else "unknown"
+                if not COMMONS_LIMITER.allow(f"dataset:{ip}"):
+                    return self._err(429, "rate_limited", "Slow down and retry.")
+            elif not (isinstance(auth, dict) and "user" in auth):
+                return self._err(403, "permission", "session required")
+            contribs = _commons.latest_per_instance(STORE.db)
+            rows = _commons.merged(_hypo.bank(STORE.db, list(PROJECTS.keys())), contribs)
+            stats = _commons.analytics(rows, contribs, STORE.db)
+            return self._send(200, {
+                "patterns": len(rows),
+                "license": _commons.DATASET_LICENSE,
+                "jsonl": _commons.dataset_jsonl(rows),
+                "card": _commons.dataset_card(rows, stats),
+                "public": DATASET_PUBLIC,
+                "note": "counts over populations; nothing identifying can appear, "
+                        "by construction"})
+
         # ── the operator's commons decision, for the Settings toggle. Session
         # only: this is an instance-level choice, not something an API key
         # (or the /v1/commons prefix, which is public for contributions)
@@ -3425,6 +3686,34 @@ class Handler(BaseHTTPRequestHandler):
                 return self._err(422, "invalid_request", verr)
             _commons.store(STORE.db, body["instance"], clean)
             return self._send(201, {"accepted": len(clean), "object": "contribution"})
+
+        # ── the right to be forgotten: POST /v1/entities/{id}/forget. Erases a
+        # person (or any entity) from the record for real: the op log is
+        # rewritten, cascades removed, surviving evidence quotes redacted, and
+        # the pruned log replay-verified BEFORE anything is touched. `confirm`
+        # must repeat the id; `email` additionally purges raw messages from
+        # that address. Admin act (erasure.execute).
+        if len(parts) == 4 and parts[:2] == ["v1", "entities"] and parts[3] == "forget":
+            p = self._proj(qs)
+            if p is None:
+                return self._err(404, "not_found", "project not found")
+            org = self._org_of_project(p.id)
+            if not self._require(auth, "erasure.execute", org, p.id):
+                return self._err(403, "permission", "requires erasure.execute (admin)")
+            eid = parts[2]
+            if body.get("confirm") != eid:
+                return self._err(422, "invalid_request",
+                                 "pass confirm=<the entity id> to erase; this cannot be undone",
+                                 param="confirm")
+            known = eid in p.labels or any(en.id == eid for en in p.engine.store.entities())
+            if not known:
+                return self._err(404, "not_found", "entity not found")
+            _who = auth["user"]["email"] if isinstance(auth, dict) and "user" in auth else "api-key"
+            report, ferr = _forget_entity(p, eid, (body.get("email") or "").strip() or None, _who)
+            if ferr:
+                return self._err(409, "conflict", ferr)
+            self._logreq(p, "POST", f"/v1/entities/{eid}/forget", 200, "erased an entity")
+            return self._send(200, report)
 
         # ── the operator answers the commons question (first-open prompt, or
         # the Settings toggle later). Either answer is durable and revocable.

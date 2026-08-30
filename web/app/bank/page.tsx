@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useApp } from "@/components/providers";
 import { Skeleton } from "@/components/ui/primitives";
-import { Landmark, Download, FileText, ShieldCheck, HardDriveDownload, Users, Layers, Activity } from "lucide-react";
+import { Landmark, Download, FileText, ShieldCheck, HardDriveDownload, Users, Layers, Activity, BrainCircuit } from "lucide-react";
 
 /* The commons bank: the creator's instrument, not a product page.
  *
@@ -155,6 +155,8 @@ export default function Bank() {
         </div>
       </section>
 
+      <TrainingDataset />
+
       <section className="panel overflow-hidden">
         <header className="flex items-center gap-2 border-b px-4 py-2.5">
           <HardDriveDownload className="h-3.5 w-3.5 text-believed" />
@@ -181,5 +183,45 @@ export default function Bank() {
         </div>
       </section>
     </div>
+  );
+}
+
+/* The commons offered as a training corpus. Same anonymous rows, shaped for
+ * machines: JSONL with a natural-language rendering per line, and a dataset
+ * card carrying provenance, consent, and license, so a lab can use it
+ * responsibly without a single email back and forth. The public endpoint is
+ * off until the creator flips OMEM_COMMONS_DATASET_PUBLIC=1. */
+function TrainingDataset() {
+  const { data } = useQuery({ queryKey: ["commons-dataset"], queryFn: api.commonsDataset, retry: false });
+  if (!data) return null;
+  return (
+    <section className="panel overflow-hidden">
+      <header className="flex items-center gap-2 border-b px-4 py-2.5">
+        <BrainCircuit className="h-3.5 w-3.5 text-violet-500" />
+        <h2 className="text-sm font-semibold">For AI training</h2>
+        <span className="text-2xs text-faint">{data.patterns} patterns · {data.license}</span>
+      </header>
+      <div className="space-y-3 px-4 py-3.5 text-sm text-muted">
+        <p>
+          The same corpus, shaped for models: one JSON line per pattern with the
+          counts and a plain-English rendering, plus a dataset card that carries
+          the provenance, the consent story, and the license, so a lab can train
+          on human behavioural priors responsibly. Publish it anywhere, or flip{" "}
+          <span className="mono text-2xs text-fg">OMEM_COMMONS_DATASET_PUBLIC=1</span> to
+          serve it live at <span className="mono text-2xs text-fg">/v1/commons/dataset</span>
+          {data.public ? " (currently on)" : " (currently off)"}.
+        </p>
+        <div className="flex gap-2">
+          <button onClick={() => download("omem-commons.jsonl", data.jsonl, "application/x-ndjson")}
+            className="tap inline-flex h-8 items-center gap-1.5 rounded border border-[color:var(--line-strong)] bg-panel px-3 text-xs font-medium hover:bg-raised">
+            <Download className="h-3.5 w-3.5" /> Training JSONL
+          </button>
+          <button onClick={() => download("omem-commons-dataset-card.md", data.card, "text/markdown")}
+            className="tap inline-flex h-8 items-center gap-1.5 rounded border border-[color:var(--line-strong)] bg-panel px-3 text-xs font-medium hover:bg-raised">
+            <FileText className="h-3.5 w-3.5" /> Dataset card
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }
