@@ -3,6 +3,17 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.3.8 - 30 Aug 2026
+
+**The pilot CTA is a real form now, not a mailto.** A `mailto:` link silently
+fails for anyone without a desktop mail client set up, which is most people. The
+"Book a design-partner pilot" buttons now lead to a proper form at `/pilot`:
+name, email, what you are building, and the accountability problem you are
+hitting. It posts to a form-to-email relay (Web3Forms) and shows a clear
+thank-you, so a request actually reaches the inbox instead of opening a mail app
+that may not exist. Set your own Web3Forms access key in the page before it takes
+real traffic.
+
 ## 0.3.7 - 30 Aug 2026
 
 **The commons becomes a local bank, and the copy loses its em dashes.**
