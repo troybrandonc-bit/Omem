@@ -12,7 +12,7 @@ import { Section, Eyebrow } from "@/components/marketing/ui";
  * the reply-to, so you just hit reply. To use a different service or a hosted
  * form instead, swap the fetch in submit(). No em dashes anywhere here. */
 
-const ACCESS_KEY = "YOUR_WEB3FORMS_ACCESS_KEY";
+const ACCESS_KEY = "284a7bb5-610e-4b05-8e13-7f62af452796";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
