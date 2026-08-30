@@ -4370,7 +4370,8 @@ class Handler(BaseHTTPRequestHandler):
                     at = int(at)
                 except (TypeError, ValueError):
                     at = "now"  # malformed event time -> treat as observed-now
-            source = body.get("source") or _mint_global("obs")
+            _raw_source = body.get("source")
+            source = _raw_source or _mint_global("obs")
             if agent not in p.labels:
                 record(p, "agent", {"id": agent, "kind": "system", "label": agent})
 
@@ -4380,10 +4381,17 @@ class Handler(BaseHTTPRequestHandler):
             # `subject[:80]` as `dict[slice]`, which raised the opaque
             # "slice(None, 80, None)" and made every observe look like the
             # offline extractor could not run. Pull a title and an id out of it.
-            _src_title = (source.get("title") or source.get("subject")
-                          or source.get("external_id")) if isinstance(source, dict) else source
-            _src_id = (source.get("external_id") or source.get("id")
-                       or source.get("message_id")) if isinstance(source, dict) else source
+            #
+            # A TITLE only exists when the caller supplied a source. When they
+            # did not, `source` above is a minted obs-id, and that id must NOT
+            # become the event's label -- doing so is what put "obs_ab12..." on
+            # the timeline in place of the sentence that was actually observed.
+            _src_title = ((_raw_source.get("title") or _raw_source.get("subject")
+                           or _raw_source.get("external_id")) if isinstance(_raw_source, dict)
+                          else (_raw_source if isinstance(_raw_source, str) else None))
+            _src_id = ((_raw_source.get("external_id") or _raw_source.get("id")
+                        or _raw_source.get("message_id")) if isinstance(_raw_source, dict)
+                       else (_raw_source if isinstance(_raw_source, str) else None))
             _src_id = _src_id or _mint_global("obs")
             payload = {"subject": inter.get("topic") or _src_title or "message", "body": text,
                        "from": speaker, "to": audience, "at": at,
