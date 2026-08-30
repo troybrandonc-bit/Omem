@@ -1,22 +1,21 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { useApp } from "@/components/providers";
 import { Skeleton } from "@/components/ui/primitives";
-import { Landmark, Download, FileText, ShieldCheck, HardDriveDownload } from "lucide-react";
+import { Landmark, Download, FileText, ShieldCheck, HardDriveDownload, Users, Layers, Activity } from "lucide-react";
 
-/* The joint intelligence bank.
+/* The commons bank: the creator's instrument, not a product page.
  *
- * Everything OMEM has learned about subjects IN GENERAL, merged across every
- * project the signed-in owner has -- and nothing else. Owner-only on the
- * server (bank.read), session-only (an API key is project-scoped and cannot
- * read across projects). The content is anonymous by construction: a pattern
- * is counts over a population, and any token that could embed a name, id, or
- * value is refused before it ever reaches this page. That is what makes the
- * export publishable without a redaction pass.
+ * A stock OMEM install has no bank. This page exists only on the collector
+ * instance (OMEM_BANK_COLLECTOR=1), reads only for its owner, and pools the
+ * anonymous regularities contributed by installs whose operators chose to
+ * send them (OMEM_COMMONS_URL, off by default, forever).
  *
- * The failsafe: the same export is written beside the database backups on
- * every backup run. Point the backup directory at a synced or mounted volume
- * and losing this machine loses neither the data nor the bank. */
+ * The point of the pool: give AI a better understanding of human nature and
+ * behaviour without holding a single fact about a person. Counts over
+ * populations, refused at both doors if a token could carry a name, an id,
+ * or a value. That is why the exports publish as-is. */
 
 function humanize(p: string): string {
   return p.replace(/^not:/, "not ").replace(/_/g, " ");
@@ -30,9 +29,24 @@ function download(name: string, text: string, type: string) {
 }
 
 export default function Bank() {
+  const { collector } = useApp();
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["bank"], queryFn: () => api.bank(), retry: false });
+    queryKey: ["bank"], queryFn: () => api.bank(), retry: false, enabled: collector });
 
+  if (!collector) {
+    return (
+      <div className="mx-auto max-w-2xl">
+        <h1 className="display text-2xl">Intelligence bank</h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted">
+          This install is not the commons collector, so there is no bank here.
+          The bank lives on the one instance the OMEM project runs; installs
+          that want to contribute their anonymous patterns do so only when
+          their operator sets <span className="mono text-2xs text-fg">OMEM_COMMONS_URL</span> themselves.
+          Nothing is ever sent otherwise.
+        </p>
+      </div>
+    );
+  }
   if (isLoading) return <div className="space-y-5"><Skeleton className="h-40" /><Skeleton className="h-64" /></div>;
   if (isError || !data) {
     return (
@@ -40,14 +54,16 @@ export default function Bank() {
         <h1 className="display text-2xl">Intelligence bank</h1>
         <p className="mt-3 text-sm text-muted">
           {error instanceof Error && /owner|permission|403/i.test(error.message)
-            ? "The bank is only readable by the org owner, from a signed-in session. You are signed in as a member without the owner role."
+            ? "The bank reads only for this instance's owner, from a signed-in session."
             : "Could not read the bank."}
         </p>
       </div>
     );
   }
   const pct = (n: number) => `${Math.round(n * 100)}%`;
+  const a = data.analytics;
   const last = data.failsafe.last_backup?.last_successful?.finished;
+  const maxWeek = Math.max(1, ...a.timeline.map(t => t.contributions));
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
@@ -55,10 +71,11 @@ export default function Bank() {
         <div>
           <h1 className="display text-2xl">Intelligence bank</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted">
-            Everything OMEM has learned about subjects in general, pooled from
-            your {data.projects === 1 ? "project" : `${data.projects} projects`}. Only you can read this
-            page. Every row is a count over a population — nothing here can name
-            a person, a company, or a price — so the export publishes as-is.
+            What OMEM has learned about human behaviour in general, pooled from
+            your projects and from every install that chose to contribute. Only
+            you can read this page, and nothing on it can name a person, a
+            company, or a price, which is what makes the exports publishable
+            as they are.
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -74,15 +91,47 @@ export default function Bank() {
         </div>
       </div>
 
+      {/* Analytics: how much human regularity the commons holds, from where. */}
+      <section className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        {[[Users, "Contributing installs", String(a.contributors + 1), "yours included"],
+          [Layers, "Patterns held", String(a.patterns), `${a.strong} at 80% or stronger`],
+          [Activity, "Stances counted", String(a.stances), "one per subject per pattern"],
+          [Landmark, "Behaviour areas", String(Object.keys(a.categories).length),
+            Object.entries(a.categories).slice(0, 2).map(([k, v]) => `${k} ${v}`).join(" · ") || "none yet"],
+        ].map(([Icon, label, value, sub]: any) => (
+          <div key={label} className="panel px-4 py-3">
+            <div className="flex items-center gap-1.5 text-2xs text-faint"><Icon className="h-3 w-3" />{label}</div>
+            <div className="num mt-1 text-xl leading-none">{value}</div>
+            <div className="mt-1 text-2xs text-faint">{sub}</div>
+          </div>
+        ))}
+      </section>
+
+      {a.timeline.length > 0 && (
+        <section className="panel overflow-hidden">
+          <header className="border-b px-4 py-2.5"><h2 className="text-sm font-semibold">Contributions over time</h2></header>
+          <div className="flex items-end gap-1.5 px-4 py-4" style={{ height: 96 }}>
+            {a.timeline.map(t => (
+              <div key={t.week} className="flex flex-col items-center gap-1" title={`${t.week}: ${t.contributions}`}>
+                <div className="w-6 rounded-sm"
+                  style={{ height: Math.max(4, (t.contributions / maxWeek) * 56),
+                           background: "var(--accent)", opacity: 0.75 }} />
+                <span className="text-[9px] text-faint">{t.week.slice(5)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="panel overflow-hidden">
         <header className="flex items-center gap-2 border-b px-4 py-2.5">
           <Landmark className="h-3.5 w-3.5 text-amber-500" />
           <h2 className="text-sm font-semibold">Learned patterns</h2>
-          <span className="text-2xs text-faint">{data.patterns.length} on record</span>
+          <span className="text-2xs text-faint">{data.patterns.length} on record, largest populations first</span>
         </header>
         <div className="divide-y">
           {data.patterns.length === 0 &&
-            <div className="empty m-5">Nothing banked yet. Patterns arrive once a regularity repeats across enough subjects in any of your projects.</div>}
+            <div className="empty m-5">Nothing banked yet. Patterns arrive when a regularity repeats across enough subjects, here or in a contributing install.</div>}
           {data.patterns.map(p => {
             const denom = p.support + p.refute;
             return (
@@ -96,8 +145,8 @@ export default function Bank() {
                   <div className="h-1.5 w-16 rounded-sm bg-chip">
                     <div className="h-1.5 rounded-sm bg-amber-500" style={{ width: pct(p.rate) }} />
                   </div>
-                  <span className="num w-28 text-right text-2xs text-muted">
-                    {pct(p.rate)} of {denom}{data.projects > 1 && ` · ${p.projects} proj`}
+                  <span className="num w-32 text-right text-2xs text-muted">
+                    {pct(p.rate)} of {denom}{p.sources > 1 && ` · ${p.sources} installs`}
                   </span>
                 </div>
               </div>

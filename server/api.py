@@ -24,6 +24,7 @@ import unicodedata
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import urllib.request
 from urllib.parse import urlparse, parse_qs, unquote
 
 import sys, os
@@ -769,6 +770,17 @@ import conflict as _conflict
 import graph as _graph
 import brief as _brief
 import candidate_index as _cand_index
+import commons as _commons
+STORE.db.executescript(_commons.COMMONS_SCHEMA)
+STORE.db.commit()
+# The commons collector role is CONFIGURATION, not a user feature: a stock
+# install answers 404 on every bank route and shows no bank page. The one
+# instance the project's creator runs sets this, and contributions from
+# consenting installs pool there.
+BANK_COLLECTOR = os.environ.get("OMEM_BANK_COLLECTOR", "0") == "1"
+# Contribution is the operator's explicit choice: unset means no network call,
+# ever. Set, it receives exactly the anonymous bank written to disk locally.
+COMMONS_URL = (os.environ.get("OMEM_COMMONS_URL") or "").strip()
 STORE.db.executescript(_cand_index.INDEX_SCHEMA)
 STORE.db.commit()
 STORE.db.executescript(_graph.GRAPH_SCHEMA)
@@ -1121,6 +1133,10 @@ HEAL_STORE = HEAL.HealingStore(STORE.db)
 from security import RateLimiter, OAuthStateStore, totp_secret, totp_code, totp_verify
 from backups import BackupManager
 AUTH_LIMITER = RateLimiter(capacity=5, refill_per_sec=0.2)
+# Commons contributions: a consenting install reports at most every backup
+# interval, so a modest per-IP budget is generous for honest traffic and a
+# wall for anything else.
+COMMONS_LIMITER = RateLimiter(capacity=10, refill_per_sec=0.5)
 
 # P9.4: per-tenant rate limit for authenticated DATA endpoints. Protects against
 # an authenticated caller exhausting server resources with expensive recall /
@@ -1194,20 +1210,23 @@ BACKUPS = BackupManager(STORE.db)
 
 
 def _bank_markdown(patterns: list) -> str:
-    """The publishable rendering of the bank: counts about subjects in
-    general, no name, id, quote, or value anywhere in it."""
-    lines = ["# The intelligence bank", "",
-             "Regularities OMEM has learned across projects. Every line is a",
-             "count about subjects in general: no name, identifier, quote, or",
-             "extracted value appears here, so this document is publishable",
-             "as-is.", ""]
+    """The publishable rendering of the bank. This text is written to be
+    quoted in an article, so it explains itself: what it is, why nothing in
+    it can identify anyone, and where each number comes from."""
+    lines = ["# What people are like, in counts", "",
+             "Regularities OMEM has learned about people in general, pooled",
+             "from installations whose operators chose to contribute. Every",
+             "line is a count over a population. No name, identifier, quote,",
+             "or extracted value can appear here: the bank refuses such tokens",
+             "at both the door they leave and the door they enter.", ""]
     for p in patterns:
         total = p["support"] + p["refute"]
+        src = f", seen in {p['sources']} installs" if p.get("sources", 0) > 1 else ""
         lines.append(
-            f"- **{p['antecedent'].replace('_', ' ')}** → usually "
-            f"**{p['consequent'].replace('_', ' ')}** — held for "
+            f"- **{p['antecedent'].replace('_', ' ')}** usually comes with "
+            f"**{p['consequent'].replace('_', ' ')}**: held for "
             f"{p['support']} of {total} subjects with a stance "
-            f"({round(p['rate'] * 100)}%)")
+            f"({round(p['rate'] * 100)}%{src})")
     if not patterns:
         lines.append("_No pattern has repeated across enough subjects yet._")
     lines += ["", f"Exported from OMEM on {time.strftime('%Y-%m-%d')}."]
@@ -1226,6 +1245,21 @@ def _write_bank_export(dest_dir):
         json.dump({"patterns": rows, "exported": time.time()}, f, indent=1)
     with open(os.path.join(dest_dir, "intelligence-bank.md"), "w", encoding="utf-8") as f:
         f.write(_bank_markdown(rows))
+    # CONTRIBUTION, and the whole consent model in one condition: this block
+    # runs only when the operator set OMEM_COMMONS_URL themselves. What is
+    # sent is byte-for-byte what was just written to their own disk above --
+    # counts over populations under a random instance pseudonym -- so consent
+    # is informed by a file they can open. Unset, no network call exists.
+    if COMMONS_URL and rows:
+        try:
+            payload = json.dumps({"instance": _commons.instance_id(STORE.db),
+                                  "patterns": rows}).encode()
+            req = urllib.request.Request(
+                COMMONS_URL.rstrip("/") + "/v1/commons", data=payload,
+                headers={"Content-Type": "application/json"}, method="POST")
+            urllib.request.urlopen(req, timeout=5).read()
+        except Exception:
+            pass  # the commons is a gift, never a dependency
 
 
 BACKUPS.extra_writer = _write_bank_export
@@ -1491,7 +1525,10 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             return {}
 
-    PUBLIC = {("v1","health"), ("v1","signup"), ("v1","session")}
+    # /v1/commons is public ONLY in the sense that a consenting install needs no
+    # account here to contribute; the route itself 404s unless this instance is
+    # the collector, is IP rate-limited, and re-validates every token.
+    PUBLIC = {("v1","health"), ("v1","signup"), ("v1","session"), ("v1","commons")}
 
     def _effective_agent(self, auth, requested):
         """Resolve the agent identity for this request.
@@ -2010,6 +2047,9 @@ class Handler(BaseHTTPRequestHandler):
                 # one signup attempt anyway, and a dashboard that guessed wrong
                 # would either lock out local users or silently auto-log-in.
                 "auth": AUTH_MODE,
+                # Whether this instance is the commons collector. The dashboard
+                # uses it to show or hide the bank; a stock install is not one.
+                "commons_collector": BANK_COLLECTOR,
             }
             return self._send(200 if ready else 503, body)
         # ── Google redirects the BROWSER here after consent ──
@@ -2813,17 +2853,18 @@ class Handler(BaseHTTPRequestHandler):
                  "is_demo": p.is_demo}
                 for p in PROJECTS.values() if p.id in allowed]})
 
-        # ── the joint intelligence bank: learned patterns from every project
-        # the caller OWNS, merged into one view. Session-only (an API key is
-        # project-scoped and must not read across projects) and owner-only
-        # (bank.read) -- "a bank only I can see" -- even though the content is
-        # anonymous by construction: hypotheses.bank() exports counts about
-        # subjects in general and refuses any token that could embed a name,
-        # an id, or a value. `markdown` is the publishable rendering.
+        # ── the commons bank: the creator's view. Not a user feature -- a
+        # stock install answers 404 here (BANK_COLLECTOR off) and shows no
+        # bank page. On the one collector instance, this merges the operator's
+        # own learned priors with every consenting install's contribution,
+        # and computes the analytics over the pool. Session-only and
+        # owner-only on top of the role gate.
         if parts == ["v1", "org", "bank"]:
+            if not BANK_COLLECTOR:
+                return self._err(404, "not_found", "not found")
             if "user" not in auth:
                 return self._err(403, "permission",
-                                 "the intelligence bank is session-only; API keys are project-scoped")
+                                 "the bank is session-only; API keys are project-scoped")
             owned = []
             for r in STORE.projects_for_user(auth["user"]["id"]):
                 org = self._org_of_project(r["id"])
@@ -2831,8 +2872,10 @@ class Handler(BaseHTTPRequestHandler):
                     owned.append(r["id"])
             if not owned:
                 return self._err(403, "permission",
-                                 "the intelligence bank is for org owners")
-            patterns = _hypo.bank(STORE.db, owned)
+                                 "the intelligence bank is for the instance owner")
+            own = _hypo.bank(STORE.db, owned)
+            contribs = _commons.latest_per_instance(STORE.db)
+            patterns = _commons.merged(own, contribs)
             bank_file = os.path.join(BACKUPS.dir, "intelligence-bank.json")
             try:
                 last_backup = BACKUPS.status()
@@ -2841,9 +2884,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {
                 "patterns": patterns,
                 "projects": len(owned),
+                "analytics": _commons.analytics(patterns, contribs, STORE.db),
                 "markdown": _bank_markdown(patterns),
                 "note": "counts about subjects in general; no name, identifier, "
-                        "quote, or value is stored or exported",
+                        "quote, or value is stored or exported, and contributions "
+                        "are re-validated at the door",
                 "failsafe": {
                     "backup_dir": BACKUPS.dir,
                     "bank_file": bank_file,
@@ -3335,6 +3380,22 @@ class Handler(BaseHTTPRequestHandler):
             self._err(500, "server", f"{type(ex).__name__}: {ex}")
 
     def _route_post(self, parts, qs, body, auth):
+        # ── the commons: a consenting install contributes its anonymous bank.
+        # 404 unless this instance is the collector; per-IP rate limit; every
+        # token re-checked with the same refusal the bank applies locally, so
+        # a modified contributor cannot push an identity or a value in here.
+        if parts == ["v1", "commons"]:
+            if not BANK_COLLECTOR:
+                return self._err(404, "not_found", "not found")
+            ip = self.client_address[0] if self.client_address else "unknown"
+            if not COMMONS_LIMITER.allow(f"commons:{ip}"):
+                return self._err(429, "rate_limited", "Slow down and retry.")
+            clean, verr = _commons.validate(body)
+            if verr:
+                return self._err(422, "invalid_request", verr)
+            _commons.store(STORE.db, body["instance"], clean)
+            return self._send(201, {"accepted": len(clean), "object": "contribution"})
+
         # ── account ──
         if parts == ["v1", "signup"]:
             email = (body.get("email") or "").strip()

@@ -382,11 +382,17 @@ export interface Prior {
  *  row can name a person, an organisation, or a value. */
 export interface BankPattern {
   antecedent: string; consequent: string; pattern: string;
-  support: number; refute: number; subjects: number; projects: number;
-  rate: number; fires: boolean;
+  support: number; refute: number; subjects: number;
+  rate: number; sources: number;
+}
+export interface BankAnalytics {
+  contributors: number; patterns: number; stances: number; strong: number;
+  categories: Record<string, number>;
+  timeline: { week: string; contributions: number }[];
 }
 export interface BankResult {
   patterns: BankPattern[]; projects: number; markdown: string; note: string;
+  analytics: BankAnalytics;
   failsafe: {
     backup_dir: string; bank_file: string; bank_file_written: boolean;
     last_backup: { last_successful: { finished: number | null } | null;
@@ -402,7 +408,7 @@ export const api = {
   // BEFORE it has a session: "local" (no login, server bound to loopback) or
   // "password" (real accounts). Guessing wrong either locks local users out of
   // a one-minute quickstart or silently signs somebody in on an exposed server.
-  health: () => req<{ status: string; cts: string; auth?: AuthMode }>("GET", "/v1/health"),
+  health: () => req<{ status: string; cts: string; auth?: AuthMode; commons_collector?: boolean }>("GET", "/v1/health"),
   signup: (b: { email: string; org?: string; project?: string; password?: string; code?: string }) =>
     req<SignupResult>("POST", "/v1/signup", b),
   login: (email: string, password?: string, code?: string) =>

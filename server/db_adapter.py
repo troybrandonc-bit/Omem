@@ -37,6 +37,7 @@ _UPSERT_PK = {
     "fact_fingerprints": ["project_id", "fingerprint"],
     "project_settings": ["project_id", "key"],
     "assertion_evidence": ["assertion_id"],
+    "commons_meta": ["k"],
     "user_mfa": ["user_id"],
     # P3-P7 above-engine projections (all use INSERT OR REPLACE/IGNORE);
     # PKs mirror each table's own PRIMARY KEY declaration.
@@ -171,6 +172,7 @@ _columns_of = {
     "fact_fingerprints": ["project_id", "fingerprint", "assertion_id"],
     "project_settings": ["project_id", "key", "value", "updated"],
     "assertion_evidence": ["assertion_id", "project_id", "source_record_id", "evidence", "confidence", "extractor", "created"],
+    "commons_meta": ["k", "v"],
     "user_mfa": ["user_id", "secret", "enabled", "created"],
     # P3-P7 above-engine projection tables (column order matches CREATE TABLE)
     "memory_scopes": ["project_id", "assertion_id", "scope", "granted_by", "created"],

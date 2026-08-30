@@ -172,7 +172,7 @@ function BootSkeleton() {
 }
 
 function Sidebar({ path, className, dense = true }: { path: string; className?: string; dense?: boolean }) {
-  const { project, setProject } = useApp();
+  const { project, setProject, collector } = useApp();
   const { data } = useQuery({ queryKey: ["projects"], queryFn: api.projects });
   const projects = data?.data || [];
   return (
@@ -201,7 +201,7 @@ function Sidebar({ path, className, dense = true }: { path: string; className?: 
           <div key={gi}>
             <h2 className="tech-label mb-2 px-2">{g.group}</h2>
             <ul className="space-y-0.5">
-              {g.items.map(it => {
+              {g.items.filter(it => it.href !== "/bank" || collector).map(it => {
                 const active = path.startsWith(it.href);
                 const Icon = it.icon;
                 return (

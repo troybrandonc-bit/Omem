@@ -1,0 +1,184 @@
+"""The OMEM commons: anonymous behavioural regularities, pooled across
+installations that chose to contribute, into one bank the project's creator
+studies and writes from. The goal it serves: give AI a better understanding of
+human nature and behaviour, without ever holding a fact about a person.
+
+THE CONSENT MODEL, stated once and enforced in code, because "runs on your own
+machine, with no external services" is a promise this feature must not bend:
+
+  * A stock install never sends anything, and has no bank. Contribution
+    happens only when the OPERATOR sets OMEM_COMMONS_URL themselves; unset
+    means no network call, ever. What is sent is exactly the anonymous bank
+    they can read on their own disk (intelligence-bank.json).
+  * The collector role is configuration (OMEM_BANK_COLLECTOR=1), not a user
+    feature: everywhere else the bank routes are 404 and the page is absent.
+  * The collector RE-VALIDATES every contributed token with the same
+    _identifying refusal used locally, so even a modified contributor cannot
+    push a name, an id, or a value into the commons. Anonymity is checked at
+    the door it enters, not only the door it leaves.
+"""
+from __future__ import annotations
+
+import json
+import time
+import uuid
+
+from hypotheses import _identifying, PRIOR_FLOOR_N
+
+COMMONS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS commons_contributions(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  instance TEXT NOT NULL,
+  received REAL NOT NULL,
+  patterns TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS commons_inst ON commons_contributions(instance, received);
+CREATE TABLE IF NOT EXISTS commons_meta(k TEXT PRIMARY KEY, v TEXT NOT NULL);
+"""
+
+MAX_PATTERNS = 500          # one contribution's pattern cap
+MAX_INSTANCE_LEN = 64
+
+
+def instance_id(db) -> str:
+    """This install's stable pseudonym for contributions: a random uuid minted
+    once, carrying nothing about the machine or its owner."""
+    r = db.execute("SELECT v FROM commons_meta WHERE k='instance'").fetchone()
+    if r:
+        return r["v"]
+    v = uuid.uuid4().hex
+    db.execute("INSERT OR REPLACE INTO commons_meta(k,v) VALUES('instance',?)", (v,))
+    db.commit()
+    return v
+
+
+def validate(payload) -> tuple[list, str | None]:
+    """A contribution, checked at the door. Returns (clean_patterns, error).
+    Only counts survive: identifying tokens, absurd sizes, and non-integer
+    counts are refused rather than trimmed silently where it matters."""
+    if not isinstance(payload, dict):
+        return [], "payload must be an object"
+    inst = payload.get("instance")
+    if not isinstance(inst, str) or not (8 <= len(inst) <= MAX_INSTANCE_LEN) \
+            or not inst.replace("-", "").isalnum():
+        return [], "instance must be an opaque id (8..64 alphanumeric chars)"
+    pats = payload.get("patterns")
+    if not isinstance(pats, list) or len(pats) > MAX_PATTERNS:
+        return [], f"patterns must be a list of at most {MAX_PATTERNS}"
+    clean = []
+    for p in pats:
+        if not isinstance(p, dict):
+            return [], "every pattern must be an object"
+        a, c = p.get("antecedent"), p.get("consequent")
+        if not isinstance(a, str) or not isinstance(c, str) \
+                or not a or not c or len(a) > 64 or len(c) > 64:
+            return [], "antecedent/consequent must be short strings"
+        if _identifying(a) or _identifying(c):
+            return [], f"identifying token refused: {a if _identifying(a) else c!r}"
+        try:
+            s, r, n = int(p.get("support")), int(p.get("refute")), int(p.get("subjects"))
+        except (TypeError, ValueError):
+            return [], "support/refute/subjects must be integers"
+        if s < 0 or r < 0 or n < 0 or s + r > 10_000_000:
+            return [], "counts out of range"
+        if s < PRIOR_FLOOR_N:
+            continue  # below the floor it is not a pattern, skip quietly
+        clean.append({"antecedent": a, "consequent": c,
+                      "support": s, "refute": r, "subjects": n})
+    return clean, None
+
+
+def store(db, instance: str, patterns: list):
+    db.execute("INSERT INTO commons_contributions(instance, received, patterns) "
+               "VALUES(?,?,?)", (instance, time.time(), json.dumps(patterns)))
+    db.commit()
+
+
+def latest_per_instance(db) -> dict:
+    """{instance: (received, patterns)} using each instance's newest snapshot,
+    so a contributor that reports weekly is counted once, not cumulatively."""
+    out: dict = {}
+    for r in db.execute("SELECT instance, received, patterns FROM commons_contributions "
+                        "ORDER BY received"):
+        out[r["instance"]] = (r["received"], json.loads(r["patterns"]))
+    return out
+
+
+def merged(own_rows: list, contribs: dict) -> list:
+    """Own priors + every contributor's latest snapshot, one population view.
+    Same shape as hypotheses.bank rows, plus `sources` (how many installs,
+    own included, the pattern was seen in)."""
+    agg: dict = {}
+
+    def add(a, c, s, r, n):
+        e = agg.setdefault((a, c), {"antecedent": a, "consequent": c,
+                                    "support": 0, "refute": 0, "subjects": 0,
+                                    "sources": 0})
+        e["support"] += s
+        e["refute"] += r
+        e["subjects"] += n
+        e["sources"] += 1
+
+    for row in own_rows:
+        add(row["antecedent"], row["consequent"],
+            row["support"], row["refute"], row["subjects"])
+    for _inst, (_ts, pats) in contribs.items():
+        seen_here = set()
+        for p in pats:
+            k = (p["antecedent"], p["consequent"])
+            if k in seen_here:
+                continue
+            seen_here.add(k)
+            add(p["antecedent"], p["consequent"],
+                p["support"], p["refute"], p["subjects"])
+    out = []
+    for e in agg.values():
+        total = e["support"] + e["refute"]
+        if total == 0 or e["support"] < PRIOR_FLOOR_N:
+            continue
+        rate = e["support"] / total
+        out.append({**e, "rate": round(rate, 3),
+                    "pattern": f'holds {e["antecedent"]} -> holds {e["consequent"]}'})
+    out.sort(key=lambda x: (-x["subjects"], -x["rate"], x["pattern"]))
+    return out
+
+
+# What a token is ABOUT, for the analytics breakdown. A pattern is filed under
+# its consequent: the thing the regularity lets you anticipate.
+_CATEGORIES = (
+    ("communication", ("prefers_email_contact", "prefers_phone_contact", "prefers_async")),
+    ("scheduling", ("prefers_morning_meetings", "prefers_afternoon_meetings",
+                    "prefers_short_meetings")),
+    ("work style", ("works_remotely", "wants_pdf_invoices")),
+    ("commercial", ("prefers_annual_billing", "prefers_monthly_billing",
+                    "is_enterprise_customer", "intends_to_upgrade",
+                    "considering_cancel", "decided_to_cancel")),
+)
+
+
+def category_of(token: str) -> str:
+    for name, members in _CATEGORIES:
+        if token in members:
+            return name
+    if token.startswith("unavailable_"):
+        return "scheduling"
+    return "other"
+
+
+def analytics(rows: list, contribs: dict, db) -> dict:
+    """What the creator wants to know at a glance: how much human regularity
+    the commons holds, where it comes from, and what kind it is."""
+    weeks: dict = {}
+    for r in db.execute("SELECT received FROM commons_contributions ORDER BY received"):
+        wk = time.strftime("%Y-%m-%d", time.gmtime(r["received"] - (r["received"] % 604800)))
+        weeks[wk] = weeks.get(wk, 0) + 1
+    cats: dict = {}
+    for row in rows:
+        cats[category_of(row["consequent"])] = cats.get(category_of(row["consequent"]), 0) + 1
+    return {
+        "contributors": len(contribs),
+        "patterns": len(rows),
+        "stances": sum(r["support"] + r["refute"] for r in rows),
+        "strong": sum(1 for r in rows if r["rate"] >= 0.8),
+        "categories": dict(sorted(cats.items(), key=lambda kv: -kv[1])),
+        "timeline": [{"week": w, "contributions": n} for w, n in sorted(weeks.items())],
+    }
