@@ -240,6 +240,16 @@ function TopBar({ onSearch, onMenu }: { onSearch: () => void; onMenu: () => void
   useEffect(() => { if (data?.now !== undefined) setNow(data.now); }, [data?.now, setNow]);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  // The palette opens on Cmd+K or Ctrl+K (see the key handler above); the hint
+  // has to match the platform the reader is actually on. Detected after mount
+  // so the static first paint (which has no navigator) does not mismatch.
+  const [shortcut, setShortcut] = useState("⌘K");
+  useEffect(() => {
+    try {
+      const mac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+      setShortcut(mac ? "⌘K" : "Ctrl K");
+    } catch { /* no navigator */ }
+  }, []);
   const T = asOf ?? now;
 
   return (
@@ -268,7 +278,7 @@ function TopBar({ onSearch, onMenu }: { onSearch: () => void; onMenu: () => void
           className="panel panel-link flex h-9 min-w-0 flex-1 items-center gap-2 px-3 text-left text-xs text-faint sm:max-w-md">
           <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <span className="truncate">Search beliefs…</span>
-          <kbd className="mono ml-auto hidden shrink-0 rounded-sm border bg-raised px-1.5 text-2xs text-faint sm:block">⌘K</kbd>
+          <kbd className="ml-auto hidden shrink-0 rounded-sm border bg-raised px-1.5 text-2xs text-faint sm:block">{shortcut}</kbd>
         </button>
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5">

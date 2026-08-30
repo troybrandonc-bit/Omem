@@ -225,10 +225,11 @@ function MemoryRow({ a, now, role, primary }: { a: Assertion; now: number; role:
  *  a belief is grounded, what it rests on, and what contradicts it. */
 function WhyPanel({ id }: { id: string }) {
   const { project, asOf } = useApp();
-  const { data: why, isLoading } = useQuery({
+  const { data: why, isLoading, isError } = useQuery({
     queryKey: ["why", project, id, asOf],
     queryFn: () => api.why(project, id, asOf ?? "now"),
   });
+  if (isError) return <div className="border-t bg-raised/50 px-4 py-3 text-2xs text-conflict">Could not read the evidence for this belief.</div>;
   if (isLoading || !why) return <div className="border-t bg-raised/50 px-4 py-3 text-2xs text-muted">Reading the evidence…</div>;
   const grounded = isGrounded(why.grounded);
   const w = formatWhen(why.assertion.recorded_at, why.assertion.assertion_time);
@@ -241,9 +242,11 @@ function WhyPanel({ id }: { id: string }) {
       </div>
       <div className="leading-relaxed text-muted">
         {grounded
-          ? "Grounded: this belief traces through provenance to a recorded source event."
-          : <>Asserted directly by <span className="font-medium text-fg">{why.agent?.label || why.assertion.agent}</span>
-              {w.text ? <>, {w.text}</> : null}. No source event is cited behind it, so it is ungrounded.</>}
+          ? "Grounded: this belief traces through provenance to a recorded source event, shown below."
+          : <>A direct claim by <span className="font-medium text-fg">{why.agent?.label || why.assertion.agent}</span>
+              {w.text ? <>, {w.text}</> : null} — recorded, but not drawn from any email, ticket, or event.
+              That is what <span className="font-medium text-unknown">ungrounded</span> means: there is nothing
+              behind it to check it against, so it should carry less weight than a grounded belief.</>}
       </div>
       {why.provenance.nodes.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">

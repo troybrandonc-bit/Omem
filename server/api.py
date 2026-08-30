@@ -24,7 +24,7 @@ import unicodedata
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 
 import sys, os
 
@@ -1880,7 +1880,9 @@ class Handler(BaseHTTPRequestHandler):
         self._req_start = time.perf_counter(); self._metrics_recorded = False
         self._dealias_path()
         u = urlparse(self.path)
-        parts = [x for x in u.path.split("/") if x]
+        # unquote per segment: an id with a reserved char (the demo uses
+        # a:alice-email) arrives percent-encoded and must match the stored id.
+        parts = [unquote(x) for x in u.path.split("/") if x]
         qs = parse_qs(u.query)
         try:
             auth = self._guard(parts, qs)
@@ -3143,7 +3145,9 @@ class Handler(BaseHTTPRequestHandler):
         self._req_start = time.perf_counter(); self._metrics_recorded = False
         self._dealias_path()
         u = urlparse(self.path)
-        parts = [x for x in u.path.split("/") if x]
+        # unquote per segment: an id with a reserved char (the demo uses
+        # a:alice-email) arrives percent-encoded and must match the stored id.
+        parts = [unquote(x) for x in u.path.split("/") if x]
         if not any(len(parts) == 3 and parts[:2] == r for r in self._DELETE_ROUTES):
             self._allow = "GET, POST, OPTIONS"
             self._err(405, "invalid_request",
@@ -3156,7 +3160,9 @@ class Handler(BaseHTTPRequestHandler):
         self._req_start = time.perf_counter(); self._metrics_recorded = False
         self._dealias_path()
         u = urlparse(self.path)
-        parts = [x for x in u.path.split("/") if x]
+        # unquote per segment: an id with a reserved char (the demo uses
+        # a:alice-email) arrives percent-encoded and must match the stored id.
+        parts = [unquote(x) for x in u.path.split("/") if x]
         qs = parse_qs(u.query)
         try:
             self._oversized = False

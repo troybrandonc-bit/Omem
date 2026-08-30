@@ -116,10 +116,10 @@ function AssertionDetailInner() {
             {why.provenance.nodes.length > 0
               ? <ProvenanceDAG nodes={why.provenance.nodes} edges={why.provenance.edges} rootId={a.id} />
               : <div className="py-6 text-center text-sm leading-relaxed text-muted">
-                  Asserted directly by <span className="font-medium text-fg">{why.agent?.label || a.agent}</span>
+                  A direct claim by <span className="font-medium text-fg">{why.agent?.label || a.agent}</span>
                   {(() => { const w = formatWhen(a.recorded_at, a.assertion_time);
-                    return w.text ? <>, <span className="text-fg">{w.text}</span></> : null; })()}.
-                  <br />No source event is cited behind it, so this belief is ungrounded.
+                    return w.text ? <>, <span className="text-fg">{w.text}</span></> : null; })()}, not drawn from any email, ticket, or event.
+                  <br />That is what <span className="text-unknown">ungrounded</span> means: there is nothing behind it to check it against, so it carries less weight than a grounded belief.
                 </div>}
           </Card>
 
