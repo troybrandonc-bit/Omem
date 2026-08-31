@@ -175,6 +175,14 @@ export default function Essay() {
               The audit-trail guide
             </ButtonLink>
           </div>
+          <p className="mt-6 text-note text-muted">
+            Shipping agents to clients and getting asked to explain them?
+            That&rsquo;s the{" "}
+            <a href="/accountability" className="text-accent hover:underline">
+              accountability side of OMEM
+            </a>
+            .
+          </p>
         </article>
       </Section>
     </MarketingShell>
