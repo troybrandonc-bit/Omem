@@ -3,6 +3,16 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.3.10 - 31 Aug 2026
+
+**Header button polish, and the pilot says plainly what you pay for.** The
+"Get started" and "Dashboard" buttons in the marketing header used an em-based
+size that inflated inside the reading scale and a loose line height, with no
+horizontal centering, so the label read too large and off-centre. They now use
+an absolute size, tight leading, and centered text. Separately, the pilot copy
+now states outright that OMEM is free and MIT and that the $1,500 buys hands-on
+time, not a license, so nobody wonders why a free tool has a price next to it.
+
 ## 0.3.9 - 30 Aug 2026
 
 **The objective is part of the identity now.** The reason OMEM exists, to give

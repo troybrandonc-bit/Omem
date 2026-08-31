@@ -108,12 +108,13 @@ export default function Accountability() {
           <Eyebrow>The design-partner pilot</Eyebrow>
           <h2 className="display mt-2 text-2xl">$1,500, and I wire it into your stack with you.</h2>
           <p className="lede mt-4 max-w-[54ch]">
-            A design-partner pilot is hands-on: over a couple of weeks I work with
-            you to put the approval gate and the provenance trail into your agent,
-            you walk away with a record you can show a client&rsquo;s compliance
-            team, and I get your feedback and, if it earns it, a reference.
-            It&rsquo;s small on purpose. It&rsquo;s about proving it works where you
-            work, not signing a contract.
+            The software is free and MIT, so you are not paying for OMEM. You are
+            paying for my time. A design-partner pilot is hands-on: over a couple
+            of weeks I work with you to put the approval gate and the provenance
+            trail into your agent, you walk away with a record you can show a
+            client&rsquo;s compliance team, and I get your feedback and, if it
+            earns it, a reference. It&rsquo;s small on purpose. It&rsquo;s about
+            proving it works where you work, not signing a contract.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <ButtonLink href="/pilot">Book a design-partner pilot</ButtonLink>

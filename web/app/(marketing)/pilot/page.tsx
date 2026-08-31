@@ -65,10 +65,11 @@ export default function Pilot() {
           Tell me what your agent does, and where it gets asked to explain itself.
         </h1>
         <p className="lede mt-6 max-w-[52ch]">
-          A pilot is hands-on: over a couple of weeks I put the approval gate and
-          the provenance trail into your agent, and you walk away with a record
-          you can show a client&rsquo;s compliance team. $1,500, small on purpose.
-          Fill this in and I will reply personally.
+          OMEM itself is free and open source, and always will be. The pilot is
+          my time, not a license: over a couple of weeks I put the approval gate
+          and the provenance trail into your agent, and you walk away with a
+          record you can show a client&rsquo;s compliance team. $1,500, small on
+          purpose. Fill this in and I will reply personally.
         </p>
 
         <div className="mt-10 max-w-xl rounded-lg border bg-panel p-6 sm:p-8">
