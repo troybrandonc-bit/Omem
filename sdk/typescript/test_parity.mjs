@@ -221,6 +221,57 @@ try {
   ok("Agent.recallPack works and stays scoped",
     !bobAgentPack.memories.some((m) => m.id === aidAlice));
 
+  console.log("== the take-back: rules, inference, and retract cascade ==");
+  // A --works_at--> B, C --owns--> B, therefore C --involves--> A, exactly
+  // the reasoning demo. Then the premise is retracted and the conclusion
+  // must die with it, in the same request.
+  await mem.ensureAgent("agent:reasoner");
+  for (const e of ["person:marco", "company:acme2", "company:beta2"]) await mem.ensureEntity(e);
+  const prem = await mem.remember({ agent: "agent:reasoner",
+    about: ["person:marco", "company:beta2"], claim: "rel_works_at_beta2" });
+  await mem.remember({ agent: "agent:reasoner",
+    about: ["company:acme2", "company:beta2"], claim: "rel_owns_beta2" });
+  await mem.declareRule([["works_at", "fwd"], ["owns", "rev"]], ["involves", "rev"]);
+  await mem.infer();
+  const believed = await mem.believes({ about: ["company:acme2", "person:marco"], claim: "rel_involves_marco" });
+  ok("infer() concluded involves = BELIEVED_TRUE", believed === "BELIEVED_TRUE", believed);
+  const ruleList = await mem.rules();
+  ok("rules() lists the declared rule", JSON.stringify(ruleList).includes("involves"));
+  await mem.retract(prem.id, "agent:reasoner");
+  const afterRetract = await mem.believes({ about: ["person:sofia", "person:marco"], claim: "involves" });
+  ok("retract cascades: conclusion withdrawn in the same request",
+    afterRetract === "UNKNOWN", afterRetract);
+
+  console.log("== changes(): the session-start delta ==");
+  const beforeTs = (await mem.recallPack({ agent: "agent:reasoner" })).context.as_of;
+  await mem.ensureEntity("customer:delta");
+  await mem.remember({ agent: "agent:reasoner", about: "customer:delta", claim: "prefers_email" });
+  const diff = await mem.changes(beforeTs);
+  ok("changes(since) reports the appeared belief",
+    JSON.stringify(diff).includes("prefers_email"), JSON.stringify(diff).slice(0, 160));
+
+  console.log("== the intuition layer: leap, expects, interrogate ==");
+  // alpha holds two claims; beta resembles alpha via one shared claim, so a
+  // leap may form the expectation that beta holds the other one too.
+  for (const e of ["customer:alpha", "customer:beta"]) await mem.ensureEntity(e);
+  await mem.remember({ agent: "agent:reasoner", about: "customer:alpha", claim: "prefers_email" });
+  await mem.remember({ agent: "agent:reasoner", about: "customer:alpha", claim: "wants_pdf_invoices" });
+  await mem.remember({ agent: "agent:reasoner", about: "customer:beta", claim: "prefers_email" });
+  const leapt = await mem.leap();
+  ok("leap() answers with hypotheses", leapt && typeof leapt === "object", JSON.stringify(leapt).slice(0, 120));
+  const open = await mem.expects();
+  ok("expects() lists case files", open && typeof open === "object");
+  const verdicts = await mem.interrogate();
+  ok("interrogate() runs the skeptic pass", verdicts && typeof verdicts === "object");
+  ok("a hunch is never a belief: believes() stays UNKNOWN",
+    (await mem.believes({ about: "customer:beta", claim: "wants_pdf_invoices" })) === "UNKNOWN");
+
+  console.log("== priors: what it learned about people in general ==");
+  const learned = await mem.learnPriors();
+  ok("learnPriors() runs", learned && typeof learned === "object");
+  const ps = await mem.priors();
+  ok("priors() answers with a list shape", ps && typeof ps === "object", JSON.stringify(ps).slice(0, 120));
+
 } catch (e) {
   console.log("FAIL uncaught", e && e.stack ? e.stack : String(e));
   fail++;

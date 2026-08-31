@@ -260,11 +260,93 @@ export class Memory {
   async sources() { return (await this.req<{ data: unknown[] }>("GET", "/v1/connectors")).data; }
   async health() { return (await this.req<{ memory_health: unknown }>("GET", "/v1/intelligence")).memory_health; }
 
+  /** Withdraw a belief through the engine's append-only retract: its state
+   *  becomes UNKNOWN (withdrawn, not negated), history stays reconstructable,
+   *  and any rule conclusions resting on it are withdrawn in the same request,
+   *  cascade included. Parity with the Python SDK's `retract`. */
+  retract(assertionId: string, agent?: string) {
+    return this.req("POST",
+      `/v1/assertions/${encodeURIComponent(assertionId)}/retract`, { agent });
+  }
+
+  /** What changed since a logical time: the delta an agent wants at session
+   *  start instead of the whole pack again. `since` is any earlier response's
+   *  as_of. Returns beliefs that appeared, beliefs that closed (each saying
+   *  how), conflicts newly opened and resolved, and referents that merged or
+   *  split. Read-only and scope-safe. */
+  changes(since: number | string, viewer?: string, user?: string) {
+    let q = `?since=${encodeURIComponent(String(since))}`;
+    if (viewer) q += `&viewer=${encodeURIComponent(viewer)}`;
+    if (user) q += `&user=${encodeURIComponent(user)}`;
+    return this.req("GET", `/v1/memory/diff${q}`);
+  }
+
+  /** Declare one inference rule: two directed premises composing into a
+   *  conclusion, all relations from the graph vocabulary. A rule is data,
+   *  never a judgment the machine invents; `infer()` applies exactly what was
+   *  declared and nothing else. */
+  declareRule(when: Array<RuleSpec | [string, "fwd" | "rev"]>,
+              then: RuleSpec | [string, "fwd" | "rev"], agent?: string) {
+    const spec = (s: RuleSpec | [string, "fwd" | "rev"]): RuleSpec =>
+      Array.isArray(s) ? { rel: s[0], dir: s[1] } : s;
+    return this.req("POST", "/v1/rules",
+      { when: when.map(spec), then: spec(then), agent });
+  }
+
+  /** Apply every declared rule to what is currently believed. Conclusions
+   *  carry their premises, and die with them (see `retract`). */
+  infer() { return this.req("POST", "/v1/memory/infer", {}); }
+
+  /** The declared rules, as data. */
+  rules() { return this.req("GET", "/v1/rules"); }
+
+  /** Deactivate one rule; existing conclusions are withdrawn by the engine. */
+  deactivateRule(ruleId: string) {
+    return this.req("POST", `/v1/rules/${encodeURIComponent(ruleId)}/deactivate`, {});
+  }
+
+  /** The intuition layer's open case files: hypotheses with strength, support,
+   *  and gaps. A hypothesis is never a belief; `believes()` stays UNKNOWN
+   *  however good the hunch. */
+  expects(about?: string, status?: string) {
+    const qp: string[] = [];
+    if (about) qp.push(`about=${encodeURIComponent(about)}`);
+    if (status) qp.push(`status=${encodeURIComponent(status)}`);
+    return this.req("GET", `/v1/memory/expectations${qp.length ? "?" + qp.join("&") : ""}`);
+  }
+
+  /** Form expectations from single similar cases: one resembling case is
+   *  enough, and every leap is born suspect, wearing a case file. */
+  leap(about?: string) { return this.req("POST", "/v1/memory/leap", { about }); }
+
+  /** The skeptic pass: works every open case against everything OMEM holds.
+   *  Verdicts come from evidence about the target itself, never the model. */
+  interrogate() { return this.req("POST", "/v1/memory/interrogate", {}); }
+
+  /** Answer a question the interrogation could not settle. The answer is
+   *  recorded as real evidence under the answerer's name. */
+  answerExpectation(hypothesisId: string, answer: boolean | string, agent?: string) {
+    return this.req("POST",
+      `/v1/memory/expectations/${encodeURIComponent(hypothesisId)}/answer`,
+      { answer, agent });
+  }
+
+  /** What OMEM has learned about people in general: population-level priors
+   *  ("holds P -> tends to hold Q") as counts that name nobody. A prior fires
+   *  only into a silence and yields to the individual's own evidence. */
+  priors() { return this.req("GET", "/v1/memory/priors"); }
+
+  /** Re-learn priors from what the population currently holds. */
+  learnPriors() { return this.req("POST", "/v1/memory/priors/learn", {}); }
+
   /** Self-healing. OMEM provides the infrastructure, failure memory, the safety
    *  boundary, execution and verification, and the caller (or a model) provides
    *  reasoning. See the `Healing` class below. */
   get healing(): Healing { return new Healing(this); }
 }
+
+/** One directed premise or conclusion in a declared rule. */
+export interface RuleSpec { rel: string; dir: "fwd" | "rev"; }
 
 /**
  * Self-healing surface, parity with the Python SDK's `mem.healing`.
