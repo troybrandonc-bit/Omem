@@ -684,7 +684,7 @@ No key, no URL, no separate server to start. On first run it starts the bundled
 server itself, creates a project, and remembers it in `~/.omem`. Restarting the
 client reuses the same memory.
 
-Four tools: `omem_recall`, `omem_observe`, `omem_remember` and `omem_why`.
+Five tools: `omem_recall`, `omem_observe`, `omem_remember`, `omem_why` and `omem_believes`.
 
 `observe` hands OMEM raw conversation and lets it decide what is durable, which
 is what you want over a transcript. `remember` records a fact you have already

@@ -3,11 +3,12 @@
     OMEM_API_KEY=omem_sk_... OMEM_BASE_URL=... OMEM_PROJECT=... \\
     OMEM_AGENT=support-agent  python -m omem.mcp_server
 
-Exposes exactly three tools (no dangerous primitives):
+Exposes exactly five tools (no dangerous primitives):
     omem_recall    context/task in -> MemoryPack out
     omem_observe   raw interaction in -> what became memory (engine-decided)
     omem_remember  a fact you already know, recorded directly
     omem_why       full provenance/state explanation for one memory
+    omem_believes  the act-or-ask primitive: one claim's current belief state
 
 IDENTITY IS FIXED AT PROCESS LEVEL, on BOTH axes that scope memory:
 
@@ -150,6 +151,25 @@ TOOLS = [
             "required": ["memory_id"],
         },
     },
+    {
+        "name": "omem_believes",
+        "description": (
+            "The current belief state of one claim about one entity: "
+            "BELIEVED_TRUE, BELIEVED_FALSE, CONTRADICTED, or UNKNOWN. Check "
+            "this BEFORE acting on a remembered fact. Treat CONTRADICTED as "
+            "'ask the user, do not act': the record holds conflicting "
+            "information and OMEM deliberately refuses to pick a winner."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "about": {"type": "string",
+                          "description": "The entity, e.g. customer:alice"},
+                "claim": {"type": "string",
+                          "description": "The proposition, e.g. prefers_annual_billing"},
+            },
+            "required": ["about", "claim"],
+        },
+    },
 ]
 
 
@@ -198,6 +218,10 @@ class McpServer:
         return self.memory._req(
             "GET", f"/v1/assertions/{a['memory_id']}/why?viewer={self.agent_id}")
 
+    def _believes(self, a: dict) -> dict:
+        state = self.memory.believes(str(a["about"]), str(a["claim"]))
+        return {"about": a["about"], "claim": a["claim"], "state": state}
+
     def handle(self, msg: dict) -> dict | None:
         mid = msg.get("id")
         method = msg.get("method")
@@ -217,7 +241,8 @@ class McpServer:
             name = params.get("name")
             args = params.get("arguments") or {}
             fn = {"omem_recall": self._recall, "omem_observe": self._observe,
-                  "omem_remember": self._remember, "omem_why": self._why}.get(name)
+                  "omem_remember": self._remember, "omem_why": self._why,
+                  "omem_believes": self._believes}.get(name)
             if fn is None:
                 return {"jsonrpc": "2.0", "id": mid,
                         "error": {"code": -32602, "message": f"unknown tool {name!r}"}}

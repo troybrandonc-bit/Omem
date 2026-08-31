@@ -108,7 +108,7 @@ Installing the package also gives you `omem-mcp`, which speaks MCP over stdio:
 OMEM_API_KEY=omem_sk_… OMEM_BASE_URL=http://127.0.0.1:8787 OMEM_AGENT=support omem-mcp
 ```
 
-The client gets `omem_recall`, `omem_observe`, `omem_remember` and `omem_why` as tools.
+The client gets `omem_recall`, `omem_observe`, `omem_remember`, `omem_why` and `omem_believes` as tools.
 
 ## Where the data is
 

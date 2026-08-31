@@ -19,6 +19,34 @@ on:
   workflow_dispatch:
 
 jobs:
+  integrations-embeds:
+    name: integrations / n8n node + openclaw skill
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      # Build the n8n community node so its e2e test runs instead of skipping.
+      # --ignore-scripts: the devDeps are pure JS; nothing needs a build hook.
+      - name: Build the n8n node
+        working-directory: sdk/n8n-nodes-omem
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npx tsc
+          node -e "require('fs').copyFileSync('nodes/Omem/omem.svg','dist/nodes/Omem/omem.svg')"
+      - name: n8n node, driven through a mock n8n context against a live server
+        working-directory: server
+        run: |
+          out=$(python tests_n8n_node.py)
+          echo "$out"
+          echo "$out" | grep -q "^SKIP" && { echo "::error::n8n test skipped in CI, the build step above should prevent this"; exit 1; }
+          true
+      - name: OpenClaw skill, the actual script as a subprocess against a live server
+        working-directory: server
+        run: python tests_openclaw_skill.py
+
   server-sqlite:
     name: server / sqlite
     runs-on: ubuntu-latest
