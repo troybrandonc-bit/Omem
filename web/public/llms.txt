@@ -36,6 +36,7 @@ corpus.
 
 ## Guides
 
+- [EU AI Act Article 12 for AI agents](https://infrastructure.omem-cloud.com/guides/eu-ai-act-article-12-ai-agents/): the high-risk logging duty as engineering, with working code
 - [An audit trail for AI agents](https://infrastructure.omem-cloud.com/guides/ai-agent-audit-trail/): what a defensible trail must contain, and why request logs do not qualify
 - [Human-in-the-loop approvals for AI agents](https://infrastructure.omem-cloud.com/guides/human-in-the-loop-ai-agents/): gating risky actions behind a named approver, with refusals on the record
 - [Should an agent's memory decide what is true?](https://infrastructure.omem-cloud.com/guides/should-agent-memory-decide-truth/): the essay behind the design

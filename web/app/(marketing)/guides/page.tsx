@@ -15,6 +15,11 @@ export const metadata = {
 
 const GUIDES = [
   {
+    href: "/guides/eu-ai-act-article-12-ai-agents",
+    title: "EU AI Act Article 12 for AI agents: what to log, with working code",
+    lede: "The high-risk logging duty, read as engineering: why ordinary logs fail it, the four properties a compliant agent record needs, and a working self-hosted implementation.",
+  },
+  {
     href: "/guides/ai-agent-audit-trail",
     title: "An audit trail for AI agents",
     lede: "What a defensible trail must contain, why request logs do not qualify, and how to record what the agent believed, why, and who approved its actions.",
