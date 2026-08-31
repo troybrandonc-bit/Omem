@@ -6,7 +6,9 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 **Memory for AI agents that tracks what is believed, when, and why, and refuses
-to decide what is true.**
+to decide what is true.** So when an agent acts and someone asks "why did it do
+that", you can answer: with the evidence chain, and with the named human who
+approved it.
 
 OMEM is a memory layer for AI agents. Instead of dumping text into a vector
 store and hoping for the best, it tracks what each agent believes over time and
@@ -21,6 +23,10 @@ pip install omem-infrastructure && omem-server
 
 Docs: **[infrastructure.omem-cloud.com](https://infrastructure.omem-cloud.com)**
 · [Quickstart](QUICKSTART.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
+
+> Shipping agents to clients? The audit trail and the approval gate are the
+> point: [what a client's security review asks for](https://infrastructure.omem-cloud.com/accountability/),
+> and a small number of [hands-on design-partner pilots](https://infrastructure.omem-cloud.com/pilot/) are open.
 
 <p align="center">
   <img src=".github/demo-reasoning.svg" width="720"
