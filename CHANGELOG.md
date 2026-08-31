@@ -3,6 +3,24 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.3.12 - 31 Aug 2026
+
+**The marketing foundations the site was missing.** A gap analysis against a
+full marketing playbook found four foundations absent; this release adds them.
+
+- **Privacy and Terms pages**, in plain language. The honest answer is short:
+  the software is self-hosted and sends us nothing, so the pages cover the
+  website, the pilot form, and the commons, exactly as they work.
+- **`llms.txt` and structured data.** The site now describes itself to AI
+  search engines: an `llms.txt` index for LLM crawlers and Organization plus
+  SoftwareApplication JSON-LD on the homepage, so "best agent memory with an
+  audit trail" answers have something accurate to cite.
+- **Release-notes subscription.** The changelog now captures emails (relayed to
+  the operator's inbox), the first owned channel.
+- **Analytics, wired but off.** Cookieless Cloudflare Web Analytics is in the
+  layout behind a token constant; paste the token and measurement starts. It
+  sets no cookies and builds no profile, matching the privacy page.
+
 ## 0.3.11 - 31 Aug 2026
 
 **Security: the commons door now refuses tokens it should always have.** The

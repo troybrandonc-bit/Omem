@@ -1,0 +1,46 @@
+# OMEM
+
+> Open-source (MIT) memory for AI agents built on belief revision. OMEM keeps
+> both sides of a contradiction, tracks what an agent believed and when, answers
+> "why" with a provenance chain, and puts a human approval step before a risky
+> action runs. Self-hosted, one `pip install omem-infrastructure`, no
+> dependencies, dashboard included. It phones home to nobody (CI-asserted).
+
+OMEM is for two audiences: builders who want agent memory that never silently
+overwrites a contradiction, and teams shipping agents to clients who must answer
+"why did the agent do that" with an audit trail and gate risky actions behind a
+named human approver. The engine is frozen and replays byte-identically, so an
+upgrade can never rewrite recorded history. Its wider objective: teach AI what
+people are like while holding a fact about no one, via anonymous behavioural
+priors (counts, never people) that consenting installs pool into a training
+corpus.
+
+## Docs
+
+- [Quickstart](https://infrastructure.omem-cloud.com/docs/quickstart/): install and first belief in about a minute
+- [Documentation](https://infrastructure.omem-cloud.com/docs/): the memory model, verbs, and concepts
+- [SDK reference](https://infrastructure.omem-cloud.com/docs/sdk/): the nine verbs of the Python SDK
+
+## Product
+
+- [Accountability](https://infrastructure.omem-cloud.com/accountability/): prove why the agent acted, approve before it does
+- [Objective](https://infrastructure.omem-cloud.com/objectives/): teach AI what people are like, holding a fact about no one
+- [Security](https://infrastructure.omem-cloud.com/security/): what is implemented today and what is not built yet
+- [Pricing](https://infrastructure.omem-cloud.com/pricing/): free and MIT while in beta
+
+## Comparisons
+
+- [OMEM vs Mem0](https://infrastructure.omem-cloud.com/compare/mem0/)
+- [OMEM vs Zep](https://infrastructure.omem-cloud.com/compare/zep/)
+- [OMEM vs Letta](https://infrastructure.omem-cloud.com/compare/letta/)
+
+## Guides
+
+- [Agent memory in Python](https://infrastructure.omem-cloud.com/guides/agent-memory-python/)
+- [LangGraph long-term memory](https://infrastructure.omem-cloud.com/guides/langgraph-long-term-memory/)
+- [An MCP memory server](https://infrastructure.omem-cloud.com/guides/mcp-memory-server/)
+
+## Source
+
+- [GitHub repository](https://github.com/troybrandonc-bit/Omem): MIT source, claims ledger, Witness benchmark
+- [PyPI package](https://pypi.org/project/omem-infrastructure/): pip install omem-infrastructure

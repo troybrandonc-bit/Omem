@@ -112,9 +112,38 @@ function SectionHead({ n, title, children }: {
   );
 }
 
+// Structured data for rich results and AI answer extraction. Only claims the
+// page itself makes; no invented ratings or reviews.
+const JSONLD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      name: "OMEM",
+      url: "https://infrastructure.omem-cloud.com",
+      logo: "https://infrastructure.omem-cloud.com/omem-mark.png",
+      sameAs: ["https://github.com/troybrandonc-bit/Omem", "https://x.com/Omem_ai"],
+    },
+    {
+      "@type": "SoftwareApplication",
+      name: "OMEM",
+      applicationCategory: "DeveloperApplication",
+      operatingSystem: "Windows, macOS, Linux",
+      description:
+        "Open-source memory for AI agents built on belief revision: keeps both sides of a contradiction, tracks belief over time, answers why with a provenance chain, and gates risky actions behind a human approval step. Self-hosted, MIT.",
+      offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+      license: "https://opensource.org/licenses/MIT",
+      url: "https://infrastructure.omem-cloud.com",
+      downloadUrl: "https://pypi.org/project/omem-infrastructure/",
+    },
+  ],
+};
+
 export default function Home() {
   return (
     <MarketingShell>
+      <script type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(JSONLD) }} />
       {/* ── hero ────────────────────────────────────────────────────────── */}
       <Section className="hero-y">
         <div className="max-w-[68rem]">

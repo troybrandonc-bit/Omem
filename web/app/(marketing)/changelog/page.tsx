@@ -1,5 +1,6 @@
 import { MarketingShell } from "@/components/marketing/chrome";
 import { Section, PageHeader } from "@/components/marketing/ui";
+import { Subscribe } from "@/components/marketing/subscribe";
 import { CircleCheck, Circle } from "lucide-react";
 
 export const metadata = {
@@ -47,6 +48,9 @@ export default function Changelog() {
           Product updates, shipped. The underlying OMEM standard stays frozen and
           is versioned separately.
         </PageHeader>
+        <div className="mt-8">
+          <Subscribe />
+        </div>
       </Section>
 
       <Section className="pb-24 sm:pb-32">
