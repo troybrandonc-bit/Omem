@@ -92,15 +92,21 @@ export default function Sdk() {
       {/* An aside, marked as one. It was a bare div with a left border, which is
           a visual convention a screen reader does not have. */}
       <aside className="mt-10 rounded-md border border-l-2 border-l-[color:var(--accent)] bg-panel px-4 py-4 text-note text-muted">
-        <strong className="font-medium text-fg">The TypeScript SDK lags this one.</strong>{" "}
-        It is on npm as <span className="mono text-fg">@omem/sdk</span>, but it
-        does not yet cover the whole Python surface.{" "}
-        <span className="mono text-fg">npm test</span> in{" "}
-        <span className="mono text-fg">sdk/typescript/</span> runs it against a
-        live server and reports what is missing. Superseding is an HTTP route
-        rather than a client method (the Python client wraps{" "}
-        <span className="mono text-fg">retract</span> but not supersede; the
-        TypeScript SDK wraps neither yet), and time travel is the{" "}
+        <strong className="font-medium text-fg">The TypeScript SDK covers the core surface.</strong>{" "}
+        It is on npm as <span className="mono text-fg">@omem/sdk</span> and now
+        wraps every verb on this page plus{" "}
+        <span className="mono text-fg">retract</span>,{" "}
+        <span className="mono text-fg">changes</span>, the reasoning verbs
+        (<span className="mono text-fg">declareRule</span>,{" "}
+        <span className="mono text-fg">infer</span>), the intuition layer
+        (<span className="mono text-fg">leap</span>,{" "}
+        <span className="mono text-fg">expects</span>,{" "}
+        <span className="mono text-fg">interrogate</span>) and{" "}
+        <span className="mono text-fg">priors</span>, verified by{" "}
+        <span className="mono text-fg">npm test</span> against a live server.
+        What it does not wrap yet: the judgment-queue surface (merge proposals,
+        tensions, constraints), which is Python-only. Superseding is an HTTP
+        route on both SDKs, and time travel is the{" "}
         <span className="mono text-fg">as_of</span> parameter on{" "}
         <span className="mono text-fg">recall</span>, not a verb of its own.
       </aside>
