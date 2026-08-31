@@ -136,11 +136,11 @@ export function MarketingNav() {
         <div className="flex items-center gap-1">
           <ThemeToggle />
           <Link href="/overview"
-            className="hidden h-10 items-center justify-center rounded-md px-3 text-sm font-medium leading-none text-muted transition-colors duration-1 ease-out hover:bg-raised hover:text-fg sm:flex">
+            className="hidden h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-3 text-sm font-medium leading-none text-muted transition-colors duration-1 ease-out hover:bg-raised hover:text-fg sm:flex">
             Dashboard
           </Link>
           <Link href="/docs/quickstart"
-            className="on-accent hidden h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-medium leading-none text-accentFg transition-[background-color,transform] duration-1 ease-out hover:bg-accentHover active:scale-[0.98] sm:flex">
+            className="on-accent hidden h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-md bg-accent px-5 text-sm font-medium leading-none text-accentFg transition-[background-color,transform] duration-1 ease-out hover:bg-accentHover active:scale-[0.98] sm:flex">
             Get started
           </Link>
 
