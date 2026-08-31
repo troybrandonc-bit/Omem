@@ -30,6 +30,7 @@ corpus.
 
 ## Comparisons
 
+- [OMEM vs Mem0 vs Zep, side by side](https://infrastructure.omem-cloud.com/compare/omem-vs-mem0-vs-zep/): the three-way table, with what each optimizes and where each honestly wins
 - [OMEM vs Mem0](https://infrastructure.omem-cloud.com/compare/mem0/)
 - [OMEM vs Zep](https://infrastructure.omem-cloud.com/compare/zep/)
 - [OMEM vs Letta](https://infrastructure.omem-cloud.com/compare/letta/)

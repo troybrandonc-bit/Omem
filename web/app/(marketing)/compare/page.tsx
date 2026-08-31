@@ -32,6 +32,18 @@ export default function Compare() {
       <Section className="pb-16 sm:pb-20">
         <h2 className="display text-xl">The comparisons</h2>
         <dl className="mt-6 border-t">
+          <div className="spec-row border-b py-9">
+            <dt className="text-note font-semibold text-fg">
+              <Link href="/compare/omem-vs-mem0-vs-zep" className="hover:text-accent">
+                OMEM vs Mem0 vs Zep, side by side
+              </Link>
+            </dt>
+            <dd className="max-w-read text-body text-muted">
+              The three-way table for anyone weighing the two incumbents
+              against each other: what each optimizes, what happens on a
+              conflict, and where each one honestly wins.
+            </dd>
+          </div>
           {COMPARISONS.map(c => (
             <div key={c.slug} className="spec-row border-b py-9">
               <dt className="text-note font-semibold text-fg">
