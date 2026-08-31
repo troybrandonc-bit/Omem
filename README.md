@@ -21,6 +21,15 @@ It runs locally with no external services and no dependencies to install.
 pip install omem-infrastructure && omem-server
 ```
 
+Or deploy a private server in one click:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/troybrandonc-bit/Omem)
+
+The blueprint provisions one small service with a persistent disk, password
+auth on (the first signup is the operator account), and a generated master
+key. Fly.io works too: `fly launch --copy-config` with the included
+`fly.toml`.
+
 Docs: **[infrastructure.omem-cloud.com](https://infrastructure.omem-cloud.com)**
 · [Quickstart](QUICKSTART.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 

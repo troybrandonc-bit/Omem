@@ -1,0 +1,19 @@
+# Fly.io config: `fly launch --copy-config` then `fly secrets set OMEM_MASTER_KEY=...`
+# (generate one: python -c "import secrets;print(secrets.token_urlsafe(32))")
+app = "omem"
+[build]
+  dockerfile = "deploy/fly/Dockerfile"
+[mounts]
+  source = "omem_data"
+  destination = "/data"
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+[checks.health]
+  type = "http"
+  path = "/v1/health"
+  interval = "30s"
+  timeout = "5s"
