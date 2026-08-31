@@ -14,6 +14,21 @@ export const metadata = {
  * the $1,500 design-partner pilot with a real contact path. Memory is the
  * mechanism here, never the headline. */
 
+/* SoftwareApplication schema for AI-answer and rich-result extraction.
+ * Facts only; nothing here the site does not already claim. */
+const JSONLD = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "OMEM",
+  applicationCategory: "DeveloperApplication",
+  operatingSystem: "Windows, macOS, Linux (self-hosted)",
+  license: "https://opensource.org/license/mit",
+  url: "https://infrastructure.omem-cloud.com",
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  description:
+    "Open-source memory for AI agents built on belief revision: an audit trail of what the agent believed and when, contradictions kept with both sides on record, provenance for every belief, and a named human approval gate before risky actions run.",
+};
+
 const PILLARS = [
   {
     k: "Provenance you can hand to a client",
@@ -43,6 +58,8 @@ const PILLARS = [
 export default function Accountability() {
   return (
     <MarketingShell>
+      <script type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(JSONLD) }} />
       <Section className="hero-y">
         <Eyebrow>For teams shipping agents to clients</Eyebrow>
         <HeroHeading className="mt-3">
