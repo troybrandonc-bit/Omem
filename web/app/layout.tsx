@@ -19,6 +19,10 @@ export const metadata: Metadata = {
   description: SITE_DESC,
   applicationName: "OMEM",
   formatDetection: { telephone: false },
+  // Self-referencing canonical on every page, resolved per-route against
+  // metadataBase. Matters doubly here: the dev.to syndication canonicals to
+  // this domain, and the site should claim its own URLs in return.
+  alternates: { canonical: "./" },
   openGraph: {
     type: "website",
     siteName: "OMEM",
