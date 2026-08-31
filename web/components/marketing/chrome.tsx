@@ -207,6 +207,8 @@ const FOOTER = [
     { label: "Dashboard", href: "/overview" },
     { label: "Source on GitHub", href: "https://github.com/troybrandonc-bit/Omem", external: true },
     { label: "Report an issue", href: "https://github.com/troybrandonc-bit/Omem/issues", external: true },
+    { label: "Privacy", href: "/privacy" },
+    { label: "Terms", href: "/terms" },
   ]},
 ];
 

@@ -17,7 +17,7 @@
  * added to the public site and not to this array would quietly get the app
  * chrome; a route added here and not to the site would quietly lose it.
  */
-export const MARKETING_ROUTES = ["/accountability", "/pilot", "/objectives", "/docs", "/guides", "/pricing", "/security", "/changelog", "/compare"] as const;
+export const MARKETING_ROUTES = ["/accountability", "/pilot", "/objectives", "/docs", "/guides", "/pricing", "/security", "/changelog", "/compare", "/privacy", "/terms"] as const;
 
 /** True for the public site: the landing page, or anything under a marketing
  *  section. Onboarding is treated the same way by `Shell` — it deliberately

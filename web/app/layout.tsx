@@ -64,6 +64,12 @@ export const viewport: Viewport = {
  * which is what "respect the system appearance" means when nobody has chosen
  * yet. `suppressHydrationWarning` on <html> is required because this
  * deliberately mutates the class list before React sees it. */
+/* Cloudflare Web Analytics: cookieless, aggregate, no profile, which is what
+ * the privacy page promises. Renders nothing until a token is set. To turn it
+ * on: Cloudflare dashboard -> Web Analytics -> Add a site
+ * (infrastructure.omem-cloud.com) -> paste the token string here. */
+const CF_ANALYTICS_TOKEN = "";
+
 const THEME_SCRIPT = `(function(){try{
 var s=localStorage.getItem("omem-theme");
 var d=s?s==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -76,6 +82,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={fontVars} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        {CF_ANALYTICS_TOKEN && (
+          <script defer src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon={`{"token": "${CF_ANALYTICS_TOKEN}"}`} />
+        )}
       </head>
       <body>
         {/* First stop in the tab order on every page. Reaching the content past
