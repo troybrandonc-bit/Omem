@@ -69,7 +69,8 @@ export default function Pilot() {
           my time, not a license: over a couple of weeks I put the approval gate
           and the provenance trail into your agent, and you walk away with a
           record you can show a client&rsquo;s compliance team. $1,500, small on
-          purpose. Fill this in and I will reply personally.
+          purpose, and if the pilot does not produce a review-ready artifact,
+          you do not pay. Fill this in and I will reply personally.
         </p>
 
         <div className="mt-10 max-w-xl rounded-lg border bg-panel p-6 sm:p-8">

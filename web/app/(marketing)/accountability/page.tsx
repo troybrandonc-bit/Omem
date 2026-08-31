@@ -31,10 +31,12 @@ const PILLARS = [
   },
   {
     k: "A record that cannot rewrite itself",
-    d: `The engine is frozen and replays byte-identically, the log is append-only,
-        and a contradiction keeps both sides instead of overwriting one. The audit
-        trail you show a client is one the system cannot quietly alter later, which
-        is the whole point of an audit trail.`,
+    d: `We call it the testimony ledger. Every belief is recorded under a named
+        source with its evidence, the log is append-only, contradictions keep
+        both sides, and the engine that reads it is frozen: it must replay the
+        record byte-identically, verified on every commit, so not even an
+        upgrade can change what was said. A court does not trust a witness who
+        can edit their statement. Neither does a security reviewer.`,
   },
 ];
 
@@ -113,8 +115,9 @@ export default function Accountability() {
             of weeks I work with you to put the approval gate and the provenance
             trail into your agent, you walk away with a record you can show a
             client&rsquo;s compliance team, and I get your feedback and, if it
-            earns it, a reference. It&rsquo;s small on purpose. It&rsquo;s about
-            proving it works where you work, not signing a contract.
+            earns it, a reference. It&rsquo;s small on purpose, and it carries
+            its own guarantee: if the pilot does not produce a review-ready
+            artifact, you do not pay.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <ButtonLink href="/pilot">Book a design-partner pilot</ButtonLink>
