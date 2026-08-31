@@ -26,6 +26,7 @@ const ROUTES = [
   "/guides/langgraph-long-term-memory",
   "/guides/mcp-memory-server",
   "/guides/agent-memory-python",
+  "/guides/eu-ai-act-article-12-ai-agents",
   "/guides/ai-agent-audit-trail",
   "/guides/human-in-the-loop-ai-agents",
   "/guides/should-agent-memory-decide-truth",
