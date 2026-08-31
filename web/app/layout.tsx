@@ -68,7 +68,7 @@ export const viewport: Viewport = {
  * the privacy page promises. Renders nothing until a token is set. To turn it
  * on: Cloudflare dashboard -> Web Analytics -> Add a site
  * (infrastructure.omem-cloud.com) -> paste the token string here. */
-const CF_ANALYTICS_TOKEN = "";
+const CF_ANALYTICS_TOKEN = "92eda3437ae944c99c0f668453ae69f3";
 
 const THEME_SCRIPT = `(function(){try{
 var s=localStorage.getItem("omem-theme");
