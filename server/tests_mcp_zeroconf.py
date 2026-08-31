@@ -83,8 +83,9 @@ try:
         "serverInfo", {}).get("name") == "omem", str(init)[:200])
     tl = rpc(p, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     names = sorted(t["name"] for t in tl["result"]["tools"])
-    check("the four tools are there",
-          names == ["omem_observe", "omem_recall", "omem_remember", "omem_why"],
+    check("the five tools are there",
+          names == ["omem_believes", "omem_observe", "omem_recall",
+                    "omem_remember", "omem_why"],
           str(names))
 
     obs = rpc(p, {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {

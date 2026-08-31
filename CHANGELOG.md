@@ -3,6 +3,20 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.3.13 - 1 Sep 2026
+
+**The integrations get their guard rails, and MCP gets the act-or-ask tool.**
+
+- **`omem_believes` over MCP.** The MCP server now exposes the belief state of
+  one claim (BELIEVED_TRUE, BELIEVED_FALSE, CONTRADICTED, UNKNOWN), so an MCP
+  agent checks a fact before acting on it and treats CONTRADICTED as "ask the
+  user", the same act-or-ask primitive the n8n node ships with. Five tools now.
+- **Every integration is CI-tested from now on.** The n8n community node is
+  driven through a mock n8n context against a live server on every commit, and
+  the OpenClaw skill's script runs as a real subprocess the way OpenClaw would
+  invoke it. An integration that drifts from the API goes red in CI instead of
+  quietly breaking in a marketplace.
+
 ## 0.3.12 - 31 Aug 2026
 
 **The marketing foundations the site was missing.** A gap analysis against a

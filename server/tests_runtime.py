@@ -293,8 +293,9 @@ names = [t["name"] for t in tl["result"]["tools"]]
 # clients with no way to record a fact they already knew. The list is still
 # asserted exactly, because "no dangerous primitives" is a property of this
 # surface and a new tool appearing unnoticed is what that check exists to catch.
-check("MCP exposes exactly recall/observe/remember/why",
-      sorted(names) == ["omem_observe", "omem_recall", "omem_remember", "omem_why"],
+check("MCP exposes exactly recall/observe/remember/why/believes",
+      sorted(names) == ["omem_believes", "omem_observe", "omem_recall",
+                        "omem_remember", "omem_why"],
       str(names))
 rc = rpc({"jsonrpc": "2.0", "id": 3, "method": "tools/call",
           "params": {"name": "omem_recall",
