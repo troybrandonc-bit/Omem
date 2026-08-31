@@ -732,8 +732,22 @@ def _identifying(token: str) -> bool:
     props embed the target's slug (rel_works_at_acme names a company), colons
     carry raw entity ids, digits carry extracted values (a contract price, a
     payment term). The bank refuses them all, so what it exports can be
-    published without a redaction pass."""
-    return token.startswith("rel_") or ":" in token or bool(re.search(r"\d", token))
+    published without a redaction pass.
+
+    Blacklisting those formats is enough for the LOCAL bank, whose tokens come
+    from OMEM's own extraction. It is NOT enough for the commons collector,
+    which re-validates tokens contributed by untrusted clients: a crafted token
+    could smuggle an email (john@acme.com), a domain, or a capitalised name past
+    the three checks above, none of which carry a digit, a colon, or the rel_
+    prefix. So a legitimate behaviour token is also required to be exactly what
+    one is: lowercase letters and underscores, nothing else. An @, a dot, an
+    uppercase letter, or any other character is refused at the door. (A token
+    engineered to look like a plain lowercase word is the one thing this cannot
+    tell from a real one; closing that needs a fixed vocabulary, tracked
+    separately.)"""
+    if token.startswith("rel_") or ":" in token or bool(re.search(r"\d", token)):
+        return True
+    return re.fullmatch(r"[a-z_]+", token) is None
 
 
 def bank(db, project_ids: list[str]) -> list[dict]:

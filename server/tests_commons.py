@@ -52,6 +52,14 @@ for name, bad in [
      {**GOOD, "patterns": [{**GOOD["patterns"][0], "consequent": "company:acme"}]}),
     ("value-bearing token refused",
      {**GOOD, "patterns": [{**GOOD["patterns"][0], "antecedent": "payment_terms_net30"}]}),
+    # Regression: these carry no digit, colon, or rel_ prefix, so the original
+    # door check let them through and they landed in the public dataset.
+    ("email token refused",
+     {**GOOD, "patterns": [{**GOOD["patterns"][0], "antecedent": "email_john@acme.com"}]}),
+    ("domain token refused",
+     {**GOOD, "patterns": [{**GOOD["patterns"][0], "consequent": "works_at_acme.com"}]}),
+    ("capitalised name token refused",
+     {**GOOD, "patterns": [{**GOOD["patterns"][0], "antecedent": "John_Smith"}]}),
     ("non-integer counts refused",
      {**GOOD, "patterns": [{**GOOD["patterns"][0], "support": "many"}]}),
     ("bad instance id refused", {**GOOD, "instance": "x"}),

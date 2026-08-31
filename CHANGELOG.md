@@ -3,6 +3,22 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.3.11 - 31 Aug 2026
+
+**Security: the commons door now refuses tokens it should always have.** The
+commons re-validates every contributed token so a modified or malicious client
+cannot leak identifying data into the public dataset. That check refused OMEM's
+own identifier formats (a `rel_` prefix, a colon, a digit) but nothing else, so
+a crafted token carrying no digit, colon, or `rel_` prefix, such as an email
+address or a capitalised name, passed straight through and into the exported
+corpus. The door now also requires a contributed token to be exactly what a
+behaviour token is, lowercase letters and underscores, and refuses an `@`, a
+dot, an uppercase letter, or anything else. Found by contributing a test email
+through the live collector and watching it appear in the dataset; fixed, with
+regression tests for the email, domain, and capitalised-name cases. The one
+residual, a token engineered to look like a plain lowercase word, needs a fixed
+vocabulary and is tracked for later.
+
 ## 0.3.10 - 31 Aug 2026
 
 **Header button polish, and the pilot says plainly what you pay for.** The
