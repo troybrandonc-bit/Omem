@@ -1,0 +1,30 @@
+# Render Blueprint: one-click OMEM.
+# "Deploy to Render" reads this file from the repo root and provisions a
+# single web service (API + dashboard on one port) with a persistent disk.
+# Public-internet posture is enforced by OMEM itself: OMEM_AUTH=password makes
+# the first signup the operator account; local no-password mode refuses to
+# bind publicly by design. TLS is terminated by Render's proxy, hence
+# OMEM_ALLOW_INSECURE_BIND on the internal listener.
+services:
+  - type: web
+    name: omem
+    runtime: python
+    plan: starter
+    buildCommand: pip install omem-infrastructure
+    startCommand: omem-server $PORT
+    healthCheckPath: /v1/health
+    disk:
+      name: omem-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: OMEM_HOST
+        value: 0.0.0.0
+      - key: OMEM_AUTH
+        value: password
+      - key: OMEM_ALLOW_INSECURE_BIND
+        value: "1"
+      - key: OMEM_DATA_DIR
+        value: /var/data
+      - key: OMEM_MASTER_KEY
+        generateValue: true
