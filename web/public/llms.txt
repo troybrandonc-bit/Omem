@@ -45,6 +45,10 @@ corpus.
 - [LangGraph long-term memory](https://infrastructure.omem-cloud.com/guides/langgraph-long-term-memory/)
 - [An MCP memory server](https://infrastructure.omem-cloud.com/guides/mcp-memory-server/)
 
+## Full content
+
+- [Complete docs and guides in one file](https://infrastructure.omem-cloud.com/llms-full.txt): the full text of every doc, guide, and comparison page, for AI assistants that want deep context without crawling
+
 ## Source
 
 - [GitHub repository](https://github.com/troybrandonc-bit/Omem): MIT source, claims ledger, Witness benchmark
