@@ -10,7 +10,9 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "OMEM" }]
-keywords = ["ai", "agents", "memory", "llm", "mcp", "knowledge", "belief"]
+keywords = ["ai", "agents", "memory", "llm", "mcp", "knowledge", "belief",
+            "agent-memory", "belief-revision", "provenance", "audit-trail",
+            "human-in-the-loop", "langgraph", "self-hosted"]
 # Zero third-party dependencies: the SDK is stdlib-only (urllib + json), so
 # `pip install omem-infrastructure` is instant and cannot break on dependency conflicts.
 dependencies = []
