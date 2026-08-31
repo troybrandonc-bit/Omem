@@ -123,6 +123,16 @@ export default function Pilot() {
                 className="on-accent inline-flex h-control-lg items-center justify-center rounded-md bg-accent px-6 text-note font-medium text-accentFg transition-[background-color,transform] duration-1 ease-out hover:bg-accentHover active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100">
                 {status === "sending" ? "Sending" : "Request a pilot"}
               </button>
+
+              {/* The last thing read before the ask: the true limits and the
+                  standing invitation to verify. One line, all of it checkable. */}
+              <p className="text-caption text-faint">
+                Pilots run a few at a time, one pair of hands. Prefer to read
+                the{" "}
+                <a href="https://github.com/troybrandonc-bit/Omem" rel="noreferrer"
+                  className="text-accent hover:underline">source</a>{" "}
+                first? Most good pilots start that way.
+              </p>
             </form>
           )}
         </div>
