@@ -2253,6 +2253,12 @@ class Handler(BaseHTTPRequestHandler):
             # GET /v1/healing/health
             if parts[2:] == ["health"]:
                 return self._send(200, self._healing_health(org_id, p.id))
+            # GET /v1/healing/actions -> what may execute, and at what risk.
+            # The risk class an auditor sees has to come from here rather than
+            # from the plan that proposed the action, so the registry has to be
+            # readable on its own, not only in the reasons attached to refusals.
+            if parts[2:] == ["actions"]:
+                return self._send(200, {"data": HEAL_ACTIONS.describe()})
             # GET /v1/healing/failures[?component=]
             if parts[2:] == ["failures"]:
                 comp = qs.get("component", [None])[0]
@@ -2304,6 +2310,11 @@ class Handler(BaseHTTPRequestHandler):
                 },
                 "uptime_seconds": METRICS.snapshot()["uptime_seconds"],
                 "protocol": "1.0",
+                # Which frozen engine produced the beliefs this server serves.
+                # Anyone replaying the ops log to check the state needs the
+                # version by name, and an exported record has to cite it.
+                "engine": "omem_engine",
+                "engine_version": ENGINE_VERSION,
                 # The dashboard needs this before it has a session, to decide
                 # between showing a sign-in form and provisioning a local one.
                 # Naming the mode is not a disclosure: an attacker learns it from

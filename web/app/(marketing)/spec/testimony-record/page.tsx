@@ -43,6 +43,13 @@ python3 testimony_validate.py record.jsonl
 # in CI, fail the build below a level you promised
 python3 testimony_validate.py record.jsonl --require TR-3`;
 
+const EXPORT = `# any OMEM server, running anywhere you can reach it
+python3 export_testimony.py --url http://127.0.0.1:8787 \\
+    --key omem_sk_... --project proj_... --out record.jsonl
+
+python3 testimony_validate.py record.jsonl --require TR-4
+# Conformance: TR-4`;
+
 const LEVELS: Array<[string, string, string]> = [
   ["TR-1 Recorded",
    "The record exists and is append-only.",
@@ -92,6 +99,7 @@ export default function Spec() {
               <tr><td><strong>Schema</strong></td><td><a href="/testimony-record-v0.1.schema.json"><span className="mono">testimony-record-v0.1.schema.json</span></a></td></tr>
               <tr><td><strong>Example</strong></td><td><a href="/testimony-record-example.jsonl"><span className="mono">testimony-record-example.jsonl</span></a>, a conforming record at TR-4</td></tr>
               <tr><td><strong>Validator</strong></td><td><a href="https://github.com/troybrandonc-bit/Omem/blob/main/scripts/testimony_validate.py"><span className="mono">testimony_validate.py</span></a>, one file, no dependencies, MIT</td></tr>
+              <tr><td><strong>Exporter</strong></td><td><a href="https://github.com/troybrandonc-bit/Omem/blob/main/scripts/export_testimony.py"><span className="mono">export_testimony.py</span></a>, writes a record from any running OMEM server, MIT</td></tr>
               <tr><td><strong>Status</strong></td><td>Draft. Stable enough to build against, open to comment before 1.0.</td></tr>
             </tbody>
           </table>
@@ -265,13 +273,28 @@ export default function Spec() {
           <h2>Reference implementation</h2>
           <p>
             <a href="https://github.com/troybrandonc-bit/Omem">OMEM</a> is the
-            reference implementation and targets TR-4: beliefs are append-only
-            with provenance, contradictions are kept with both sides marked,
-            risky actions wait for a named approver with refusals recorded, and
-            the engine replays the whole record byte-identically on every
-            commit. It is MIT, self-hosted, and installs with one command.
-            Reading it is the fastest way to see what each level costs in
-            practice.
+            reference implementation and emits records at TR-4: beliefs are
+            append-only with provenance, contradictions are kept with both
+            sides marked, risky actions wait for a named approver with refusals
+            recorded, and the engine replays the whole record byte-identically
+            on every commit. It is MIT, self-hosted, and installs with one
+            command.
+          </p>
+          <p>
+            Point the exporter at any running server and it writes a record
+            this validator accepts. Nothing in the output is composed for the
+            occasion: belief states come from the memory, risk classes from the
+            action registry rather than from the plan that proposed the action,
+            and approver identities from the authenticated principal.
+          </p>
+          <CodeBlock single={EXPORT} filename="terminal"
+            label="Export a record from a running server, then check it" />
+          <p>
+            That round trip runs in CI on every commit, against a real server:
+            a contradiction is created, a high-risk action is refused, a named
+            reviewer approves it, and the export is validated. If OMEM ever
+            stops conforming to this document, the build goes red before anyone
+            else finds out.
           </p>
           <p>
             If you implement this in another system, say so and it will be

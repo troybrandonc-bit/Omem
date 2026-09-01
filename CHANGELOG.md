@@ -3,6 +3,31 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.3.15 - 1 Sep 2026
+
+**OMEM can hand you the record the specification describes.**
+
+- **`scripts/export_testimony.py` writes a Testimony Record from any running
+  server.** Point it at a URL with a key and a project and it emits the
+  [v0.1 format](https://infrastructure.omem-cloud.com/spec/testimony-record/):
+  beliefs with their states and sources, contradictions with both sides named,
+  every gate decision including the refusals, approvals with the approver and
+  where that identity came from, and an integrity entry naming the frozen
+  engine. Stdlib only, MIT, no dependency on the SDK.
+- **Nothing in the export is reconstructed.** A record whose risk column was
+  guessed by the exporter would be worth nothing to the auditor reading it, so
+  risk classes are read from the action registry, `not:x` is exported as the
+  same proposition denied (which is what lets one conflict entry name both
+  sides), and an ungrounded belief says so rather than being quietly dropped.
+- **CI now proves the reference-implementation claim on every commit**
+  (`tests_testimony_export.py`, 22 checks): it drives a real server through a
+  contradiction, a refused high-risk action and an approved one, exports, and
+  fails the build if the published validator does not return TR-3 or better.
+- **`GET /v1/healing/actions`** lists what may execute and at what risk, so the
+  registry can be read on its own rather than inferred from refusal messages.
+- **`GET /v1/health` now reports `engine` and `engine_version`**, which anyone
+  replaying the ops log to check a record needs by name.
+
 ## 0.3.14 - 1 Sep 2026
 
 **The commons gets its fixed vocabulary, closing the last door.**
