@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://infrastructure.omem-cloud.com/testimony-record-v0.1.schema.json",
+  "title": "Testimony Record, version 0.1",
+  "description": "One line of a Testimony Record: the append-only account of what an AI agent believed, what it was allowed to do, and who allowed it. Specification: https://infrastructure.omem-cloud.com/spec/testimony-record/ . Copyright 2026 Michael Brandon Clifford. The specification text is licensed CC BY 4.0; this schema is licensed MIT.",
+  "type": "object",
+  "required": ["spec", "type", "id", "at"],
+  "properties": {
+    "spec": {
+      "const": "testimony-record/0.1",
+      "description": "Fixes the version this line conforms to."
+    },
+    "type": {
+      "enum": ["belief", "evidence", "conflict", "decision", "approval", "integrity"]
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Unique within the record. Never reused."
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the entry was WRITTEN (RFC 3339). Distinct from when the fact held."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "belief" } } },
+      "then": {
+        "required": ["subject", "proposition", "polarity", "state", "asserted_by"],
+        "properties": {
+          "subject": { "type": "string", "description": "What the belief is about." },
+          "proposition": { "type": "string", "description": "The claim, as a stable token or URI." },
+          "polarity": { "enum": ["affirm", "deny"] },
+          "state": {
+            "enum": ["believed_true", "believed_false", "contradicted", "unknown"],
+            "description": "The state AT WRITE TIME. Later entries may change it; this line is never edited."
+          },
+          "asserted_by": { "$ref": "#/$defs/actor" },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Ids of evidence entries. Empty means ungrounded, which MUST be representable."
+          },
+          "held_from": { "type": "string", "format": "date-time" },
+          "held_until": { "type": ["string", "null"], "format": "date-time" },
+          "supersedes": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "evidence" } } },
+      "then": {
+        "required": ["kind", "source"],
+        "properties": {
+          "kind": { "enum": ["document", "message", "event", "api", "human", "derived"] },
+          "source": { "type": "string", "description": "Stable identifier of where it came from." },
+          "retrieved_at": { "type": "string", "format": "date-time" },
+          "digest": {
+            "type": "string",
+            "description": "Content hash, so the cited source can be shown unchanged."
+          },
+          "excerpt": { "type": "string", "maxLength": 4096 },
+          "redacted": {
+            "type": "boolean",
+            "description": "True when content was withheld; the citation still stands."
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "conflict" } } },
+      "then": {
+        "required": ["subject", "proposition", "sides"],
+        "properties": {
+          "subject": { "type": "string" },
+          "proposition": { "type": "string" },
+          "sides": {
+            "type": "array",
+            "minItems": 2,
+            "items": { "type": "string" },
+            "description": "Belief ids. BOTH sides are retained; neither is deleted."
+          },
+          "declared_by": { "$ref": "#/$defs/actor" },
+          "resolution": {
+            "type": ["object", "null"],
+            "required": ["method", "by", "at", "kept"],
+            "properties": {
+              "method": { "enum": ["policy", "rule", "human"] },
+              "by": { "$ref": "#/$defs/actor" },
+              "at": { "type": "string", "format": "date-time" },
+              "kept": { "type": "string" },
+              "note": { "type": "string" }
+            },
+            "description": "Null means unresolved, which is a valid and honest state."
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "decision" } } },
+      "then": {
+        "required": ["action_type", "risk_class", "proposed_by", "verdict", "executed"],
+        "properties": {
+          "action_type": { "type": "string" },
+          "risk_class": {
+            "enum": ["low", "medium", "high"],
+            "description": "MUST come from a registry outside the proposing model's control."
+          },
+          "risk_source": {
+            "type": "string",
+            "description": "Where the risk class came from, e.g. 'registry'."
+          },
+          "proposed_by": { "$ref": "#/$defs/actor" },
+          "inputs": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Belief ids the action rested on."
+          },
+          "verdict": { "enum": ["permitted", "refused"] },
+          "reason": { "type": "string" },
+          "executed": { "type": "boolean" },
+          "approval": { "type": ["string", "null"], "description": "Id of the approval entry." }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "approval" } } },
+      "then": {
+        "required": ["decision", "approver"],
+        "properties": {
+          "decision": { "type": "string" },
+          "approver": {
+            "allOf": [{ "$ref": "#/$defs/actor" }],
+            "description": "MUST identify a person or a named role holder, not a model."
+          },
+          "method": { "enum": ["console", "api", "email", "chat", "other"] },
+          "identity_source": {
+            "type": "string",
+            "description": "Where the approver identity came from, e.g. the auth layer. MUST NOT be the request body the model controls."
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "integrity" } } },
+      "then": {
+        "required": ["scheme", "digest"],
+        "properties": {
+          "scheme": { "enum": ["replay", "hash-chain", "signature", "external-anchor"] },
+          "digest": { "type": "string" },
+          "covers": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Entry ids covered, or omitted when the digest covers the whole record so far."
+          },
+          "engine": { "type": "string" },
+          "engine_version": { "type": "string" },
+          "verified_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "actor": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "enum": ["agent", "human", "system", "connector"] },
+        "name": { "type": "string" },
+        "role": { "type": "string" }
+      }
+    }
+  }
+}

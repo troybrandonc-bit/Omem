@@ -28,6 +28,11 @@ corpus.
 - [Security](https://infrastructure.omem-cloud.com/security/): what is implemented today and what is not built yet
 - [Pricing](https://infrastructure.omem-cloud.com/pricing/): free and MIT while in beta
 
+## Specification
+
+- [The Testimony Record Specification v0.1](https://infrastructure.omem-cloud.com/spec/testimony-record/): the open format for what an AI agent believed, what it was allowed to do, and who allowed it; four conformance levels, free to implement
+- [JSON Schema](https://infrastructure.omem-cloud.com/testimony-record-v0.1.schema.json)
+
 ## Comparisons
 
 - [OMEM vs Mem0 vs Zep, side by side](https://infrastructure.omem-cloud.com/compare/omem-vs-mem0-vs-zep/): the three-way table, with what each optimizes and where each honestly wins
