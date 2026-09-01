@@ -177,7 +177,12 @@ class Policy:
         self.registry = registry
         self.can = can_fn
 
-    def evaluate(self, plan: dict, approved_by=None) -> dict:
+    def evaluate(self, plan: dict, approved_by=None, approver=None) -> dict:
+        """`approver` is the principal the authentication layer resolved for this
+        request, not anything the caller wrote in the body. It is what decides
+        whether an approval counts, because a name in a request body is written
+        by whoever sent the request, including the agent whose action is being
+        approved."""
         decisions = []
         permitted = []
         actions = plan.get("actions") or []
@@ -188,7 +193,7 @@ class Policy:
             return {"permitted": [], "decisions": [{"reason": "too many actions", "permit": False}],
                     "ok": False}
         for i, act in enumerate(actions):
-            d = self._evaluate_action(act, approved_by)
+            d = self._evaluate_action(act, approved_by, approver)
             d["index"] = i
             decisions.append(d)
             if d["permit"]:
@@ -196,7 +201,7 @@ class Policy:
         return {"permitted": permitted, "decisions": decisions,
                 "ok": len(permitted) == len(actions) and len(actions) > 0}
 
-    def _evaluate_action(self, act, approved_by) -> dict:
+    def _evaluate_action(self, act, approved_by, approver=None) -> dict:
         if not isinstance(act, dict) or "type" not in act:
             return {"permit": False, "reason": "malformed action"}
         at = act["type"]
@@ -209,9 +214,24 @@ class Policy:
         if not self.can(perm):
             return {"permit": False, "reason": f"missing permission {perm}", "risk": risk}
         # 3. high-risk never auto-executes: needs explicit approval
-        if risk == RISK_HIGH and not approved_by:
-            return {"permit": False, "reason": "high-risk action requires explicit approval",
-                    "risk": risk, "requires_approval": True}
+        if risk == RISK_HIGH:
+            if not approved_by:
+                return {"permit": False, "reason": "high-risk action requires explicit approval",
+                        "risk": risk, "requires_approval": True}
+            # 4. and the approval cannot come from the agent being approved.
+            # approved_by is a name in the request body, so an agent holding a
+            # key with heal.execute.high could write one and authorise itself,
+            # which is the one thing this gate exists to prevent. The credential
+            # decides, not the name: a human's decision reaches OMEM through a
+            # session or a key that is not bound to the agent. Requests arrive
+            # with a principal; None means a trusted in-process caller rather
+            # than a request, which has no boundary to enforce.
+            if approver is not None and not str(approver).startswith(("user:", "key:")):
+                return {"permit": False,
+                        "reason": ("high-risk action cannot be approved by the agent "
+                                   f"proposing it ({approver}); approval must come from "
+                                   "a session or a key that is not agent-bound"),
+                        "risk": risk, "requires_approval": True}
         return {"permit": True, "reason": "permitted", "risk": risk}
 
 
@@ -556,13 +576,14 @@ class Healer:
 
     # -- full autonomous loop --
     def handle(self, org_id, project_id, error: dict, *, owner: str, diagnose_fn=None,
-               approved_by=None) -> dict:
+               approved_by=None, approver=None) -> dict:
         """The high-level entry: capture -> recall -> diagnose -> plan -> policy ->
         claim -> execute -> verify -> record -> rollback/retry -> structured result.
         diagnose_fn(failure, memory) -> plan dict (the LLM reasoning hook). If None,
         a known prior successful plan is reused; if neither, we escalate."""
         try:
-            return self._handle_inner(org_id, project_id, error, owner, diagnose_fn, approved_by)
+            return self._handle_inner(org_id, project_id, error, owner, diagnose_fn,
+                                      approved_by, approver)
         except HealingError:
             raise
         except Exception as e:  # fail closed, never self-retry uncontrolled
@@ -570,7 +591,8 @@ class Healer:
             return {"status": "escalated", "reason": "healer internal error (failed closed)",
                     "error": Redactor.scrub_text(str(e))[:300]}
 
-    def _handle_inner(self, org_id, project_id, error, owner, diagnose_fn, approved_by) -> dict:
+    def _handle_inner(self, org_id, project_id, error, owner, diagnose_fn, approved_by,
+                      approver=None) -> dict:
         component = str(error.get("component", "unknown"))
 
         # healer-of-healer depth guard: the healing subsystem may be recovered, but
@@ -599,7 +621,10 @@ class Healer:
                     "failure_id": failure["id"], "memory": _memory_summary(memory)}
 
         # policy: OMEM decides, not the LLM
-        decision = self.policy.evaluate(plan, approved_by=approved_by)
+        # `approver` is the principal the authentication layer resolved, which is
+        # what makes an approval mean anything. It is deliberately not `owner`:
+        # that one identifies the claim holder and does not namespace agents.
+        decision = self.policy.evaluate(plan, approved_by=approved_by, approver=approver)
         if not decision["ok"]:
             self.store.record_diagnosis(org_id, project_id, failure["id"], failure["fingerprint"],
                                         plan.get("diagnosis", ""), plan.get("confidence", 0.0),

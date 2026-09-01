@@ -107,6 +107,22 @@ call("POST", "/v1/healing/handle?project=" + PID, {
     "approved_by": "reviewer@example.com"}, OWNER)
 check("with a named approver it ran exactly once", len(LEDGER) == 1, LEDGER)
 
+# The approval that matters is the one an agent cannot write for itself. This
+# key carries heal.execute.high and is bound to an agent, so the only thing
+# standing between it and a refund is whether OMEM believes the name it sent.
+AGENT_KEY = api.STORE.create_key(PID, "Support agent key", "owner",
+                                 agent_id="support-agent")["secret"]
+status, agent_try = call("POST", "/v1/healing/handle?project=" + PID, {
+    "error": {"component": "billing", "error_type": "DoubleChargeSelfApproved"},
+    "plan": {"diagnosis": "refund the second capture",
+             "actions": [{"type": "issue_refund", "args": {"amount": 9999}}]},
+    "approved_by": "reviewer@example.com"}, AGENT_KEY)
+check("an agent holding a high-risk key cannot approve its own refund",
+      agent_try.get("status") == "denied", agent_try)
+check("and the refusal says the approval came from the agent itself",
+      "cannot be approved by the agent" in json.dumps(agent_try), agent_try)
+check("no money moved on the agent's own say-so", len(LEDGER) == 1, LEDGER)
+
 # a low-risk action needs no approval, and must not be exported as though it had
 call("POST", "/v1/healing/handle?project=" + PID, {
     "error": {"component": "billing", "error_type": "StaleRateCache"},
@@ -165,9 +181,16 @@ check("the approver is a person, not the agent",
       approval and approval["approver"]["kind"] == "human", approval)
 check("the approval names where the identity came from",
       approval and approval["identity_source"] == "api-key", approval)
-check("and the authenticated principal is reported alongside the name",
-      approval and str(approval.get("authenticated_principal", "")).startswith("key:"),
-      approval)
+# The identity is what the authentication layer resolved. The name the caller
+# sent is kept as a label, because a string in a request body is a claim about
+# a person and not a person.
+check("the approver identity is the authenticated principal, not the sent name",
+      approval and approval["approver"]["id"].startswith("key:"), approval)
+check("the name the caller supplied is kept, as a label rather than as proof",
+      approval and approval["approver"]["name"] == "reviewer@example.com", approval)
+check("the approver is not the agent that proposed the action",
+      approval and approval["approver"]["id"]
+      != by_type["issue_refund"]["proposed_by"]["id"], approval)
 
 print("== the published validator's verdict on OMEM's own export ==")
 report = TV.validate(text)

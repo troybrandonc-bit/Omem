@@ -176,7 +176,12 @@ def build_record(c: Client) -> list[dict]:
                     "_ts": ts, "at": at, "action_type": t,
                     "risk_class": risk_of(t),
                     "risk_source": "registry",
-                    "proposed_by": {"id": "model", "kind": "agent"},
+                    # Where the plan came from is recorded when the repair runs:
+                    # a model that just proposed this, or a prior repair that
+                    # already verified, are the same actions on screen and very
+                    # different things to have authorised.
+                    "proposed_by": {"id": r.get("plan_source") or "model",
+                                    "kind": "agent"},
                     "verdict": "permitted",
                     "reason": "approved by a named reviewer" if approved
                               else "permitted by policy",
@@ -184,18 +189,22 @@ def build_record(c: Client) -> list[dict]:
                     "approval": aid,
                 })
             if approved:
+                # The identity is the principal the authentication layer
+                # resolved, never the name in the request body: `id` is what
+                # OMEM verified, `name` is what the holder of that credential
+                # said. The gate refuses an approval from an agent-bound key,
+                # so a principal here is a session or a person's key.
+                principal = str(r.get("owner") or "unknown")
                 # The approval sorts ahead of what it unlocked, so the record
                 # can never be read as a human blessing something already done.
                 entries.append({
                     "spec": SPEC, "type": "approval", "id": aid, "_ts": ts, "at": at,
                     "decision": unlocked[0],
-                    "approver": {"id": str(approved), "kind": "human"},
+                    "approver": {"id": principal, "kind": "human",
+                                 "name": str(approved)},
                     "method": "api",
-                    # The authority came from an owner-role API key that the
-                    # authentication layer checked; the name is the label that
-                    # key supplied. Both are reported rather than blurred.
-                    "identity_source": "api-key",
-                    "authenticated_principal": r.get("owner"),
+                    "identity_source": ("auth-session" if principal.startswith("user:")
+                                        else "api-key"),
                 })
 
     # Export order is time order. The underlying log is already append-only;

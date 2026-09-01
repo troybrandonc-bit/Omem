@@ -234,8 +234,18 @@ def validate(text: str) -> Report:
         if not src or src in UNTRUSTED_SOURCES:
             bad_approver.append(
                 f"line {a['_line']}: identity_source {a.get('identity_source')!r}")
-        if by_id.get(a.get("decision") or "", {}).get("type") != "decision":
+        approved = by_id.get(a.get("decision") or "", {})
+        if approved.get("type") != "decision":
             bad_approver.append(f"line {a['_line']}: approves a decision not in the record")
+        else:
+            # An approver who is also the proposer satisfies every other
+            # requirement here and is worth nothing. A system that lets the
+            # acting agent's own credential sign off its action does not meet
+            # this level, however the name in the entry is spelled.
+            proposer = (approved.get("proposed_by") or {}).get("id")
+            if proposer and proposer == who.get("id"):
+                bad_approver.append(
+                    f"line {a['_line']}: approver is the proposer {proposer!r}")
     r.add("TR-3", "approvals name a person, sourced from authentication",
           not bad_approver, "; ".join(bad_approver[:3]))
 

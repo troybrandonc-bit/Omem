@@ -107,6 +107,11 @@ check("an agent approving itself stops at TR-2",
           "id": "support-agent", "kind": "agent"}}))) == "TR-2")
 check("an approver identity taken from the request body stops at TR-2",
       level_of(edit("a_9", lambda o: o.update({"identity_source": "request"}))) == "TR-2")
+# The dangerous version is not an entry that says "agent". It is an entry that
+# says "human", names the acting agent, and passes everything else.
+check("an approver who is the agent that proposed the action stops at TR-2",
+      level_of(edit("a_9", lambda o: o.update({"approver": {
+          "id": "support-agent", "kind": "human", "name": "Support Agent"}}))) == "TR-2")
 check("an approval with no identity source at all stops at TR-2",
       level_of(edit("a_9", lambda o: o.pop("identity_source"))) == "TR-2")
 

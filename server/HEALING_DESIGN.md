@@ -66,7 +66,14 @@ and cannot raise its own risk class.
 
 1. Only registered action handlers execute. No shell, no eval, no dynamic import.
 2. Every action has a risk class. Medium/high require policy approval; high never
-   auto-executes (requires `approved_by` present + RBAC `heal.execute.high`).
+   auto-executes (requires `approved_by` present + RBAC `heal.execute.high`), and
+   the approval must arrive on a credential that is not the agent's. An
+   agent-bound key is refused however it fills in `approved_by`, because that
+   field is a name the caller typed and the caller can be the agent being
+   approved. A human's decision reaches OMEM through a console session or a key
+   held by a person. The name is recorded as what that credential holder
+   asserted; the identity in the record is the principal the auth layer
+   resolved.
 3. Redaction on all persisted context.
 4. Atomic claim => one active recovery per (project, component) at a time.
 5. Fingerprint idempotency => the same failed strategy is not retried endlessly

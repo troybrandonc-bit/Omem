@@ -2039,6 +2039,24 @@ class Handler(BaseHTTPRequestHandler):
             return "user:" + str(auth["user"]["id"])
         return "unknown"
 
+    def _approval_principal(self, auth):
+        """Who the authentication layer says is making this request, namespaced
+        so the gate can tell a person from the agent it is gating. Never derived
+        from the request body: `approved_by` is a name the caller typed, and the
+        caller can be the agent whose action is being approved.
+
+        Deliberately separate from `_healing_actor`, which identifies the claim
+        holder and returns a bare agent id, so a bare string there cannot be
+        mistaken for a person here."""
+        bound = _key_bound_agent(auth)
+        if bound:
+            return "agent:" + str(bound)
+        if "user" in auth:
+            return "user:" + str(auth["user"]["id"])
+        if "key" in auth:
+            return "key:" + str(auth["key"].get("id", "unknown"))
+        return "unknown"
+
     def _omem_components(self):
         """Health of OMEM's OWN infrastructure, computed live at read time.
 
@@ -4927,7 +4945,8 @@ class Handler(BaseHTTPRequestHandler):
                 submitted_plan = body.get("plan") if isinstance(body.get("plan"), dict) else None
                 diagnose = (lambda f, m: submitted_plan) if submitted_plan else None
                 result = healer.handle(org_id, p.id, error, owner=actor,
-                                       diagnose_fn=diagnose, approved_by=approved_by)
+                                       diagnose_fn=diagnose, approved_by=approved_by,
+                                       approver=self._approval_principal(auth))
                 ENT.audit("healing.handle", actor=actor, org_id=org_id, project_id=p.id,
                           resource=result.get("failure_id"),
                           # approved_by is what unlocks the only actions OMEM will

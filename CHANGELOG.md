@@ -5,7 +5,25 @@ Release notes for people using OMEM. Engineering history lives in
 
 ## 0.3.15 - 1 Sep 2026
 
-**OMEM can hand you the record the specification describes.**
+**An agent can no longer approve its own high-risk action, and OMEM can hand
+you the record the specification describes.**
+
+- **Security: the approval gate now checks the credential, not just the name.**
+  High-risk actions required `approved_by` to be present, which is a name in
+  the request body. An agent holding a key with `heal.execute.high` could
+  therefore write a name and authorise itself, which is the one thing the gate
+  exists to prevent. The approval is now refused when it arrives on an
+  agent-bound key, whatever name accompanies it, and the refusal says so. A
+  human's decision reaches OMEM through a console session or a key held by a
+  person. If you were approving high-risk repairs over an agent-bound key, that
+  now fails closed and needs a key that is not bound to the agent.
+- **The approver identity in an exported record is the principal the
+  authentication layer resolved**, with the name the caller supplied kept as a
+  label rather than presented as proof. The validator gained the matching
+  check: an approval whose approver is the same principal that proposed the
+  action no longer reaches TR-3, however the entry is spelled. The
+  specification says this explicitly now, which is a clarification implementing
+  it surfaced rather than a change of position.
 
 - **`scripts/export_testimony.py` writes a Testimony Record from any running
   server.** Point it at a URL with a key and a project and it emits the
