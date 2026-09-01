@@ -33,6 +33,16 @@ const ENTRY = `{"spec":"testimony-record/0.1","type":"belief","id":"b_41",
  "approver":{"id":"troy@example.com","kind":"human","name":"T. Clifford",
  "role":"owner"},"method":"console","identity_source":"auth-session"}`;
 
+const VALIDATE = `# any record, from any implementation
+python3 testimony_validate.py record.jsonl
+# ...
+# Conformance: TR-3
+# To reach TR-4, fix:
+#   - the record publishes an integrity scheme
+
+# in CI, fail the build below a level you promised
+python3 testimony_validate.py record.jsonl --require TR-3`;
+
 const LEVELS: Array<[string, string, string]> = [
   ["TR-1 Recorded",
    "The record exists and is append-only.",
@@ -80,6 +90,8 @@ export default function Spec() {
               <tr><td><strong>Editor</strong></td><td>Troy Clifford</td></tr>
               <tr><td><strong>Canonical URL</strong></td><td><span className="mono">infrastructure.omem-cloud.com/spec/testimony-record/</span></td></tr>
               <tr><td><strong>Schema</strong></td><td><a href="/testimony-record-v0.1.schema.json"><span className="mono">testimony-record-v0.1.schema.json</span></a></td></tr>
+              <tr><td><strong>Example</strong></td><td><a href="/testimony-record-example.jsonl"><span className="mono">testimony-record-example.jsonl</span></a>, a conforming record at TR-4</td></tr>
+              <tr><td><strong>Validator</strong></td><td><a href="https://github.com/troybrandonc-bit/Omem/blob/main/scripts/testimony_validate.py"><span className="mono">testimony_validate.py</span></a>, one file, no dependencies, MIT</td></tr>
               <tr><td><strong>Status</strong></td><td>Draft. Stable enough to build against, open to comment before 1.0.</td></tr>
             </tbody>
           </table>
@@ -173,6 +185,24 @@ export default function Spec() {
             Most systems shipping today are at TR-1 without meaning to be. The
             gap that matters commercially is TR-2 to TR-3: that is where a
             record stops being a log and starts being an answer.
+          </p>
+
+          <h2>Checking a claim</h2>
+          <p>
+            A conformance level that cannot be checked by the person hearing it
+            is an adjective. So the validator is published alongside the
+            specification: one file, standard library only, no network, MIT. It
+            checks the things a JSON Schema cannot, which is the relationships
+            between entries: that cited evidence exists, that both sides of a
+            contradiction are still present, that the risk class did not come
+            from the model proposing the action, and that the approver was a
+            person the authentication layer named.
+          </p>
+          <CodeBlock single={VALIDATE} filename="terminal"
+            label="Validate a record and print the level it reaches" />
+          <p>
+            Copy it into your own repository and run it in your own CI. Vendors
+            checking their own homework is the problem, not the solution.
           </p>
 
           <h2>Mapping to the EU AI Act</h2>
