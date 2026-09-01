@@ -50,6 +50,14 @@ Docs: **[infrastructure.omem-cloud.com](https://infrastructure.omem-cloud.com)**
 <p align="center"><sub>That is <code>scripts/demo_reasoning.py</code>, abridged. Every line is an
 asserted behaviour that runs in CI, so this picture cannot quietly stop being true.</sub></p>
 
+<p align="center">
+  <img src=".github/omem-demo.gif" width="620"
+       alt="The dashboard during a real run: two sources disagree about a customer's plan, OMEM keeps both sides and marks the proposition CONTRADICTED, and every belief opens into the chain of why it is believed.">
+</p>
+
+<p align="center"><sub>Two sources disagree. Neither is overwritten.
+<a href="https://infrastructure.omem-cloud.com">See the whole thing running</a>.</sub></p>
+
 ## What makes it different
 
 Most agent memory is a list of facts. When two facts conflict, one silently
