@@ -1499,20 +1499,24 @@ def _write_bank_export(dest_dir):
     # CONTRIBUTION, and the whole consent model in one condition: this block
     # runs only when the operator said yes -- either to the first-open prompt
     # (recorded, revocable in Settings) or by setting OMEM_COMMONS_URL, which
-    # is itself an explicit act. What is sent is byte-for-byte what was just
-    # written to their own disk above -- counts over populations under a
+    # is itself an explicit act. What is sent is the subset of the file just
+    # written to their own disk whose tokens are built from the shared commons
+    # vocabulary (commons.COMMONS_LEXICON) -- counts over populations under a
     # random instance pseudonym -- so consent is informed by a file they can
-    # open. No answer, or no: no network call exists. A collector never
-    # contributes to itself.
+    # open, and a long-tail local token never travels. No answer, or no: no
+    # network call exists. A collector never contributes to itself.
     try:
         consented = bool(COMMONS_URL) or _commons.get_choice(STORE.db) == "yes"
     except Exception:
         consented = False
-    if consented and rows and not BANK_COLLECTOR:
+    sendable = [r for r in rows
+                if _commons.lexicon_ok(r["antecedent"])
+                and _commons.lexicon_ok(r["consequent"])]
+    if consented and sendable and not BANK_COLLECTOR:
         try:
             url = COMMONS_URL or _commons.DEFAULT_COMMONS_URL
             payload = json.dumps({"instance": _commons.instance_id(STORE.db),
-                                  "patterns": rows}).encode()
+                                  "patterns": sendable}).encode()
             req = urllib.request.Request(
                 url.rstrip("/") + "/v1/commons", data=payload,
                 headers={"Content-Type": "application/json"}, method="POST")

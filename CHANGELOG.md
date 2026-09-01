@@ -3,6 +3,27 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.3.14 - 1 Sep 2026
+
+**The commons gets its fixed vocabulary, closing the last door.**
+
+- **A commons-bound token must be built from a fixed behaviour-domain
+  lexicon.** The structural checks (no rel_ prefixes, no colons, no digits,
+  lowercase-and-underscores only) could not stop a token ENGINEERED to look
+  like a plain word: "johnsmith_of_acmecorp" passed every format check while
+  carrying an identity. Now every word in a contributed token must come from
+  `commons.COMMONS_LEXICON`, a curated vocabulary that deliberately contains
+  no names, no companies, and no affiliation connectors, so no composition of
+  allowed words can identify anyone. A token outside the vocabulary is refused
+  at the door with the offending word named.
+- **Enforced at all three boundaries.** The collector refuses it on arrival
+  (422), the published dataset re-checks every stored row (so contributions
+  that predate the vocabulary can never surface), and a consenting install
+  filters its own contribution before sending, so a long-tail local token
+  never leaves the machine in the first place.
+- Regression-tested end to end (tests_commons.py, now 46 checks), including
+  the engineered-token case and the pre-vocabulary stored-row case.
+
 ## 0.3.13 - 1 Sep 2026
 
 **The integrations get their guard rails, and MCP gets the act-or-ask tool.**
