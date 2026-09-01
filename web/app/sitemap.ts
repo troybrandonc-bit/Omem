@@ -30,6 +30,7 @@ const ROUTES = [
   "/guides/ai-agent-audit-trail",
   "/guides/human-in-the-loop-ai-agents",
   "/guides/should-agent-memory-decide-truth",
+  "/spec/testimony-record",
   "/compare",
   "/compare/omem-vs-mem0-vs-zep",
   "/compare/mem0",
