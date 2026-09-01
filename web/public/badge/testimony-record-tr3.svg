@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="173" height="20" role="img" aria-label="testimony record: TR-3">
+  <title>testimony record: TR-3 (gated)</title>
+  <linearGradient id="s" x2="0" y2="100%">
+    <stop offset="0" stop-color="#fff" stop-opacity=".08"/>
+    <stop offset="1" stop-opacity=".08"/>
+  </linearGradient>
+  <clipPath id="r"><rect width="173" height="20" rx="3" fill="#fff"/></clipPath>
+  <g clip-path="url(#r)">
+    <rect width="123" height="20" fill="#171614"/>
+    <rect x="123" width="50" height="20" fill="#4F46E5"/>
+    <rect width="173" height="20" fill="url(#s)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,DejaVu Sans,Geneva,sans-serif" font-size="11">
+    <text x="61" y="14">testimony record</text>
+    <text x="148" y="14" font-weight="bold">TR-3</text>
+  </g>
+</svg>

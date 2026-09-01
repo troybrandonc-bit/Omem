@@ -27,6 +27,15 @@ Release notes for people using OMEM. Engineering history lives in
   registry can be read on its own rather than inferred from refusal messages.
 - **`GET /v1/health` now reports `engine` and `engine_version`**, which anyone
   replaying the ops log to check a record needs by name.
+- **A conformance check other people can run.** A composite GitHub Action
+  (`.github/actions/testimony-conformance`) validates a record in your own CI
+  and fails the build below the level you promised, whatever produced the
+  record. The four conformance marks are served as static SVG from the
+  canonical domain, and the new
+  [implementations page](https://infrastructure.omem-cloud.com/spec/testimony-record/implementations)
+  lists which systems emit conforming records and at what level. Listings
+  follow a record that passed the validator; nothing there is self-reported,
+  and the page says plainly that one implementation is not yet a standard.
 
 ## 0.3.14 - 1 Sep 2026
 

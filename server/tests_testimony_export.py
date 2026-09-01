@@ -19,6 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, ".."))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "sdk", "python"))
 
 TMP = os.environ.get("TEMP") or "/tmp"
 os.environ["OMEM_DB"] = os.path.join(TMP, "omem_testimony_export.db")

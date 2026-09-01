@@ -297,8 +297,11 @@ export default function Spec() {
             else finds out.
           </p>
           <p>
-            If you implement this in another system, say so and it will be
-            listed here. Comparable records are worth more than any one
+            If you implement this in another system, send a record and it gets
+            checked and <a href="/spec/testimony-record/implementations">listed
+            on the implementations page</a>, along with the conformance mark
+            for the level it reaches. Comparable records from systems that
+            compete with each other are worth more than any one
             implementation, including this one.
           </p>
 
