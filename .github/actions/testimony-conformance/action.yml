@@ -1,0 +1,76 @@
+name: Testimony Record conformance
+description: >
+  Check a Testimony Record against the published specification and fail the
+  build if it does not reach the level you promised.
+
+# Add this to your own repository, whatever produced the record:
+#
+#   - uses: troybrandonc-bit/Omem/.github/actions/testimony-conformance@main
+#     with:
+#       record: record.jsonl
+#       require: TR-3
+#
+# It runs the same validator the specification points at, on your machine,
+# against your file. Nothing is uploaded and nothing is reported anywhere.
+# A vendor checking its own homework is the problem, so this is written to be
+# run by the implementer rather than by the editor of the specification.
+#
+# Specification: https://infrastructure.omem-cloud.com/spec/testimony-record/
+
+inputs:
+  record:
+    description: Path to the JSON Lines record to check.
+    required: true
+  require:
+    description: "Minimum conformance level: TR-1, TR-2, TR-3 or TR-4."
+    required: false
+    default: TR-1
+  summary:
+    description: Write the result and the conformance mark to the job summary.
+    required: false
+    default: "true"
+
+outputs:
+  level:
+    description: The level the record actually reached, or empty if it reached none.
+    value: ${{ steps.check.outputs.level }}
+  mark:
+    description: URL of the conformance mark for the level reached.
+    value: ${{ steps.check.outputs.mark }}
+
+runs:
+  using: composite
+  steps:
+    - id: check
+      shell: bash
+      run: |
+        set -o pipefail
+        validator="${{ github.action_path }}/../../../scripts/testimony_validate.py"
+        report=$(python3 "$validator" "${{ inputs.record }}" --json) || true
+        level=$(printf '%s' "$report" | python3 -c \
+          'import json,sys; print(json.load(sys.stdin).get("level") or "")')
+        echo "level=$level" >> "$GITHUB_OUTPUT"
+        mark=""
+        if [ -n "$level" ]; then
+          slug=$(printf '%s' "$level" | tr 'A-Z' 'a-z' | tr -d '-')
+          mark="https://infrastructure.omem-cloud.com/badge/testimony-record-$slug.svg"
+        fi
+        echo "mark=$mark" >> "$GITHUB_OUTPUT"
+
+        if [ "${{ inputs.summary }}" = "true" ]; then
+          {
+            echo "### Testimony Record conformance"
+            echo
+            if [ -n "$level" ]; then
+              echo "\`${{ inputs.record }}\` reaches **$level**."
+              echo
+              echo "[![testimony record $level]($mark)](https://infrastructure.omem-cloud.com/spec/testimony-record/)"
+            else
+              echo "\`${{ inputs.record }}\` reaches no conformance level."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+        # The human-readable run is what a reader of the log wants, and it
+        # carries the exit code that fails the build.
+        python3 "$validator" "${{ inputs.record }}" --require "${{ inputs.require }}"

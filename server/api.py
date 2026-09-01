@@ -2039,6 +2039,24 @@ class Handler(BaseHTTPRequestHandler):
             return "user:" + str(auth["user"]["id"])
         return "unknown"
 
+    def _approval_principal(self, auth):
+        """Who the authentication layer says is making this request, namespaced
+        so the gate can tell a person from the agent it is gating. Never derived
+        from the request body: `approved_by` is a name the caller typed, and the
+        caller can be the agent whose action is being approved.
+
+        Deliberately separate from `_healing_actor`, which identifies the claim
+        holder and returns a bare agent id, so a bare string there cannot be
+        mistaken for a person here."""
+        bound = _key_bound_agent(auth)
+        if bound:
+            return "agent:" + str(bound)
+        if "user" in auth:
+            return "user:" + str(auth["user"]["id"])
+        if "key" in auth:
+            return "key:" + str(auth["key"].get("id", "unknown"))
+        return "unknown"
+
     def _omem_components(self):
         """Health of OMEM's OWN infrastructure, computed live at read time.
 
@@ -2253,6 +2271,12 @@ class Handler(BaseHTTPRequestHandler):
             # GET /v1/healing/health
             if parts[2:] == ["health"]:
                 return self._send(200, self._healing_health(org_id, p.id))
+            # GET /v1/healing/actions -> what may execute, and at what risk.
+            # The risk class an auditor sees has to come from here rather than
+            # from the plan that proposed the action, so the registry has to be
+            # readable on its own, not only in the reasons attached to refusals.
+            if parts[2:] == ["actions"]:
+                return self._send(200, {"data": HEAL_ACTIONS.describe()})
             # GET /v1/healing/failures[?component=]
             if parts[2:] == ["failures"]:
                 comp = qs.get("component", [None])[0]
@@ -2304,6 +2328,11 @@ class Handler(BaseHTTPRequestHandler):
                 },
                 "uptime_seconds": METRICS.snapshot()["uptime_seconds"],
                 "protocol": "1.0",
+                # Which frozen engine produced the beliefs this server serves.
+                # Anyone replaying the ops log to check the state needs the
+                # version by name, and an exported record has to cite it.
+                "engine": "omem_engine",
+                "engine_version": ENGINE_VERSION,
                 # The dashboard needs this before it has a session, to decide
                 # between showing a sign-in form and provisioning a local one.
                 # Naming the mode is not a disclosure: an attacker learns it from
@@ -4916,7 +4945,8 @@ class Handler(BaseHTTPRequestHandler):
                 submitted_plan = body.get("plan") if isinstance(body.get("plan"), dict) else None
                 diagnose = (lambda f, m: submitted_plan) if submitted_plan else None
                 result = healer.handle(org_id, p.id, error, owner=actor,
-                                       diagnose_fn=diagnose, approved_by=approved_by)
+                                       diagnose_fn=diagnose, approved_by=approved_by,
+                                       approver=self._approval_principal(auth))
                 ENT.audit("healing.handle", actor=actor, org_id=org_id, project_id=p.id,
                           resource=result.get("failure_id"),
                           # approved_by is what unlocks the only actions OMEM will

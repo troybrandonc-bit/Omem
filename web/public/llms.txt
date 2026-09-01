@@ -31,6 +31,7 @@ corpus.
 ## Specification
 
 - [The Testimony Record Specification v0.1](https://infrastructure.omem-cloud.com/spec/testimony-record/): the open format for what an AI agent believed, what it was allowed to do, and who allowed it; four conformance levels, free to implement
+- [Testimony Record implementations](https://infrastructure.omem-cloud.com/spec/testimony-record/implementations): which systems emit conforming records, the level each reaches, and how to get listed; listings follow a record that passed the validator, never self-report
 - [JSON Schema](https://infrastructure.omem-cloud.com/testimony-record-v0.1.schema.json)
 
 ## Comparisons

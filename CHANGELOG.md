@@ -3,6 +3,58 @@
 Release notes for people using OMEM. Engineering history lives in
 `CHANGELOG-dev-notes.md`; this file is what changes for you.
 
+## 0.3.15 - 1 Sep 2026
+
+**An agent can no longer approve its own high-risk action, and OMEM can hand
+you the record the specification describes.**
+
+- **Security: the approval gate now checks the credential, not just the name.**
+  High-risk actions required `approved_by` to be present, which is a name in
+  the request body. An agent holding a key with `heal.execute.high` could
+  therefore write a name and authorise itself, which is the one thing the gate
+  exists to prevent. The approval is now refused when it arrives on an
+  agent-bound key, whatever name accompanies it, and the refusal says so. A
+  human's decision reaches OMEM through a console session or a key held by a
+  person. If you were approving high-risk repairs over an agent-bound key, that
+  now fails closed and needs a key that is not bound to the agent.
+- **The approver identity in an exported record is the principal the
+  authentication layer resolved**, with the name the caller supplied kept as a
+  label rather than presented as proof. The validator gained the matching
+  check: an approval whose approver is the same principal that proposed the
+  action no longer reaches TR-3, however the entry is spelled. The
+  specification says this explicitly now, which is a clarification implementing
+  it surfaced rather than a change of position.
+
+- **`scripts/export_testimony.py` writes a Testimony Record from any running
+  server.** Point it at a URL with a key and a project and it emits the
+  [v0.1 format](https://infrastructure.omem-cloud.com/spec/testimony-record/):
+  beliefs with their states and sources, contradictions with both sides named,
+  every gate decision including the refusals, approvals with the approver and
+  where that identity came from, and an integrity entry naming the frozen
+  engine. Stdlib only, MIT, no dependency on the SDK.
+- **Nothing in the export is reconstructed.** A record whose risk column was
+  guessed by the exporter would be worth nothing to the auditor reading it, so
+  risk classes are read from the action registry, `not:x` is exported as the
+  same proposition denied (which is what lets one conflict entry name both
+  sides), and an ungrounded belief says so rather than being quietly dropped.
+- **CI now proves the reference-implementation claim on every commit**
+  (`tests_testimony_export.py`, 22 checks): it drives a real server through a
+  contradiction, a refused high-risk action and an approved one, exports, and
+  fails the build if the published validator does not return TR-3 or better.
+- **`GET /v1/healing/actions`** lists what may execute and at what risk, so the
+  registry can be read on its own rather than inferred from refusal messages.
+- **`GET /v1/health` now reports `engine` and `engine_version`**, which anyone
+  replaying the ops log to check a record needs by name.
+- **A conformance check other people can run.** A composite GitHub Action
+  (`.github/actions/testimony-conformance`) validates a record in your own CI
+  and fails the build below the level you promised, whatever produced the
+  record. The four conformance marks are served as static SVG from the
+  canonical domain, and the new
+  [implementations page](https://infrastructure.omem-cloud.com/spec/testimony-record/implementations)
+  lists which systems emit conforming records and at what level. Listings
+  follow a record that passed the validator; nothing there is self-reported,
+  and the page says plainly that one implementation is not yet a standard.
+
 ## 0.3.14 - 1 Sep 2026
 
 **The commons gets its fixed vocabulary, closing the last door.**

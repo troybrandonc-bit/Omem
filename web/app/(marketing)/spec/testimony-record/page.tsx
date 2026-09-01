@@ -43,6 +43,13 @@ python3 testimony_validate.py record.jsonl
 # in CI, fail the build below a level you promised
 python3 testimony_validate.py record.jsonl --require TR-3`;
 
+const EXPORT = `# any OMEM server, running anywhere you can reach it
+python3 export_testimony.py --url http://127.0.0.1:8787 \\
+    --key omem_sk_... --project proj_... --out record.jsonl
+
+python3 testimony_validate.py record.jsonl --require TR-4
+# Conformance: TR-4`;
+
 const LEVELS: Array<[string, string, string]> = [
   ["TR-1 Recorded",
    "The record exists and is append-only.",
@@ -52,7 +59,7 @@ const LEVELS: Array<[string, string, string]> = [
    "Each belief entry cites the evidence it rests on, or is explicitly marked ungrounded. When two beliefs about the same proposition disagree, both are retained and a conflict entry names them. Resolution, if any, records who resolved it and how."],
   ["TR-3 Gated",
    "Actions carry a verdict, and approvals carry a name.",
-   "Every consequential action produces a decision entry whose risk class comes from a registry outside the proposing model's control. Refusals are recorded as faithfully as permissions. An approval entry identifies a person or named role holder, sourced from the authentication layer rather than from anything the model can write."],
+   "Every consequential action produces a decision entry whose risk class comes from a registry outside the proposing model's control. Refusals are recorded as faithfully as permissions. An approval entry identifies a person or named role holder, sourced from the authentication layer rather than from anything the model can write. The approver is not the principal that proposed the action: a name in a request body is written by whoever sent the request, so a system where the acting agent's own credential can approve its action does not reach this level, however the entry is spelled."],
   ["TR-4 Verifiable",
    "The record can be shown not to have changed.",
    "The implementation publishes an integrity scheme (deterministic replay, a hash chain, signatures, or an external anchor) under which an independent party can reproduce or verify the record's state at a past moment, and detect alteration."],
@@ -92,6 +99,7 @@ export default function Spec() {
               <tr><td><strong>Schema</strong></td><td><a href="/testimony-record-v0.1.schema.json"><span className="mono">testimony-record-v0.1.schema.json</span></a></td></tr>
               <tr><td><strong>Example</strong></td><td><a href="/testimony-record-example.jsonl"><span className="mono">testimony-record-example.jsonl</span></a>, a conforming record at TR-4</td></tr>
               <tr><td><strong>Validator</strong></td><td><a href="https://github.com/troybrandonc-bit/Omem/blob/main/scripts/testimony_validate.py"><span className="mono">testimony_validate.py</span></a>, one file, no dependencies, MIT</td></tr>
+              <tr><td><strong>Exporter</strong></td><td><a href="https://github.com/troybrandonc-bit/Omem/blob/main/scripts/export_testimony.py"><span className="mono">export_testimony.py</span></a>, writes a record from any running OMEM server, MIT</td></tr>
               <tr><td><strong>Status</strong></td><td>Draft. Stable enough to build against, open to comment before 1.0.</td></tr>
             </tbody>
           </table>
@@ -160,6 +168,7 @@ export default function Spec() {
             <li>MUST source an action&rsquo;s risk class from outside the proposing model. A plan that can declare its own risk class is not gated.</li>
             <li>MUST record refusals as durably as permissions.</li>
             <li>MUST source approver identity from the authentication layer, and MUST NOT accept it from content the model can write.</li>
+            <li>MUST NOT let the principal that proposed an action approve it. A credential the acting agent holds cannot supply the approval, whatever name accompanies the request.</li>
             <li>SHOULD record the time a claim held separately from the time it was written, so a past state can be reconstructed.</li>
             <li>MAY redact evidence content while keeping the citation, for records that contain personal data.</li>
           </ul>
@@ -195,8 +204,9 @@ export default function Spec() {
             checks the things a JSON Schema cannot, which is the relationships
             between entries: that cited evidence exists, that both sides of a
             contradiction are still present, that the risk class did not come
-            from the model proposing the action, and that the approver was a
-            person the authentication layer named.
+            from the model proposing the action, that the approver was a person
+            the authentication layer named, and that the approver was not the
+            agent whose action was approved.
           </p>
           <CodeBlock single={VALIDATE} filename="terminal"
             label="Validate a record and print the level it reaches" />
@@ -265,17 +275,35 @@ export default function Spec() {
           <h2>Reference implementation</h2>
           <p>
             <a href="https://github.com/troybrandonc-bit/Omem">OMEM</a> is the
-            reference implementation and targets TR-4: beliefs are append-only
-            with provenance, contradictions are kept with both sides marked,
-            risky actions wait for a named approver with refusals recorded, and
-            the engine replays the whole record byte-identically on every
-            commit. It is MIT, self-hosted, and installs with one command.
-            Reading it is the fastest way to see what each level costs in
-            practice.
+            reference implementation and emits records at TR-4: beliefs are
+            append-only with provenance, contradictions are kept with both
+            sides marked, risky actions wait for a named approver with refusals
+            recorded, and the engine replays the whole record byte-identically
+            on every commit. It is MIT, self-hosted, and installs with one
+            command.
           </p>
           <p>
-            If you implement this in another system, say so and it will be
-            listed here. Comparable records are worth more than any one
+            Point the exporter at any running server and it writes a record
+            this validator accepts. Nothing in the output is composed for the
+            occasion: belief states come from the memory, risk classes from the
+            action registry rather than from the plan that proposed the action,
+            and approver identities from the authenticated principal.
+          </p>
+          <CodeBlock single={EXPORT} filename="terminal"
+            label="Export a record from a running server, then check it" />
+          <p>
+            That round trip runs in CI on every commit, against a real server:
+            a contradiction is created, a high-risk action is refused, a named
+            reviewer approves it, and the export is validated. If OMEM ever
+            stops conforming to this document, the build goes red before anyone
+            else finds out.
+          </p>
+          <p>
+            If you implement this in another system, send a record and it gets
+            checked and <a href="/spec/testimony-record/implementations">listed
+            on the implementations page</a>, along with the conformance mark
+            for the level it reaches. Comparable records from systems that
+            compete with each other are worth more than any one
             implementation, including this one.
           </p>
 
