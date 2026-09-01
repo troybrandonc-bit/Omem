@@ -38,6 +38,87 @@ CREATE TABLE IF NOT EXISTS commons_meta(k TEXT PRIMARY KEY, v TEXT NOT NULL);
 MAX_PATTERNS = 500          # one contribution's pattern cap
 MAX_INSTANCE_LEN = 64
 
+# ── the commons vocabulary ───────────────────────────────────────────────────
+# The structural checks in _identifying stop rel_ tokens, colons, digits, and
+# anything that is not lowercase-and-underscores. The one thing they cannot
+# stop is a token ENGINEERED to look like a plain lowercase word:
+# "johnsmith_of_acmecorp" carries an identity while passing every format
+# check. Closing that hole needs a fixed vocabulary, and this is it: a
+# commons-bound token must be built ONLY from the words below, joined by
+# underscores. The list is behaviour-domain by construction; it deliberately
+# contains no given names, no surnames (even the ones that double as common
+# words), no company names, and no affiliation connectors ("at"), so no
+# composition of allowed words can name an individual or an employer. A
+# legitimate long-tail token that uses a word missing here is refused at the
+# door with the word named; extending the lexicon is a code change and a
+# review, exactly like registering an action type.
+COMMONS_LEXICON = frozenset("""
+prefers avoids responds replies holds pays renews churns opens ignores
+chooses upgrades downgrades cancels reads writes attends skips schedules
+delays completes abandons requests demands accepts declines negotiates
+escalates complains praises recommends refers returns purchases buys
+subscribes unsubscribes clicks browses searches compares waits switches
+adopts rejects trusts doubts asks answers follows shares saves spends
+invests books orders reserves confirms disputes appeals approves denies
+delegates automates prefers wants needs uses avoids likes dislikes values
+expects tolerates
+is are has have was were be been being does did doing
+to of for by via per non the a an and or with without over under
+annual monthly weekly daily quarterly yearly hourly biweekly seasonal
+recurring onetime morning afternoon evening night weekday weekend early
+late often rarely never always sometimes frequently occasionally
+email phone chat video call message text letter mail contact contacts notification
+notifications reminder reminders newsletter forum portal dashboard app web
+mobile desktop online offline async sync live remote inperson
+billing invoice invoices payment payments discount discounts refund
+refunds credit debit price pricing cost costs budget budgets contract
+contracts plan plans tier tiers subscription subscriptions trial trials
+demo demos quote quotes proposal proposals order orders shipping delivery
+deliveries support ticket tickets feedback survey surveys review reviews
+rating ratings renewal renewals upgrade upgrades downgrade downgrades
+cancellation cancellations onboarding training documentation docs policy
+policies terms privacy security compliance audit audits report reports
+meeting meetings agenda agendas deadline deadlines milestone milestones
+project projects task tasks workflow workflows process processes approval
+approvals escalation escalations
+formal informal verbose brief detailed concise technical simple visual
+textual private public anonymous personal shared individual group team
+solo bulk single multiple standard premium basic advanced custom default
+automatic manual digital paper physical virtual local global domestic
+international short long fast slow high low big small new old frequent
+infrequent flexible strict loyal sensitive cautious aggressive
+conservative risk averse quality focused brand conscious feature driven
+value oriented deadline detail service touch enterprise startup smb
+consumer business customer customers client clients vendor vendors partner
+partners user users member members subscriber subscribers buyer buyers
+decision maker makers stakeholder stakeholders
+works remotely onsite hybrid parttime fulltime overtime
+intends considering decided planning intending willing reluctant likely
+unlikely ready hesitant eager
+pdf spreadsheet slides document documents attachment attachments link
+links file files format formats
+alpha beta gamma pilot test production staging
+upgrade cancel churn retain renew expand contract downgrade
+""".split())
+
+
+def _foreign_word(token: str) -> str | None:
+    """First word of a token that is outside the commons lexicon, or None."""
+    for w in token.split("_"):
+        if w and w not in COMMONS_LEXICON:
+            return w
+    return None
+
+
+def lexicon_ok(token: str) -> bool:
+    """A commons-publishable token: structurally clean AND built only from
+    lexicon words."""
+    if not isinstance(token, str) or not token or len(token) > 64:
+        return False
+    if _identifying(token):
+        return False
+    return _foreign_word(token) is None
+
 # Where contributions go when an operator says yes: the commons the OMEM
 # project runs, on the project's own domain. Overridable with OMEM_COMMONS_URL
 # (a lab pooling its own installs would point at its own collector); an
@@ -95,6 +176,11 @@ def validate(payload) -> tuple[list, str | None]:
             return [], "antecedent/consequent must be short strings"
         if _identifying(a) or _identifying(c):
             return [], f"identifying token refused: {a if _identifying(a) else c!r}"
+        fw = _foreign_word(a) or _foreign_word(c)
+        if fw:
+            bad = a if _foreign_word(a) else c
+            return [], (f"token outside the commons vocabulary refused: {bad!r} "
+                        f"(word {fw!r} is not in the lexicon)")
         try:
             s, r, n = int(p.get("support")), int(p.get("refute")), int(p.get("subjects"))
         except (TypeError, ValueError):
@@ -139,7 +225,12 @@ def merged(own_rows: list, contribs: dict) -> list:
         e["subjects"] += n
         e["sources"] += 1
 
+    # Belt and braces: the door validates on ingest, but rows stored before
+    # the vocabulary existed, and the collector's own bank rows, are re-checked
+    # here so nothing outside the lexicon can reach the published dataset.
     for row in own_rows:
+        if not (lexicon_ok(row["antecedent"]) and lexicon_ok(row["consequent"])):
+            continue
         add(row["antecedent"], row["consequent"],
             row["support"], row["refute"], row["subjects"])
     for _inst, (_ts, pats) in contribs.items():
@@ -147,6 +238,8 @@ def merged(own_rows: list, contribs: dict) -> list:
         for p in pats:
             k = (p["antecedent"], p["consequent"])
             if k in seen_here:
+                continue
+            if not (lexicon_ok(p["antecedent"]) and lexicon_ok(p["consequent"])):
                 continue
             seen_here.add(k)
             add(p["antecedent"], p["consequent"],
@@ -234,7 +327,10 @@ def dataset_card(rows: list, stats: dict) -> str:
         "contributed by that installation's operator, who answered an explicit",
         "opt-in question. Contributions carry a random pseudonym and are",
         "re-validated on arrival: any token that could embed a name, an",
-        "identifier, or an extracted value is refused at the door.",
+        "identifier, or an extracted value is refused at the door, and every",
+        "token must be built solely from a fixed behaviour-domain vocabulary,",
+        "so even a token engineered to look like a plain word cannot smuggle",
+        "an identity in.",
         "",
         "## What a line can never contain",
         "",

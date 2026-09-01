@@ -69,6 +69,38 @@ for name, bad in [
     check(name, err is not None)
 _, err = commons.validate({**GOOD, "patterns": GOOD["patterns"] * (commons.MAX_PATTERNS + 1)})
 check("oversized contribution refused", err is not None)
+
+print("== the vocabulary: engineered-lowercase tokens can no longer pass ==")
+# Regression for the residual hole the format checks could not close: a token
+# built to LOOK like a plain behaviour word while smuggling identity.
+for name, tok in [
+    ("smuggled name+employer token refused", "johnsmith_of_acmecorp"),
+    ("affiliation connector 'at' is outside the lexicon", "works_at_acme"),
+    ("random word outside the lexicon refused", "prefers_zorblax_billing"),
+]:
+    _, err = commons.validate(
+        {**GOOD, "patterns": [{**GOOD["patterns"][0], "antecedent": tok}]})
+    check(name, err is not None and "vocabulary" in (err or ""), err)
+clean, err = commons.validate(GOOD)
+check("canonical tokens still pass the lexicon", err is None and len(clean) == 1, err)
+for tok in ("prefers_annual_billing", "works_remotely", "is_enterprise_customer",
+            "intends_to_upgrade", "considering_cancel", "wants_pdf_invoices"):
+    check("lexicon covers canonical token " + tok, commons.lexicon_ok(tok))
+check("lexicon_ok refuses structural violations too",
+      not commons.lexicon_ok("rel_works_at_acme") and not commons.lexicon_ok("a:b"))
+
+print("== merged() re-checks stored rows against the vocabulary ==")
+_pre_vocab = {"legacy": (1.0, [
+    {"antecedent": "johnsmith_of_acmecorp", "consequent": "likes_beta",
+     "support": 9, "refute": 0, "subjects": 9},
+    {"antecedent": "likes_alpha", "consequent": "likes_beta",
+     "support": 9, "refute": 0, "subjects": 9}])}
+_m = commons.merged([], _pre_vocab)
+_toks = {r["antecedent"] for r in _m}
+check("a pre-vocabulary stored row is dropped from the dataset",
+      "johnsmith_of_acmecorp" not in _toks, _toks)
+check("while the clean row from the same snapshot survives",
+      "likes_alpha" in _toks, _toks)
 clean, err = commons.validate({**GOOD, "patterns": [
     {**GOOD["patterns"][0], "support": 2}]})
 check("below-floor pattern skipped quietly, not an error",
