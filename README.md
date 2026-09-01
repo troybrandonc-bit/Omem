@@ -36,6 +36,11 @@ Docs: **[infrastructure.omem-cloud.com](https://infrastructure.omem-cloud.com)**
 > Shipping agents to clients? The audit trail and the approval gate are the
 > point: [what a client's security review asks for](https://infrastructure.omem-cloud.com/accountability/),
 > and a small number of [hands-on design-partner pilots](https://infrastructure.omem-cloud.com/pilot/) are open.
+>
+> Want to see the whole pattern run before reading another word?
+> [refund-desk](https://github.com/troybrandonc-bit/refund-desk) is the
+> reference integration: a support agent that moves money, with receipts.
+> One file, runs in a minute, asserts every claim it makes.
 
 <p align="center">
   <img src=".github/demo-reasoning.svg" width="720"
