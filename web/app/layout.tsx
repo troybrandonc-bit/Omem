@@ -23,19 +23,23 @@ export const metadata: Metadata = {
   // metadataBase. Matters doubly here: the dev.to syndication canonicals to
   // this domain, and the site should claim its own URLs in return.
   alternates: { canonical: "./" },
+  // /og.png, not /icon.png. The icon is 512 square, which every platform
+  // renders as a small tile beside grey text, and "summary" asks for exactly
+  // that. A launch is mostly links other people paste, so the card is the most
+  // seen surface the site has. 1200x630 is the size they all crop from.
   openGraph: {
     type: "website",
     siteName: "OMEM",
     title: SITE_TITLE,
     description: SITE_DESC,
     url: "/",
-    images: ["/icon.png"],
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: SITE_TITLE }],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: SITE_TITLE,
     description: SITE_DESC,
-    images: ["/icon.png"],
+    images: ["/og.png"],
   },
 };
 
