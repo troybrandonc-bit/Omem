@@ -100,6 +100,18 @@ The general lesson, worth keeping: **the anonymity argument has to be made per
 column, against the code that writes it.** "It is an internal identifier" is
 not an argument, it is an assumption, and this one was wrong.
 
+**The two columns added after this was written, under the same rule.**
+`leap_generators` now also carries `w_wins` and `w_losses`: the same verdicts
+weighted by prediction error, which is what drives how bold the next hunch is
+born. They do not travel, and the reason is not privacy — a weight is a real
+number over two integers already contributed, so it leaks nothing the counts
+do not. It is that a weight is a fact about *this install's learning*, not a
+fact about people, and the bank answers only the second kind of question.
+Pooling weights would also silently double-count: a verdict already
+contributed as a count would arrive a second time carrying a different unit.
+`tests_surprise_weighting.py` asserts every number the bank emits is an `int`,
+so a future contributor cannot widen the door by accident.
+
 ### 3. `revision` (new, the actual prize)
 
 A histogram, never a trace. One row is:
