@@ -70,6 +70,49 @@ _unmapped_pk = sorted(t for t in _upsert_tables if t not in _dba._UPSERT_PK)
 _unmapped_cols = sorted(t for t in _upsert_tables if t not in _dba._columns_of)
 _tx(f"every upsert table has a PK mapping (unmapped: {_unmapped_pk})", not _unmapped_pk)
 _tx(f"every upsert table has a column mapping (unmapped: {_unmapped_cols})", not _unmapped_cols)
+
+# A mapping that EXISTS is not a mapping that is RIGHT. leap_generators was
+# mapped and had been for months, then gained two columns and kept its
+# four-column entry, so under PostgreSQL the upsert wrote the old shape and the
+# weighted record silently never persisted. SQLite never noticed, because
+# SQLite does not use these maps at all. CI caught it on the pull request,
+# which is late: this compares each mapping against the DDL that declares the
+# table, so the next one fails here instead.
+_DDL = {}
+for _f in _glob.glob(os.path.join(os.path.dirname(os.path.abspath(__file__)), "*.py")):
+    with open(_f, encoding="utf-8") as _fh:
+        _s = _fh.read()
+    for _m in _re.finditer(r"CREATE TABLE IF NOT EXISTS (\w+)\s*\((.*?)\);", _s, _re.S):
+        _cols, _depth, _cur = [], 0, ""
+        for _ch in _m.group(2):
+            if _ch == "(":
+                _depth += 1
+            elif _ch == ")":
+                _depth -= 1
+            if _ch == "," and _depth == 0:
+                _cols.append(_cur); _cur = ""
+            else:
+                _cur += _ch
+        _cols.append(_cur)
+        _names = [c.strip().split()[0] for c in _cols
+                  if c.strip() and not c.strip().upper().startswith(
+                      ("PRIMARY KEY", "FOREIGN KEY", "UNIQUE", "CHECK"))]
+        _DDL.setdefault(_m.group(1), _names)
+    # Columns a long-lived install gains by migration are just as real.
+    for _m in _re.finditer(r"ALTER TABLE (\w+) ADD COLUMN (\w+)", _s):
+        _DDL.setdefault(_m.group(1), []).append(_m.group(2))
+
+_drift = []
+for _t, _mapped in sorted(_dba._columns_of.items()):
+    _real = _DDL.get(_t)
+    if _real is None:
+        continue            # declared elsewhere (the engine's own tables)
+    _missing = [c for c in _real if c not in _mapped]
+    _extra = [c for c in _mapped if c not in _real]
+    if _missing or _extra:
+        _drift.append((_t, _missing, _extra))
+_tx(f"every column mapping matches the table it describes (drift: {_drift})",
+    not _drift)
 print(f"translation checks: {_tx_pass} passed, {_tx_fail} failed")
 if _tx_fail:
     sys.exit(1)
