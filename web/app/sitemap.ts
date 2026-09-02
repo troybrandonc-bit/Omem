@@ -33,6 +33,7 @@ const ROUTES = [
   "/spec/testimony-record",
   "/agent-audit-check",
   "/docs/licence",
+  "/vendor-review",
   "/spec/testimony-record/implementations",
   "/compare",
   "/compare/omem-vs-mem0-vs-zep",

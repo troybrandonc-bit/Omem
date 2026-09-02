@@ -114,6 +114,13 @@ export default function Pricing() {
                 No checkout. A licence is agreed in a conversation and paid on an
                 invoice, because at this size that is what actually happens.
               </p>
+              <p className="mt-3 text-caption text-faint">
+                Your security team will want{" "}
+                <Link href="/vendor-review" className="link-underline text-fg">
+                  the supplier answers
+                </Link>{" "}
+                before you get that far. They are written to be forwarded.
+              </p>
             </div>
 
             <div>
