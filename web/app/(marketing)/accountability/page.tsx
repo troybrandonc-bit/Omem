@@ -79,6 +79,15 @@ export default function Accountability() {
               <ButtonLink href="/pilot">Book a design-partner pilot</ButtonLink>
               <ButtonLink href="/docs/quickstart" variant="secondary">See how it works</ButtonLink>
             </div>
+            {/* The lowest-commitment way in. Someone who is not ready to talk
+              * will still answer eleven questions about their own system, and
+              * the gap list tells them whether they have a problem at all. */}
+            <p className="mt-4 text-note">
+              <a href="/agent-audit-check">
+                Not sure whether you have a problem yet? Eleven questions, in
+                your browser, nothing uploaded.
+              </a>
+            </p>
             <p className="mt-5 text-caption text-faint">
               Self-hosted, so nothing leaves your client&rsquo;s environment.
               <span className="mono mt-1 block">MIT core · your infrastructure</span>

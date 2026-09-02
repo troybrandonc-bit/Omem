@@ -195,6 +195,12 @@ export default function Spec() {
             gap that matters commercially is TR-2 to TR-3: that is where a
             record stops being a log and starts being an answer.
           </p>
+          <p>
+            If you are not sure where your own agent sits, there are{" "}
+            <a href="/agent-audit-check">eleven questions that will tell you</a>,
+            scored in the browser. Nothing is uploaded and there is no signup,
+            which matters given who tends to need the answer.
+          </p>
 
           <h2>Checking a claim</h2>
           <p>
