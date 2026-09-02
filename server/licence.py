@@ -143,13 +143,15 @@ ISSUER_PUBLIC_KEY = os.environ.get(
     "OMEM_LICENCE_PUBKEY",
     "9801cfb7b421a06be05e1bfb77d9c3da86ce115a3589c6bc0b29062adca74446").strip()
 
+# A feature belongs here WHEN IT SHIPS, never when it is planned. sign_licence.py
+# refuses to issue a licence naming anything absent from this dict, so this list
+# is the last thing standing between a roadmap and an invoice for it. The first
+# version listed four, three of which did not exist, which would have let a
+# customer buy something that could never switch on and discover it in
+# production. Add the next line the day the code lands, not the day it is
+# designed.
 FEATURES = {
-    # Named here rather than invented at each call site, so that what a licence
-    # can unlock is a short readable list rather than a scatter of strings.
     "approval_policy": "Policy over who may approve which risk class",
-    "auditor_export": "Signed conformance bundle for an external auditor",
-    "retention_hold": "Legal hold that survives the retention sweep",
-    "multi_project": "Governance across projects from one place",
 }
 
 

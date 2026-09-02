@@ -32,6 +32,7 @@ const ROUTES = [
   "/guides/should-agent-memory-decide-truth",
   "/spec/testimony-record",
   "/agent-audit-check",
+  "/docs/licence",
   "/spec/testimony-record/implementations",
   "/compare",
   "/compare/omem-vs-mem0-vs-zep",
