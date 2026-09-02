@@ -33,13 +33,19 @@ The lifecycle, and the discipline that makes it safe:
                do that. A case that will not resolve moves to ASKING, and
                says what it needs.
 
-  LEARN        verdicts teach. Each entity that generates hypotheses has a
-               record: confirmations raise the strength of its future
-               projections, refutations lower it. A refuted hypothesis's
-               fingerprint is spent -- OMEM never re-leaps the same way from
-               the same evidence -- so every single outcome tunes the whole
-               intuition base. That is where "learns quickly from very
-               little" actually lives: one observation, felt everywhere.
+  LEARN        verdicts teach, and they do not all teach the same amount.
+               Each entity that generates hypotheses has a record:
+               confirmations raise the strength of its future projections,
+               refutations lower it, each by how far the verdict fell from
+               the strength the hunch was carrying. Being confident and
+               wrong is the most informative thing that can happen to a
+               guesser; being unsure and wrong is barely news, and a flat
+               win-or-loss tally cannot tell those apart. A refuted
+               hypothesis's fingerprint is spent -- OMEM never re-leaps the
+               same way from the same evidence -- so every single outcome
+               tunes the whole intuition base. That is where "learns quickly
+               from very little" actually lives: one observation, felt
+               everywhere, in proportion to how much it overturned.
 
 What this is NOT: a hunch is never laundered into a belief. Strength is
 capped below the confidence any evidenced assertion carries, hypotheses are
@@ -89,6 +95,7 @@ CREATE TABLE IF NOT EXISTS hypotheses(
 CREATE TABLE IF NOT EXISTS leap_generators(
   project_id TEXT NOT NULL, generator TEXT NOT NULL,
   wins INTEGER NOT NULL, losses INTEGER NOT NULL,
+  w_wins REAL, w_losses REAL,
   PRIMARY KEY(project_id, generator));
 CREATE TABLE IF NOT EXISTS priors(
   id TEXT NOT NULL, project_id TEXT NOT NULL,
@@ -97,6 +104,20 @@ CREATE TABLE IF NOT EXISTS priors(
   updated REAL NOT NULL,
   PRIMARY KEY(project_id, id));
 """
+
+
+def ensure_schema(db):
+    """The schema, plus the two columns an install predating prediction-error
+    weighting will not have. CREATE TABLE IF NOT EXISTS does not add columns to
+    a table that already exists, and every install that has ever scored a
+    generator already has this one."""
+    db.executescript(HYPOTHESES_SCHEMA)
+    for col in ("w_wins", "w_losses"):
+        try:
+            db.execute("ALTER TABLE leap_generators ADD COLUMN %s REAL" % col)
+        except Exception:
+            pass  # already there
+    db.commit()
 
 
 def _open_beliefs(p, T) -> list:
@@ -225,17 +246,76 @@ def _fp(project_id: str, subject: str, prop: str, src_assertion: str) -> str:
         f"{project_id}|{subject}|{prop}|{src_assertion}".encode()).hexdigest()[:24]
 
 
-def _gen_record(db, project_id: str, generator: str) -> tuple[int, int]:
+def surprise(strength: float, won: bool) -> float:
+    """How much this verdict should teach: the prediction error.
+
+    A flat win-or-loss says every outcome is equally informative, which is not
+    how anything learns. Being confident and wrong is the most informative
+    thing that can happen to a guesser; being unsure and wrong is barely news.
+    The error between what was forecast and what occurred is exactly that
+    quantity, and both numbers were already here -- the strength the hypothesis
+    carried when reality answered, and the verdict it returned.
+
+    Supported at 0.05 is a shock and moves the record a long way. Refuted at
+    0.05 was half expected and moves it barely. Same arithmetic as the Brier
+    residual the calibration benchmark scores, over the same column, which is
+    deliberate: the thing that decides how much to learn is the thing that
+    measures how wrong we were."""
+    s = max(0.0, min(1.0, float(strength)))
+    return (1.0 - s) if won else s
+
+
+def _weighted(row) -> tuple[float, float]:
+    """A generator's weighted record, read off one row.
+
+    A row written before weighting existed has no weights, so it falls back to
+    its counts: an upgrade must not silently reset what a generator had earned.
+    The fallback is also the honest reading of such a row -- an unweighted
+    record is one where every verdict was taken to teach the same amount,
+    which is exactly 1.0 each."""
+    w, l = row["w_wins"], row["w_losses"]
+    if w is None and l is None:
+        return (float(row["wins"]), float(row["losses"]))
+    return (float(w or 0.0), float(l or 0.0))
+
+
+def _gen_record(db, project_id: str, generator: str) -> tuple[float, float]:
+    """The WEIGHTED record, which is what boldness is computed from.
+
+    The integer counts stay in the same row untouched, because a count is what
+    the commons contributes and what a person reads in a report. "Nine wins" is
+    a fact about the world; 6.2 is a fact about how much those nine taught."""
+    r = db.execute("SELECT wins, losses, w_wins, w_losses FROM leap_generators "
+                   "WHERE project_id=? AND generator=?",
+                   (project_id, generator)).fetchone()
+    return _weighted(r) if r else (0.0, 0.0)
+
+
+def _gen_records(db, project_id: str) -> dict:
+    """Every generator's weighted record in one read, for a leap run that
+    needs all of them. Same fallback, same arithmetic, one query."""
+    return {r["generator"]: _weighted(r) for r in db.execute(
+        "SELECT generator, wins, losses, w_wins, w_losses FROM leap_generators "
+        "WHERE project_id=?", (project_id,))}
+
+
+def _gen_counts(db, project_id: str, generator: str) -> tuple[int, int]:
+    """The plain counts, for the commons and for anything a human reads."""
     r = db.execute("SELECT wins, losses FROM leap_generators WHERE project_id=? "
                    "AND generator=?", (project_id, generator)).fetchone()
     return (r["wins"], r["losses"]) if r else (0, 0)
 
 
-def _score_generator(db, project_id: str, generator: str, won: bool):
-    wins, losses = _gen_record(db, project_id, generator)
-    db.execute("INSERT OR REPLACE INTO leap_generators VALUES(?,?,?,?)",
+def _score_generator(db, project_id: str, generator: str, won: bool,
+                     strength: float):
+    wins, losses = _gen_counts(db, project_id, generator)
+    w_wins, w_losses = _gen_record(db, project_id, generator)
+    s = surprise(strength, won)
+    db.execute("INSERT OR REPLACE INTO leap_generators(project_id, generator, "
+               "wins, losses, w_wins, w_losses) VALUES(?,?,?,?,?,?)",
                (project_id, generator, wins + (1 if won else 0),
-                losses + (0 if won else 1)))
+                losses + (0 if won else 1),
+                w_wins + (s if won else 0.0), w_losses + (0.0 if won else s)))
     db.commit()
 
 
@@ -248,15 +328,23 @@ def _family(prop: str) -> str:
     return (prop[4:] if prop.startswith("not:") else prop).split("_", 1)[0]
 
 
-def _family_records(db, project_id: str) -> dict:
+def _family_records(db, project_id: str, weighted: bool = False) -> dict:
+    """Per claim-family, how the verdicts went.
+
+    Counts by default, because a count is what the commons contributes and
+    what a person reads in a report. Weighted when boldness is being computed,
+    by the same prediction error surprise() returns -- a family that keeps
+    being wrong in ways it half expected has learned less from all of it than
+    one that was confident and wrong once."""
     out: dict = {}
-    for r in db.execute("SELECT proposition, status FROM hypotheses WHERE "
-                        "project_id=? AND status IN ('supported','refuted')",
+    for r in db.execute("SELECT proposition, status, strength FROM hypotheses "
+                        "WHERE project_id=? AND status IN ('supported','refuted')",
                         (project_id,)):
         fam = _family(r["proposition"])
+        won = r["status"] == "supported"
+        amount = surprise(r["strength"], won) if weighted else 1
         w, l = out.get(fam, (0, 0))
-        out[fam] = (w + (1 if r["status"] == "supported" else 0),
-                    l + (1 if r["status"] == "refuted" else 0))
+        out[fam] = (w + (amount if won else 0), l + (0 if won else amount))
     return out
 
 
@@ -265,7 +353,14 @@ def _birth_strength(gen_rec: tuple, fam_rec: tuple) -> float:
     whose projections keep getting refuted produces weaker hunches, and so
     does a FAMILY of claim OMEM has learned it guesses badly. Metacognition
     as arithmetic: the system knows what it is good at guessing, and its
-    boldness follows its record."""
+    boldness follows its record.
+
+    Both records arrive WEIGHTED by prediction error, so the arithmetic below
+    is over how much each verdict taught rather than how many there were. The
+    consequence worth stating out loud: a generator that only ever guesses
+    weakly and is usually refuted is barely punished, because it told the
+    truth about how little it knew. That is not leniency, it is calibration --
+    the same quantity brier_skill scores in the benchmark."""
     gw, gl = gen_rec
     fw, fl = fam_rec
     s = BASE_STRENGTH + 0.05 * gw - 0.08 * gl + 0.03 * fw - 0.05 * fl
@@ -435,10 +530,10 @@ def leap(p, db, about: str | None = None) -> dict:
     all_props = sorted({x for pa in profs.values() for x in pa[0]})
     rep_of = _prop_clusters(all_props)
     weights = _feature_weights(profs, rep_of)
-    fam_recs = _family_records(db, p.id)
-    gen_recs = {r["generator"]: (r["wins"], r["losses"]) for r in db.execute(
-        "SELECT generator, wins, losses FROM leap_generators WHERE project_id=?",
-        (p.id,))}
+    # WEIGHTED records here rather than counts: how bold to be about the next
+    # guess is a function of how much each past verdict actually taught.
+    fam_recs = _family_records(db, p.id, weighted=True)
+    gen_recs = _gen_records(db, p.id)
     result = {"examined": 0, "leapt": [], "skipped_spent": 0, "refused": []}
     spent = {r["fp"] for r in db.execute(
         "SELECT fp FROM hypotheses WHERE project_id=?", (p.id,))}
@@ -705,7 +800,8 @@ def interrogate(p, db) -> dict:
                    "WHERE project_id=? AND id=?",
                    (verdict, json.dumps(docket), time.time(), p.id, row["id"]))
         if verdict in ("supported", "refuted"):
-            _score_generator(db, p.id, row["generator"], verdict == "supported")
+            _score_generator(db, p.id, row["generator"],
+                             verdict == "supported", row["strength"])
         result[verdict].append({"hypothesis": row["id"], "subject": subject,
                                 "proposition": prop})
     db.commit()

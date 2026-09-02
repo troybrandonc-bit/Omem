@@ -1058,7 +1058,7 @@ STORE.db.commit()
 import beliefdiff as _bdiff
 import confidence as _confidence
 import hypotheses as _hypo
-STORE.db.executescript(_hypo.HYPOTHESES_SCHEMA)
+_hypo.ensure_schema(STORE.db)
 STORE.db.commit()
 
 

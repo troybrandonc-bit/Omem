@@ -201,7 +201,8 @@ _columns_of = {
     "hypotheses": ["id", "project_id", "subject", "proposition", "born_from",
                    "generator", "because", "strength", "status", "docket",
                    "passes", "fp", "created", "decided"],
-    "leap_generators": ["project_id", "generator", "wins", "losses"],
+    "leap_generators": ["project_id", "generator", "wins", "losses",
+                        "w_wins", "w_losses"],
     "priors": ["id", "project_id", "antecedent", "consequent", "context",
                "support", "refute", "subjects", "updated"],
 }

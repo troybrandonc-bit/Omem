@@ -178,7 +178,8 @@ cal_db.row_factory = sqlite3.Row
 cal_db.executescript(_h.HYPOTHESES_SCHEMA)
 for gen, w, l in (("person:alice@corp.example", 4, 1), ("person:bob@corp.example", 2, 2),
                   ("prior:p-1", 5, 0)):
-    cal_db.execute("INSERT INTO leap_generators VALUES('proj',?,?,?)", (gen, w, l))
+    cal_db.execute("INSERT INTO leap_generators(project_id, generator, wins, losses) "
+                   "VALUES('proj',?,?,?)", (gen, w, l))
 for i, (prop, st) in enumerate((("prefers_email", "supported"), ("prefers_email", "supported"),
                                 ("prefers_email", "refuted"), ("wants_pdf", "supported"))):
     cal_db.execute("INSERT INTO hypotheses VALUES(?,'proj','s','%s','b','g','c',0.4,?,'d',0,"
