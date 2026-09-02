@@ -34,6 +34,13 @@ sys.path.insert(0, HERE)
 import commons  # noqa: E402
 import hypotheses as _h  # noqa: E402
 
+def fresh_meta():
+    d = sqlite3.connect(":memory:")
+    d.row_factory = sqlite3.Row
+    commons.ensure_schema(d)
+    return d
+
+
 PASS = FAIL = 0
 
 
@@ -222,6 +229,38 @@ check("it discloses the threshold before anything comes back, and the number "
       commons.POOLED_MIN_SOURCES)
 check("and it does not promise a benefit the benchmark calls conditional",
       "helps most when" in ask and "least when" in ask)
+
+print("== the install that never opens a browser is still asked, once ==")
+# The opt-in lives in the dashboard and `pip install ... && omem-server` is the
+# documented way in, so an SDK user was never asked and therefore could never
+# contribute. A consent model the largest group of users cannot reach is not a
+# careful one.
+nd = fresh_meta()
+check("nothing is said while there is nothing to contribute",
+      commons.notice(nd, 0, "bank.json", "http://127.0.0.1:8787") is None)
+msg = commons.notice(nd, 7, "/home/dev/omem-data/intelligence-bank.json",
+                     "http://127.0.0.1:8787")
+check("once there is, the terminal says so", bool(msg))
+check("it names how much there is to contribute", "7 pattern" in msg, msg)
+check("it points at the file already on their disk",
+      "intelligence-bank.json" in msg)
+check("it says counts only, in the same words as the dialog",
+      "Never a name" in msg)
+check("it discloses the return leg here too", "goes both ways" in msg)
+check("and the two-install threshold", "two separate installations" in msg)
+check("it states that nothing has been sent", "Nothing has been sent" in msg)
+check("and where the decision is actually made", "127.0.0.1:8787" in msg)
+check("said once, never again", commons.notice(nd, 7, "b", "u") is None)
+
+nd2 = fresh_meta()
+commons.set_choice(nd2, True)
+check("an install that already said yes is not told about it",
+      commons.notice(nd2, 7, "b", "u") is None)
+nd3 = fresh_meta()
+commons.set_choice(nd3, False)
+check("nor one that already said no",
+      commons.notice(nd3, 7, "b", "u") is None)
+
 
 print("\n%d passed, %d failed" % (PASS, FAIL))
 sys.exit(1 if FAIL else 0)

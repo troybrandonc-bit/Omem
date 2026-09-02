@@ -391,6 +391,65 @@ def contribution_payload(instance: str, patterns: list, calibration: list,
     return body
 
 
+NOTICE_KEY = "notice_shown"
+
+
+def notice(db, patterns: int, bank_path: str, dashboard: str) -> str | None:
+    """The one time a terminal-only install is told the commons exists.
+
+    The opt-in prompt lives in the dashboard, and `pip install
+    omem-infrastructure && omem-server` is the documented way in. A developer
+    who used the SDK and never opened a browser was therefore never asked, and
+    an install that is never asked can never contribute. That is not a shy
+    consent model, it is a consent model the largest group of users cannot
+    reach, and the commons cannot fill from a population it never speaks to.
+
+    Three rules, because a notice like this is one step from being a nag:
+
+    It is printed only when there is something real to contribute. Asking on
+    first boot means asking about an empty bank, which is a question with no
+    content and an answer worth nothing.
+
+    It is printed once, ever. An install that read it and did nothing has
+    answered, and asking again would be pretending otherwise.
+
+    It changes nothing on its own. Saying yes still happens in the dashboard,
+    under the session-only rule that keeps an API key from deciding an
+    instance-wide question, and until then nothing is sent."""
+    if patterns <= 0 or get_choice(db) is not None:
+        return None
+    if db.execute("SELECT v FROM commons_meta WHERE k=?",
+                  (NOTICE_KEY,)).fetchone():
+        return None
+    db.execute("INSERT OR REPLACE INTO commons_meta(k,v) VALUES(?,?)",
+               (NOTICE_KEY, str(time.time())))
+    db.commit()
+    return chr(10).join([
+        "",
+        "  The commons",
+        "    This install has learned %d pattern%s about how people behave,"
+        % (patterns, "" if patterns == 1 else "s"),
+        "    like \"people who prefer async usually prefer email\". They can",
+        "    join a shared bank that studies human behaviour in general, so AI",
+        "    can understand people better.",
+        "",
+        "    Counts only. Never a name, a company, a message, or a number from",
+        "    your data. The exact file is already on your disk:",
+        "      %s" % bank_path,
+        "",
+        "    It goes both ways: contributing also pulls the published bank",
+        "    back, ranked beneath everything this install learned itself. A",
+        "    pattern needs two separate installations before it returns to",
+        "    anyone, so early on there is little to receive.",
+        "",
+        "    Nothing has been sent and nothing will be unless you say so:",
+        "      %s" % dashboard,
+        "",
+        "    Printed once. Ignoring it is an answer.",
+        "",
+    ])
+
+
 def should_contribute(db, env_url, is_collector: bool) -> bool:
     """Whether this install may send anything at all.
 

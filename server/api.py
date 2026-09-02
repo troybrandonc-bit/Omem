@@ -1522,6 +1522,26 @@ def _write_bank_export(dest_dir):
     sendable_cal = [r for r in cal
                     if r["scope"] == "generator_class"
                     or _commons.lexicon_ok(r["name"])]
+    # The commons opt-in lives in the dashboard, and `pip install
+    # omem-infrastructure && omem-server` is the documented way in, so a
+    # developer using the SDK was never asked at all. An install that is never
+    # asked can never contribute, which made the largest group of users
+    # structurally unable to join the thing the project exists to build. Said
+    # once, here rather than at boot, because here is where we know there is
+    # something real to contribute.
+    if not BANK_COLLECTOR and not COMMONS_URL:
+        try:
+            _msg = _commons.notice(
+                STORE.db, len(sendable),
+                os.path.join(dest_dir, "intelligence-bank.json"),
+                "http://%s:%s" % (os.environ.get("OMEM_HOST", "127.0.0.1"),
+                                  os.environ.get("PORT")
+                                  or os.environ.get("OMEM_PORT", "8787")))
+            if _msg:
+                print(_msg, flush=True)
+        except Exception:
+            pass  # a notice must never be able to break an export
+
     if consented and (sendable or sendable_cal):
         try:
             url = COMMONS_URL or _commons.DEFAULT_COMMONS_URL
