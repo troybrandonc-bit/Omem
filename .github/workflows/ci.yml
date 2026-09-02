@@ -222,6 +222,22 @@ jobs:
       # fails here too.
       - name: llms-full.txt must still be the whole site
         run: python scripts/gen_llms_full.py --from-dir web/out --check
+      # This job owns the only static export that exists anywhere, and the
+      # machine this project is written on cannot run `next build` (3.8 GB of
+      # RAM, and Next needs more). So when the check above goes red, the person
+      # who changed a page has no way to produce the corrected file. Uploading
+      # it here turns "regenerate it locally" into "download the artifact and
+      # commit it", which is the difference between a guard that helps and a
+      # guard that blocks. Runs on failure too, which is the case that matters.
+      - name: Upload the llms-full.txt this export would produce
+        if: always()
+        run: python scripts/gen_llms_full.py --from-dir web/out --out /tmp/llms-full.txt || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: llms-full
+          path: /tmp/llms-full.txt
+          if-no-files-found: warn
       - run: pip install build
       - name: Build the wheel
         working-directory: sdk/python

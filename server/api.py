@@ -1528,9 +1528,14 @@ def _write_bank_export(dest_dir):
     if consented and (sendable or sendable_cal) and not BANK_COLLECTOR:
         try:
             url = COMMONS_URL or _commons.DEFAULT_COMMONS_URL
+            # The terms this operator agreed to travel WITH the counts. A
+            # rights record kept only on the collector would be the collector's
+            # word for what a contributor agreed to; sent from here it is the
+            # contributor's own statement, recorded at the moment they gave it.
             payload = json.dumps({"instance": _commons.instance_id(STORE.db),
                                   "patterns": sendable,
-                                  "calibration": sendable_cal}).encode()
+                                  "calibration": sendable_cal,
+                                  "terms": _commons.current_terms(STORE.db)}).encode()
             req = urllib.request.Request(
                 url.rstrip("/") + "/v1/commons", data=payload,
                 headers={"Content-Type": "application/json"}, method="POST")
@@ -3783,7 +3788,8 @@ class Handler(BaseHTTPRequestHandler):
     # The only two routes that genuinely delete. They live in _route_post and
     # branch on self.command themselves, which is why DELETE shares the POST
     # dispatcher at all.
-    _DELETE_ROUTES = (["v1", "connectors"], ["v1", "projects"])
+    _DELETE_ROUTES = (["v1", "connectors"], ["v1", "projects"],
+                      ["v1", "commons"])
 
     def do_DELETE(self):
         """DELETE reaches only the routes that implement it.
@@ -3860,6 +3866,28 @@ class Handler(BaseHTTPRequestHandler):
         # 404 unless this instance is the collector; per-IP rate limit; every
         # token re-checked with the same refusal the bank applies locally, so
         # a modified contributor cannot push an identity or a value in here.
+        # ── a contributor takes it back: DELETE /v1/commons/{instance}.
+        # The mirror of the door above, and the half that made "revocable"
+        # true rather than merely stated. The instance id IS the credential:
+        # it is a uuid4 held by that install alone, and requiring an account
+        # would mean knowing who contributed, which is the one thing this
+        # design refuses to know. Idempotent, and it never says whether the
+        # instance existed -- answering that would turn this into an oracle
+        # for guessing which pseudonyms are real.
+        if len(parts) == 3 and parts[:2] == ["v1", "commons"]                 and self.command == "DELETE":
+            if not BANK_COLLECTOR:
+                return self._err(404, "not_found", "not found")
+            ip = self.client_address[0] if self.client_address else "unknown"
+            if not COMMONS_LIMITER.allow(f"commons:{ip}"):
+                return self._err(429, "rate_limited", "Slow down and retry.")
+            inst = parts[2]
+            if not (8 <= len(inst) <= _commons.MAX_INSTANCE_LEN)                     or not inst.replace("-", "").isalnum():
+                return self._err(422, "invalid_request",
+                                 "instance must be an opaque id "
+                                 "(8..64 alphanumeric chars)")
+            _commons.withdraw(STORE.db, inst)
+            return self._send(200, {"withdrawn": True, "object": "withdrawal"})
+
         if parts == ["v1", "commons"]:
             if not BANK_COLLECTOR:
                 return self._err(404, "not_found", "not found")
@@ -3872,9 +3900,13 @@ class Handler(BaseHTTPRequestHandler):
             cal, cerr = _commons.validate_calibration(body)
             if cerr:
                 return self._err(422, "invalid_request", cerr)
-            _commons.store(STORE.db, body["instance"], clean, cal)
+            terms, terr = _commons.validate_terms(body)
+            if terr:
+                return self._err(422, "invalid_request", terr)
+            _commons.store(STORE.db, body["instance"], clean, cal, terms)
             return self._send(201, {"accepted": len(clean),
                                     "calibration": len(cal),
+                                    "granted": sorted(_commons.grants_of(terms)),
                                     "object": "contribution"})
 
         # ── the right to be forgotten: POST /v1/entities/{id}/forget. Erases a
@@ -3915,7 +3947,25 @@ class Handler(BaseHTTPRequestHandler):
                 return self._err(422, "invalid_request",
                                  "contribute must be true or false", param="contribute")
             _commons.set_choice(STORE.db, c)
-            return self._send(200, {"contribute": "yes" if c else "no"})
+            # Revoking used to stop the NEXT contribution and leave every
+            # earlier one published. It now asks the collector to withdraw
+            # them, which is what "revocable" has claimed to mean all along.
+            # Best effort, and reported: the commons is never a dependency, but
+            # a withdrawal that silently failed would be the worst kind of
+            # failure, so the operator is told rather than reassured.
+            withdrawn = None
+            if not c and not BANK_COLLECTOR:
+                try:
+                    url = COMMONS_URL or _commons.DEFAULT_COMMONS_URL
+                    req = urllib.request.Request(
+                        url.rstrip("/") + "/v1/commons/"
+                        + _commons.instance_id(STORE.db), method="DELETE")
+                    urllib.request.urlopen(req, timeout=5).read()
+                    withdrawn = True
+                except Exception:
+                    withdrawn = False
+            return self._send(200, {"contribute": "yes" if c else "no",
+                                    "withdrawn": withdrawn})
 
         # ── account ──
         if parts == ["v1", "signup"]:
