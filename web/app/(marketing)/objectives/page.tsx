@@ -4,7 +4,7 @@ import { Section, Eyebrow, HeroHeading, ButtonLink } from "@/components/marketin
 export const metadata = {
   title: "Our objective: teach AI what people are like, holding a fact about no one",
   description:
-    "OMEM is memory for AI agents, but the reason it exists runs deeper: to give AI a real understanding of human nature and behaviour, learned as anonymous patterns that name no one. Consenting installs pool their counts into a shared bank, offered to train AI while holding a fact about nobody.",
+    "OMEM is the system of record for what an AI agent believed and did, but the reason it exists runs deeper: to give AI a real understanding of human nature and behaviour, learned as anonymous patterns that name no one. Consenting installs pool their counts into a shared bank, offered to train AI while holding a fact about nobody.",
 };
 
 /* The objective / identity page. OMEM's mission, stated plainly. Consenting
@@ -54,7 +54,8 @@ export default function Objectives() {
         </HeroHeading>
         <div className="mt-10 max-w-[52rem]">
           <p className="lede">
-            OMEM is memory for AI agents, but the reason it exists runs deeper.
+            OMEM is the record of what an AI agent believed and did, but the
+            reason it exists runs deeper.
             We want to give AI a real understanding of human nature and
             behaviour, learned as anonymous patterns that name no one. Installs
             that opt in contribute their counts to a shared bank, and that bank is

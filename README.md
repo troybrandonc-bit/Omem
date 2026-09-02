@@ -5,10 +5,11 @@
 [![Python](https://img.shields.io/pypi/pyversions/omem-infrastructure)](https://pypi.org/project/omem-infrastructure/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**Memory for AI agents that tracks what is believed, when, and why, and refuses
-to decide what is true.** So when an agent acts and someone asks "why did it do
-that", you can answer: with the evidence chain, and with the named human who
-approved it.
+**The system of record for what an AI agent believed and did.** Append-only,
+with the evidence under every belief, both sides of every contradiction kept,
+and a named human behind every risky action. So when an agent acts and someone
+asks "why did it do that", you answer with a record instead of an
+investigation.
 
 OMEM is a memory layer for AI agents. Instead of dumping text into a vector
 store and hoping for the best, it tracks what each agent believes over time and

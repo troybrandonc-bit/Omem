@@ -26,7 +26,7 @@ const JSONLD = {
   url: "https://infrastructure.omem-cloud.com",
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
   description:
-    "Open-source memory for AI agents built on belief revision: an audit trail of what the agent believed and when, contradictions kept with both sides on record, provenance for every belief, and a named human approval gate before risky actions run.",
+    "The open-source system of record for what an AI agent believed and did: an audit trail of what the agent believed and when, contradictions kept with both sides on record, provenance for every belief, and a named human approval gate before risky actions run.",
 };
 
 const PILLARS = [

@@ -1,6 +1,6 @@
 # n8n-nodes-omem
 
-OMEM for n8n: belief-revision memory for AI agents inside your workflows.
+OMEM for n8n: the system of record for what an AI agent believed and did, inside your workflows.
 Keeps both sides of a contradiction instead of overwriting, tracks what was
 believed and when, answers "why" with a provenance chain, and gives your
 workflow a branchable belief state instead of trusting the latest write.

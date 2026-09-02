@@ -1,7 +1,7 @@
 {
   "name": "@omem/sdk",
   "version": "0.2.0",
-  "description": "OMEM SDK: trustworthy memory for AI agents",
+  "description": "OMEM SDK: the system of record for what an AI agent believed and did",
   "type": "module",
   "//": "`main` points at built ESM in dist/, produced by `npm run build`. It pointed at src/index.ts until there was a build step, which is why this package was marked private: publishing it would have shipped raw TypeScript that breaks on import for every plain-JS consumer, under a name then taken. The build exists now, so the guard is gone. The version stays behind sdk/python on purpose - this SDK does not yet cover the whole Python surface, and `npm test` reports what is missing.",
   "main": "./dist/index.js",

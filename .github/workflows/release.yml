@@ -245,7 +245,7 @@ jobs:
           IMG=ghcr.io/troybrandonc-bit/omem
           docker build \
             --label org.opencontainers.image.source=https://github.com/troybrandonc-bit/Omem \
-            --label org.opencontainers.image.description="Memory for AI agents that tracks what is believed, when, and why" \
+            --label org.opencontainers.image.description="The system of record for what an AI agent believed and did" \
             --label org.opencontainers.image.licenses=MIT \
             -t "$IMG:$V" -t "$IMG:latest" .
           docker push "$IMG:$V"
