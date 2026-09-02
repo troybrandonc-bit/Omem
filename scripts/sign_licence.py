@@ -81,7 +81,11 @@ def main() -> int:
                     help="print the private key to the terminal anyway. Do not "
                          "use this: terminals keep scrollback and sessions keep "
                          "transcripts, and both outlive your attention")
-    ap.add_argument("--key", help="private key, 64 hex characters")
+    ap.add_argument("--key-file", dest="key_file",
+                    help="file holding the private key. Prefer this: a key "
+                         "passed as an argument lands in your shell history, "
+                         "the process list, and any transcript of the session")
+    ap.add_argument("--key", help="private key as hex. Avoid; use --key-file")
     ap.add_argument("--customer", help="the organisation the licence is for")
     ap.add_argument("--days", type=int, default=365)
     ap.add_argument("--features", default="approval_policy,auditor_export")
@@ -105,7 +109,21 @@ def main() -> int:
             fd = os.open(a.out, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(fd, "w") as f:
                 f.write(priv + chr(10))
-            print("private key written to %s (mode 0600)" % a.out)
+            # Report what the filesystem actually did rather than what was
+            # asked for. Windows does not honour the POSIX mode, so the first
+            # version of this line promised 0600 and delivered 0644, which is
+            # a worse failure than saying nothing: it tells someone their key
+            # is protected when it is readable by every account on the box.
+            mode = os.stat(a.out).st_mode & 0o777
+            print("private key written to %s" % a.out)
+            if mode & 0o077:
+                print("WARNING: that file is mode %o, readable beyond you." % mode)
+                if os.name == "nt":
+                    print("Windows ignores the POSIX mode. Restrict it with:")
+                    print('  icacls "%s" /inheritance:r /grant:r "%%USERNAME%%:F"'
+                          % os.path.abspath(a.out))
+                else:
+                    print("  chmod 600 %s" % a.out)
             print("Back it up once, somewhere that is not this repository, and")
             print("do not paste it anywhere. Losing it means reissuing every")
             print("licence; leaking it means anyone can mint their own.")
@@ -113,8 +131,15 @@ def main() -> int:
         print("  " + binascii.hexlify(public_key(seed)).decode())
         return 0
 
+    if a.key_file:
+        try:
+            with open(os.path.expanduser(a.key_file), encoding="utf-8") as f:
+                a.key = f.read().strip()
+        except OSError as e:
+            ap.error("could not read %s: %s" % (a.key_file, e))
     if not a.key or not a.customer:
-        ap.error("--key and --customer are required (or use --keygen)")
+        ap.error("--key-file (or --key) and --customer are required, "
+                 "or --keygen to make a key")
 
     features = [f.strip() for f in a.features.split(",") if f.strip()]
     unknown = [f for f in features if f not in FEATURES]
