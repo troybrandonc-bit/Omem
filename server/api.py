@@ -994,7 +994,7 @@ import graph as _graph
 import brief as _brief
 import candidate_index as _cand_index
 import commons as _commons
-STORE.db.executescript(_commons.COMMONS_SCHEMA)
+_commons.ensure_schema(STORE.db)
 STORE.db.commit()
 # The record that an erasure HAPPENED, without re-retaining what was erased:
 # the entity is stored as a hash, so the log can prove compliance ("we erased
@@ -1517,11 +1517,20 @@ def _write_bank_export(dest_dir):
     sendable = [r for r in rows
                 if _commons.lexicon_ok(r["antecedent"])
                 and _commons.lexicon_ok(r["consequent"])]
-    if consented and sendable and not BANK_COLLECTOR:
+    # The other half of the bank: not what people are like, but how much a
+    # guess about a person turned out to be worth. Same consent, same floor,
+    # same vocabulary filter on the family names -- and the generator CLASS
+    # rather than the generator, because that column holds subject ids.
+    cal = _hypo.calibration_bank(STORE.db, list(PROJECTS.keys()))
+    sendable_cal = [r for r in cal
+                    if r["scope"] == "generator_class"
+                    or _commons.lexicon_ok(r["name"])]
+    if consented and (sendable or sendable_cal) and not BANK_COLLECTOR:
         try:
             url = COMMONS_URL or _commons.DEFAULT_COMMONS_URL
             payload = json.dumps({"instance": _commons.instance_id(STORE.db),
-                                  "patterns": sendable}).encode()
+                                  "patterns": sendable,
+                                  "calibration": sendable_cal}).encode()
             req = urllib.request.Request(
                 url.rstrip("/") + "/v1/commons", data=payload,
                 headers={"Content-Type": "application/json"}, method="POST")
@@ -3838,8 +3847,13 @@ class Handler(BaseHTTPRequestHandler):
             clean, verr = _commons.validate(body)
             if verr:
                 return self._err(422, "invalid_request", verr)
-            _commons.store(STORE.db, body["instance"], clean)
-            return self._send(201, {"accepted": len(clean), "object": "contribution"})
+            cal, cerr = _commons.validate_calibration(body)
+            if cerr:
+                return self._err(422, "invalid_request", cerr)
+            _commons.store(STORE.db, body["instance"], clean, cal)
+            return self._send(201, {"accepted": len(clean),
+                                    "calibration": len(cal),
+                                    "object": "contribution"})
 
         # ── the right to be forgotten: POST /v1/entities/{id}/forget. Erases a
         # person (or any entity) from the record for real: the op log is
