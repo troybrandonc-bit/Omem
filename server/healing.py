@@ -172,10 +172,15 @@ class Policy:
         RISK_HIGH: "heal.execute.high",
     }
 
-    def __init__(self, registry: ActionRegistry, can_fn):
+    def __init__(self, registry: ActionRegistry, can_fn, approver_ok=None):
         # can_fn(permission) -> bool, already bound to the request's org/user/role.
         self.registry = registry
         self.can = can_fn
+        # approver_ok(action_type, risk, approver, approved_by) -> (bool, reason).
+        # Supplied by the caller, which is what keeps this class ignorant of
+        # licensing and of where a policy is stored. None means no policy, which
+        # is the open-source behaviour and stays the default forever.
+        self.approver_ok = approver_ok
 
     def evaluate(self, plan: dict, approved_by=None, approver=None) -> dict:
         """`approver` is the principal the authentication layer resolved for this
@@ -232,6 +237,15 @@ class Policy:
                                    f"proposing it ({approver}); approval must come from "
                                    "a session or a key that is not agent-bound"),
                         "risk": risk, "requires_approval": True}
+        # 5. and the organisation may narrow it further. Checked last, so a
+        # policy can only ever refuse something the base rules already allowed,
+        # never widen them: no configuration can talk this gate into permitting
+        # what the open-source rules refuse.
+        if self.approver_ok is not None:
+            ok, why = self.approver_ok(at, risk, approver, approved_by)
+            if not ok:
+                return {"permit": False, "reason": why or "refused by approval policy",
+                        "risk": risk, "policy": True}
         return {"permit": True, "reason": "permitted", "risk": risk}
 
 

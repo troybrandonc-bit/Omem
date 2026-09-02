@@ -1,0 +1,27 @@
+OMEM Enterprise Components Licence
+Copyright 2026 Michael Brandon Clifford. All rights reserved.
+
+This licence covers the contents of this directory only. Everything else in
+this repository is under the MIT licence at the repository root, and stays
+there.
+
+You may:
+  - read, copy and modify this source for evaluation, development and testing
+  - run it in a non-production environment without payment
+  - audit it, and publish what you find
+
+You may not, without a current commercial licence from the copyright holder:
+  - run it in production, or use it to provide a service to anyone else
+  - remove or circumvent the licence verification in order to do either
+
+A "current commercial licence" is a signed token issued by the copyright
+holder, verified offline by server/licence.py. It carries an expiry. When it
+expires the components in this directory stop enabling paid features and the
+rest of OMEM keeps running, because a lapsed invoice should not become an
+outage.
+
+Nothing here limits your rights under the MIT licence covering the rest of the
+repository. If you would rather not be bound by this licence, delete this
+directory: OMEM runs without it.
+
+For a licence: hello@omem-cloud.com
