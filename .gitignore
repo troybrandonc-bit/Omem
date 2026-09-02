@@ -55,3 +55,10 @@ web/tsconfig.tsbuildinfo
 # in time, and anchoring it next to the database proves nothing against
 # someone who can edit both. Keep the copy that matters somewhere else.
 .omem-state.json
+
+# Private business material: strategy, prospect lists, outbound drafts and
+# unsent letters. It lives beside the code because it is written alongside it,
+# and it must never travel with it. This entry exists because a subdirectory
+# of it once reached a public pull request, and "remember not to add it" is not
+# a control.
+distribution/
