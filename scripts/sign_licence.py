@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Mint a licence token. Runs on your machine, never on a server.
 
-    # once, and keep the private key somewhere that is not this repository
-    python3 scripts/sign_licence.py --keygen
+    # once. Writes the private key to a file with mode 0600 and prints only
+    # the public half, because a secret printed to a terminal lives on in
+    # scrollback and in session logs.
+    python3 scripts/sign_licence.py --keygen --out ~/omem-licence.key
 
     # per customer
     python3 scripts/sign_licence.py --key <private-hex> \
@@ -72,7 +74,13 @@ def _b64(raw: bytes) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Mint an OMEM licence token.")
     ap.add_argument("--keygen", action="store_true",
-                    help="print a fresh private/public pair and exit")
+                    help="write a fresh key pair and exit")
+    ap.add_argument("--out", default="omem-licence-private.key",
+                    help="where to write the private key (never stdout)")
+    ap.add_argument("--print-private", action="store_true",
+                    help="print the private key to the terminal anyway. Do not "
+                         "use this: terminals keep scrollback and sessions keep "
+                         "transcripts, and both outlive your attention")
     ap.add_argument("--key", help="private key, 64 hex characters")
     ap.add_argument("--customer", help="the organisation the licence is for")
     ap.add_argument("--days", type=int, default=365)
@@ -82,8 +90,25 @@ def main() -> int:
 
     if a.keygen:
         seed = secrets.token_bytes(32)
-        print("private (keep OFF this repository, back it up once):")
-        print("  " + binascii.hexlify(seed).decode())
+        priv = binascii.hexlify(seed).decode()
+        if a.print_private:
+            print("private (now in your scrollback and this session's log):")
+            print("  " + priv)
+        else:
+            # A secret printed to a terminal is a secret in scrollback, in the
+            # session transcript, and in whatever ships those somewhere else.
+            # The first version of this tool printed it, which is how the
+            # first key ever generated with it had to be thrown away.
+            if os.path.exists(a.out):
+                print("refusing to overwrite %s" % a.out, file=sys.stderr)
+                return 2
+            fd = os.open(a.out, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "w") as f:
+                f.write(priv + chr(10))
+            print("private key written to %s (mode 0600)" % a.out)
+            print("Back it up once, somewhere that is not this repository, and")
+            print("do not paste it anywhere. Losing it means reissuing every")
+            print("licence; leaking it means anyone can mint their own.")
         print("public (paste into ISSUER_PUBLIC_KEY in server/licence.py):")
         print("  " + binascii.hexlify(public_key(seed)).decode())
         return 0
