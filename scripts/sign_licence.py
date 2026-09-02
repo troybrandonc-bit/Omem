@@ -119,9 +119,16 @@ def main() -> int:
             if mode & 0o077:
                 print("WARNING: that file is mode %o, readable beyond you." % mode)
                 if os.name == "nt":
+                    # Resolve the account name here rather than emitting
+                    # %USERNAME%, which expands in cmd.exe and stays literal in
+                    # bash and PowerShell. A command that only works in one of
+                    # the three shells someone might paste it into is a command
+                    # that fails, quietly, on their key file.
+                    who = (os.environ.get("USERNAME")
+                           or os.environ.get("USER") or "YOUR-ACCOUNT")
                     print("Windows ignores the POSIX mode. Restrict it with:")
-                    print('  icacls "%s" /inheritance:r /grant:r "%%USERNAME%%:F"'
-                          % os.path.abspath(a.out))
+                    print('  icacls "%s" /inheritance:r /grant:r "%s:F"'
+                          % (os.path.abspath(a.out), who))
                 else:
                     print("  chmod 600 %s" % a.out)
             print("Back it up once, somewhere that is not this repository, and")
