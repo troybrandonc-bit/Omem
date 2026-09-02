@@ -202,6 +202,8 @@ const FOOTER = [
     { label: "Compare", href: "/compare" },
     { label: "Changelog", href: "/changelog" },
     { label: "Objectives", href: "/objectives" },
+    { label: "The commons", href: "/commons" },
+    { label: "Claims ledger", href: "/claims" },
   ]},
   { group: "Run it", items: [
     { label: "Dashboard", href: "/overview" },

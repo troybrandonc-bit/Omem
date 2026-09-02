@@ -25,6 +25,8 @@ corpus.
 
 - [Accountability](https://infrastructure.omem-cloud.com/accountability/): prove why the agent acted, approve before it does
 - [Objective](https://infrastructure.omem-cloud.com/objectives/): teach AI what people are like, holding a fact about no one
+- [The commons](https://infrastructure.omem-cloud.com/commons/): the shared bank itself, live figures included; what a line contains, what contributing does and does not buy a contributor, and the measured conditions under which it stops paying
+- [The claims ledger](https://infrastructure.omem-cloud.com/claims/): every load-bearing sentence next to the executable statement that would go red if it stopped being true, generated from CLAIMS.md so the page cannot drift from the file CI checks
 - [Security](https://infrastructure.omem-cloud.com/security/): what is implemented today and what is not built yet
 - [Pricing](https://infrastructure.omem-cloud.com/pricing/): free and MIT while in beta
 

@@ -35,6 +35,8 @@ const ROUTES = [
   "/docs/licence",
   "/vendor-review",
   "/spec/testimony-record/implementations",
+  "/commons",
+  "/claims",
   "/compare",
   "/compare/omem-vs-mem0-vs-zep",
   "/compare/mem0",

@@ -32,7 +32,7 @@
  * this array, from the sitemap, or from llms.txt. Add the page; the test tells
  * you the rest.
  */
-export const MARKETING_ROUTES = ["/accountability", "/pilot", "/objectives", "/docs", "/guides", "/pricing", "/security", "/changelog", "/compare", "/privacy", "/terms", "/spec", "/agent-audit-check", "/vendor-review"] as const;
+export const MARKETING_ROUTES = ["/accountability", "/pilot", "/objectives", "/docs", "/guides", "/pricing", "/security", "/changelog", "/compare", "/privacy", "/terms", "/spec", "/agent-audit-check", "/vendor-review", "/commons", "/claims"] as const;
 
 /** True for the public site: the landing page, or anything under a marketing
  *  section. Onboarding is treated the same way by `Shell` — it deliberately
