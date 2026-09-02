@@ -19,6 +19,7 @@ false. Everything below can fail.
 | A shared name is not a shared identity, and a split a person makes is final for the machine | `server/tests_identity_resolution.py` |
 | A hunch is never allowed to quietly become a belief: it is proven, refuted, or escalated to a human | `server/tests_hypotheses.py` |
 | How bold a hunch is born follows the record of past ones, weighted by how much each verdict surprised it; the counts the commons contributes stay whole verdicts | `server/tests_surprise_weighting.py` |
+| Pooling priors across installations earns its keep only where the populations share their regularities and the behaviour is not already near-universal; where they do not, borrowed knowledge stops paying | `benchmarks/commons/`, `server/tests_commons_benchmark.py` |
 | Priors learned about people in general fire only into a silence and yield to a person's own evidence; a pattern seen on too few people cannot fire | `server/tests_priors.py` |
 | The Witness card: no fabrication, retraction honoured, disagreement visible, identities kept apart, conclusions die with premises, every memory sourced | `benchmarks/witness/harness.py`, `server/tests_witness_benchmark.py` |
 | It phones home to nobody: a socket guard proves a full working session performs zero outbound connections or lookups | `server/tests_airgap.py` |
