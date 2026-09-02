@@ -11,93 +11,96 @@ Quickstart
 # Your first memory in five minutes
 
 Store a belief, query it, and see why it’s believed. Every snippet below is real and runs against the same API the dashboard uses.
+- 1
 
 ## Install and start the server
 
 ## Step 1: Install and start the server
 
 One package, no dependencies. Or run it straight from a clone: same server, same port, same first-run key. From source the dashboard needs building once (cd web && OMEM_STATIC=1 npm run build); in the wheel it is already bundled.
-
 From PyPIFrom source
-
+Copy code
 1pip install omem-infrastructure
 2omem-server # or: omem-server 9000
+
+- 2
 
 ## Create a client
 
 ## Step 2: Create a client
 
 The first run prints a project id and an API key. There is no signup call and nothing to configure. Paste them straight in.
-
 Python
-
+Copy code
 1from omem import Memory
-2 
+2
 3mem = Memory(api_key="omem_sk_...",
 4 base_url="http://127.0.0.1:8787",
 5 project="proj_...")
+
+- 3
 
 ## Remember a belief
 
 ## Step 3: Remember a belief
 
 `about` is any entity id you choose. `claim` is a token, not a sentence. OMEM normalises spelling, so three spellings of one claim stay one claim.
-
 Python
-
+Copy code
 1mem.remember(agent="support-bot",
 2 about="customer:alice",
 3 claim="prefers_annual_billing")
+
+- 4
 
 ## Query what it believes
 
 ## Step 4: Query what it believes
 
 Returns a four-valued state: BELIEVED_TRUE, BELIEVED_FALSE, CONTRADICTED, or UNKNOWN.
-
 Python
-
+Copy code
 1mem.believes(about="customer:alice",
 2 claim="prefers_annual_billing")
 3# -> 'BELIEVED_TRUE'
+
+- 5
 
 ## Contradict yourself
 
 ## Step 5: Contradict yourself
 
 The part a vector store cannot do. Tell OMEM two claims disagree, then assert the second one. Nothing is overwritten and nothing is lost.
-
 Python
-
+Copy code
 1mem.contradict("prefers_annual_billing",
 2 "prefers_monthly_billing")
-3 
+3
 4mem.remember(agent="sales", about="customer:alice",
 5 claim="prefers_monthly_billing")
-6 
+6
 7mem.believes(about="customer:alice",
 8 claim="prefers_annual_billing")
 9# -> 'CONTRADICTED'
+
+- 6
 
 ## Ask why
 
 ## Step 6: Ask why
 
 Both claims are still on record. Pass an assertion id to get the chain that led there: which agent said it, when, and on what basis.
-
 Python
-
+Copy code
 1beliefs = mem.about("customer:alice")
-2 
+2
 3mem.why(beliefs[0]["id"])
 4# -> {'state': ..., 'provenance': [...]}
 
 ## See it in the dashboard
 
 Your belief appears live in the memory explorer. Open the “why” view to trace its provenance and scrub through time. Both need omem-server running locally.
-Open dashboard 
-
-Playground
+Open dashboard Playground
 
 ---
 
@@ -109,14 +112,16 @@ Documentation
 # Memory that answers for itself
 
 OMEM is a memory layer for AI agents. You store beliefs; OMEM tracks who claimed what, when, on what basis, and whether anything contradicts it, so you can always answer why your agent believes something.
-You don’t need to learn the underlying memory model to be productive. The SDK speaks in `remember`, `believes`, `why`, and `changes`. The machinery of provenance graphs, belief intervals and contradiction states runs underneath.
+You don’t need to learn the underlying memory model to be productive. The SDK speaks in remember, believes, why, and changes. The machinery of provenance graphs, belief intervals and contradiction states runs underneath.
 
 ## Install
 
 Python
-
+Copy code
 1pip install omem-infrastructure
-There is also a TypeScript SDK, `npm install @omem/sdk`, and a LangGraph store adapter for LangChain agents, `pip install "omem-infrastructure[langgraph]"`. The TypeScript SDK does not yet cover the whole Python surface; the gap is tracked in `CONTRIBUTING.md`.What the second write does, side by side. The old value survives it here.
+
+There is also a TypeScript SDK, npm install @omem/sdk, and a LangGraph store adapter for LangChain agents, pip install "omem-infrastructure[langgraph]". The TypeScript SDK does not yet cover the whole Python surface; the gap is tracked in CONTRIBUTING.md.
+What the second write does, side by side. The old value survives it here.
 
 ## What you get
 
@@ -124,9 +129,7 @@ ProvenanceEvery belief traces to the events and derivations that produced it.
 TimeQuery what your agent knew at any point in time, deterministically.
 ContradictionConflicting claims resolve to a state, never a silent overwrite.
 HistoryAppend-only. Revisions and retractions are recorded and auditable.
-Quickstart 
-
-SDK overview
+Quickstart SDK overview
 
 ---
 
@@ -141,52 +144,52 @@ The SDK speaks the language of an agent remembering things. Each verb maps 1:1 t
 
 ## The verbs
 
-OMEM SDK verbs, their signatures, and what each does
-VerbSignature and effect
-remember
-remember(agent, about, claim, because=None, scope=None)
+OMEM SDK verbs, their signatures, and what each doesVerbSignature and effect
+rememberremember(agent, about, claim, because=None, scope=None)
 Record a belief, optionally grounded in events.
-believes
-believes(about, claim) -> State
+
+believesbelieves(about, claim) -> State
 The four-valued belief state at the current time.
-why
-why(assertion_id) -> Provenance
+
+whywhy(assertion_id) -> Provenance
 Evidence, grounding, interval, and contradictions.
-retract
-retract(assertion_id, agent=None)
+
+retractretract(assertion_id, agent=None)
 Withdraw a belief: its state becomes UNKNOWN, not negated, and history stays reconstructable.
-recall
-recall(about=None, *, agent=None, context=None, as_of=None, limit=10)
+
+recallrecall(about=None, *, agent=None, context=None, as_of=None, limit=10)
 Retrieve what is relevant, with belief state and conflicts attached.
-contradict
-contradict(claim_a, claim_b)
+
+contradictcontradict(claim_a, claim_b)
 Declare two claims opposed. OMEM never infers this.
-observe
-observe(agent, interaction, source=None, scope=None)
+
+observeobserve(agent, interaction, source=None, scope=None)
 Feed a raw interaction; OMEM decides what becomes memory.
-about
-about(entity) -> [Belief]
+
+aboutabout(entity) -> [Belief]
 Every open belief whose subject includes this entity.
-share
-share(assertion_id, scope, granted_by=None)
+
+shareshare(assertion_id, scope, granted_by=None)
 Promote a memory's visibility: org, team:<id>, agent:<id>, user:<id>.
 
 ## The same call, everywhere
 
 PythonTypeScriptcurl
-
+Copy code
 1from omem import Memory
-2 
+2
 3mem = Memory(api_key="omem_sk_...",
 4 base_url="http://127.0.0.1:8787",
 5 project="proj_...")
-6 
+6
 7mem.remember(agent="support-bot",
 8 about="customer:alice",
 9 claim="prefers_annual_billing")
-10 
+10
 11mem.believes(about="customer:alice",
-12 claim="prefers_annual_billing") # 'BELIEVED_TRUE'The TypeScript SDK covers the core surface. It is on npm as @omem/sdk and now wraps every verb on this page plus retract, changes, the reasoning verbs (declareRule, infer), the intuition layer (leap, expects, interrogate) and priors, verified by npm test against a live server. What it does not wrap yet: the judgment-queue surface (merge proposals, tensions, constraints), which is Python-only. Superseding is an HTTP route on both SDKs, and time travel is the as_of parameter on recall, not a verb of its own.
+12 claim="prefers_annual_billing") # 'BELIEVED_TRUE'
+
+The TypeScript SDK covers the core surface. It is on npm as @omem/sdk and now wraps every verb on this page plus retract, changes, the reasoning verbs (declareRule, infer), the intuition layer (leap, expects, interrogate) and priors, verified by npm test against a live server. What it does not wrap yet: the judgment-queue surface (merge proposals, tensions, constraints), which is Python-only. Superseding is an HTTP route on both SDKs, and time travel is the as_of parameter on recall, not a verb of its own.
 
 ---
 
@@ -198,8 +201,8 @@ For teams shipping agents to clients
 # When your agent acts for a client, you have to answer for it.
 
 The agent does something on a client’s behalf, and the client asks the one question you have to be able to answer: why did it do that? Most memory can’t tell you. It overwrote the evidence the moment the facts changed. OMEM is built so you can answer: prove why the agent believed and did what it did, and approve the risky moves before they run.
-
 Book a design-partner pilotSee how it works
+Not sure whether you have a problem yet? Eleven questions, in your browser, nothing uploaded.
 Self-hosted, so nothing leaves your client’s environment.MIT core · your infrastructure
 
 ## Three things a client’s reviewer will ask for.
@@ -207,19 +210,19 @@ Self-hosted, so nothing leaves your client’s environment.MIT core · your infr
 Accountability isn’t a feature you bolt on at the security review. It’s three properties the memory either has or does not, and OMEM was built around them.
 
 Provenance you can hand to a clientAsk why the agent believed something and get the chain: which source,
- when, on what basis, and what it contradicted. Export it. When a client's
- compliance person asks "why did it do that," you send a record, not a
- similarity score.
+when, on what basis, and what it contradicted. Export it. When a client's
+compliance person asks "why did it do that," you send a record, not a
+similarity score.
 A human approves before it actsA risky action does not run on the model's say-so. It waits for a named
- approver, the approval is recorded under that name, and a plan the model
- proposes cannot name an action into existence. You decide what your agent
- is allowed to do to a client, in code, not in a prompt.
+approver, the approval is recorded under that name, and a plan the model
+proposes cannot name an action into existence. You decide what your agent
+is allowed to do to a client, in code, not in a prompt.
 A record that cannot rewrite itselfWe call it the testimony ledger. Every belief is recorded under a named
- source with its evidence, the log is append-only, contradictions keep
- both sides, and the engine that reads it is frozen: it must replay the
- record byte-identically, verified on every commit, so not even an
- upgrade can change what was said. A court does not trust a witness who
- can edit their statement. Neither does a security reviewer.
+source with its evidence, the log is append-only, contradictions keep
+both sides, and the engine that reads it is frozen: it must replay the
+record byte-identically, verified on every commit, so not even an
+upgrade can change what was said. A court does not trust a witness who
+can edit their statement. Neither does a security reviewer.
 
 ## The belief-revision engine is how, not the pitch.
 
@@ -236,6 +239,52 @@ Prefer to try it alone first? pip install omem-infrastructure and the whole thin
 
 ---
 
+# Objective
+Source: https://infrastructure.omem-cloud.com/objectives/
+
+Our objective
+
+# Teach AI what people are like, holding a fact about no one.
+
+OMEM is the record of what an AI agent believed and did, but the reason it exists runs deeper. We want to give AI a real understanding of human nature and behaviour, learned as anonymous patterns that name no one. Installs that opt in contribute their counts to a shared bank, and that bank is offered to train AI, holding counts about behaviour rather than facts about people.
+
+## Learn people, without holding a person
+
+Most of what AI knows about people it learned by reading them: their
+messages, their documents, the record of individual lives. OMEM learns
+the other way. From what it sees across many people it forms priors,
+regularities of the form "people who do X tend to do Y", and keeps them
+as counts, never as a fact about anyone.
+
+## A shared bank, contributed on purpose
+
+Installs that choose to can pool their counts into one shared bank. Every
+line is two behaviour tokens and the number of people who held both. No
+name, no message, and no number about a person can appear, because it is
+refused at the door it enters and the door it leaves.
+
+## A corpus AIs can train on
+
+The shared bank is offered as a training set: counts plus a plain
+rendering, under a permissive license. A model can learn the shape of how
+people behave from it and never hold a person. That is the objective:
+teach AI our nature from patterns people chose to share, not from
+surveillance.
+
+## A prior yields to the person
+
+A rate across a population is a place to start, not a verdict on the one
+in front of you. A prior fires only into a silence, and the instant that
+person's own evidence disagrees it steps aside. A general pattern never
+overrides an individual.
+
+## Contribute, and keep everything else yours.
+
+Run OMEM as your agent’s memory, and on first open it asks once whether to share anonymous counts. Say no and nothing ever leaves your machine. Say yes and only counts do, never a message, a name, or a fact about a person. That is how the shared bank grows, and how AI comes to understand our nature from what people chose to give.
+Run OMEMHow the priors work
+
+---
+
 # Security
 Source: https://infrastructure.omem-cloud.com/security/
 
@@ -248,7 +297,6 @@ The moment an agent acts on a belief, someone is accountable for it. OMEM is bui
 ## Implemented today
 
 Each of these exists in the repository and is covered by the test suite.
-
 AuthenticationTwo modes, and the server picks neither for you. Local mode has no login and refuses to bind anything but loopback. Password mode (OMEM_AUTH=password) stores PBKDF2-SHA256 password hashes, and signup will not issue a session for an address that already has one.
 Second factorTOTP (RFC 6238), enforced at session creation and on claiming an account. Sessions expire after 30 days and can be revoked; expired and revoked tokens stop working immediately.
 TLSSet OMEM_TLS_CERT and OMEM_TLS_KEY and the server speaks HTTPS directly, TLS 1.2 floor. A terminating proxy is still the better answer at scale (it renews and resumes better than this does) but OMEM no longer requires one to avoid plaintext.
@@ -263,7 +311,6 @@ DeploymentSelf-hosted, on SQLite or PostgreSQL. MIT licensed, so the engine that
 ## Not built yet: do not plan around these
 
 If your deployment needs something on this list, OMEM is not ready for it. Saying so here is cheaper for both of us than saying so after an audit.
-
 Tamper-proofingThe audit chain detects edits; it cannot prevent them. Anyone with write access can rewrite the chain from the edit forward. Detecting that requires keeping the head hash somewhere else. Export it.
 SSO and SCIMNo OIDC, SAML or SCIM. Accounts are email and password.
 Key rotationThere is one master key and no re-encryption tooling. Rotating it today means decrypting and re-encrypting by hand.
@@ -275,12 +322,634 @@ High availabilityOne writer per database, enforced. That makes divergence imposs
 
 ### An open standard you can verify, and leave with.
 
-OMEM is built to be a standard, not a black box. The belief-state semantics are documented and your memory exports in full, so its meaning never leaves with a vendor and you can walk away with it whole. What we don’t yet have is the part that would prove two deployments agree: a public conformance suite. That’s the goal, not a shipped fact, and the table below says so plainly rather than quoting a number you can’t check.Read the quickstart
+OMEM is built to be a standard, not a black box. The belief-state semantics are documented and your memory exports in full, so its meaning never leaves with a vendor and you can walk away with it whole. What we don’t yet have is the part that would prove two deployments agree: a public conformance suite. That’s the goal, not a shipped fact, and the table below says so plainly rather than quoting a number you can’t check.
+Read the quickstart
 ProtocolOMEM 1.0
 Reference engineomem_engine 1.0.0, frozen and hash-checked
 Independent conformanceNone. The normative suite is not public
 LicenseMIT, open source and self-hostable
 Audit streamAppend-only, exportable
+
+---
+
+# Pricing
+Source: https://infrastructure.omem-cloud.com/pricing/
+
+Pricing
+
+# Free while it is in beta.
+
+There is no paid plan, no card, and no quota. OMEM is early software and what it needs right now is people using it and telling us where it breaks, which is worth more than the revenue a product at this stage would make.
+
+## Everything
+
+$0while in beta
+Self-hosted. Runs on your machine with no account anywhere and nothing to sign up for.
+Get started
+
+### What that includes
+
+- The full memory model: belief state, contradiction, provenance, recall
+- Unlimited memories and sources
+- Python and TypeScript SDKs, and an MCP server
+- The dashboard: memory, conflicts, graph, timeline, audit
+- Self-host it anywhere, on SQLite or PostgreSQL
+- MIT licensed: fork it, keep it, no take-backs
+
+## Enterprise components
+
+$12ka year, and up
+For the organisation that has to say who is allowed to approve what, and show the rule afterwards. Everything above stays free whether you buy this or not.
+Talk about a licenceNo checkout. A licence is agreed in a conversation and paid on an invoice, because at this size that is what actually happens.
+Your security team will want the supplier answers before you get that far. They are written to be forwarded.
+
+### What exists today
+
+- Approval policy: rules for who may approve which action, or which risk class
+- Refusals name the rule that refused, so an operator can answer for it
+- The licence verifies offline: no callback, no telemetry, nothing to phone home
+- Source-available under ee/LICENSE. Read it, audit it, run it in development free
+One component, because one is built. This list grows when code ships, not when it is planned, which is why it is shorter than you might expect a paid tier to be.
+
+## When that changes
+
+The reference engine and the SDKs stay free and self-hostable regardless, under MIT, permanently. You should never pay to define what a memory means, and the gate that refuses an agent permission to approve its own action is part of the free core rather than the paid one. What is paid for is the layer above it: rules about who in your organisation may approve what.
+What OMEM does not have yet is on the security page, and it is worth reading before you plan around it.
+
+---
+
+# The Testimony Record Specification v0.1
+Source: https://infrastructure.omem-cloud.com/spec/testimony-record/
+
+Specification
+
+# The Testimony Record Specification
+
+An open format for the record an AI agent leaves behind: what it believed, from which evidence, what contradicted it, which actions it proposed, and who approved or refused them. Free to implement, in any language, on any stack.
+Version0.1 (draft, September 2026)
+EditorTroy Clifford
+Canonical URLinfrastructure.omem-cloud.com/spec/testimony-record/
+Schematestimony-record-v0.1.schema.json
+Exampletestimony-record-example.jsonl, a conforming record at TR-4
+Validatortestimony_validate.py, one file, no dependencies, MIT
+Exporterexport_testimony.py, writes a record from any running OMEM server, MIT
+StatusDraft. Stable enough to build against, open to comment before 1.0.
+
+## Why this exists
+
+When software acts on someone’s behalf, two questions eventually arrive: why did it do that, and who allowed it. Request logs answer neither. They record what happened, not what the system believed at the moment it acted, and most memory layers overwrite the losing side of a disagreement the instant a new fact arrives, so the evidence is gone before anyone asks.
+Every team shipping agents is now building some version of this record, and each one is building a different one. That is a waste, and it makes the records incomparable exactly where comparability matters: a client’s security review, an auditor’s sample, a regulator’s request. This specification describes the smallest record that can answer both questions, so an implementation can be judged against something other than its own marketing.
+
+## Scope
+
+This specification defines what a conforming record contains and what it must never do. It does not specify storage, transport, query interfaces, retention periods, or how an agent decides anything. Those are implementation choices, and deliberately so: the format has to survive being implemented by systems that disagree about everything else.
+The key words MUST, MUST NOT, SHOULD and MAY are used as described in RFC 2119.
+
+## The record
+
+A Testimony Record is an append-only sequence of entries. Entries are never edited or removed in place; a correction is a new entry that supersedes an old one, and the old one remains readable. Serialisation is one JSON object per line (JSON Lines), UTF-8, each line carrying the version it conforms to.
+There are six entry types:
+- belief: a claim about a subject, its state at write time, who asserted it, and the evidence it rests on.
+- evidence: where something came from, with enough identity (source, time, optional digest) to be shown unchanged later.
+- conflict: two or more beliefs that disagree, both retained, with resolution recorded only if it happens.
+- decision: an action that was proposed, its risk class, the beliefs it rested on, and the verdict, including refusals.
+- approval: a named human or role holder permitting a decision, with the identity sourced from authentication.
+- integrity: a statement about how the record can be verified not to have changed.
+record.jsonl
+Copy code
+1{"spec":"testimony-record/0.1","type":"belief","id":"b_41",
+2 "at":"2026-09-01T09:14:22Z","subject":"customer:acme",
+3 "proposition":"plan_annual_pro","polarity":"affirm","state":"contradicted",
+4 "asserted_by":{"id":"crm-sync","kind":"agent"},"evidence":["e_12"]}
+5
+6{"spec":"testimony-record/0.1","type":"conflict","id":"c_7",
+7 "at":"2026-09-01T09:14:23Z","subject":"customer:acme",
+8 "proposition":"plan_annual_pro","sides":["b_41","b_42"],"resolution":null}
+9
+10{"spec":"testimony-record/0.1","type":"decision","id":"d_3",
+11 "at":"2026-09-01T09:15:02Z","action_type":"issue_refund","risk_class":"high",
+12 "risk_source":"registry","proposed_by":{"id":"support-agent","kind":"agent"},
+13 "inputs":["b_44","b_45"],"verdict":"refused",
+14 "reason":"high-risk action requires explicit approval","executed":false}
+15
+16{"spec":"testimony-record/0.1","type":"approval","id":"a_9",
+17 "at":"2026-09-01T09:21:40Z","decision":"d_4",
+18 "approver":{"id":"troy@example.com","kind":"human","name":"T. Clifford",
+19 "role":"owner"},"method":"console","identity_source":"auth-session"}
+
+## Requirements
+
+A conforming implementation:
+- MUST write entries append-only, and MUST NOT edit or delete an entry to change what was recorded.
+- MUST retain both sides of a disagreement. Silently resolving a conflict by discarding one side is the specific failure this format exists to prevent.
+- MUST be able to express an ungrounded belief. A system that cannot say “believed, but nothing supports it” will eventually fabricate support.
+- MUST source an action’s risk class from outside the proposing model. A plan that can declare its own risk class is not gated.
+- MUST record refusals as durably as permissions.
+- MUST source approver identity from the authentication layer, and MUST NOT accept it from content the model can write.
+- MUST NOT let the principal that proposed an action approve it. A credential the acting agent holds cannot supply the approval, whatever name accompanies the request.
+- SHOULD record the time a claim held separately from the time it was written, so a past state can be reconstructed.
+- MAY redact evidence content while keeping the citation, for records that contain personal data.
+
+## Conformance levels
+
+Levels are cumulative. An implementation claiming a level MUST meet every requirement of the levels below it.
+LevelIn one lineWhat it requires
+TR-1 RecordedThe record exists and is append-only.Belief and evidence entries are written as they happen. Entries are never edited or deleted in place. A correction is a new entry.
+TR-2 ExplainedEvery belief resolves to its evidence, and disagreements survive.Each belief entry cites the evidence it rests on, or is explicitly marked ungrounded. When two beliefs about the same proposition disagree, both are retained and a conflict entry names them. Resolution, if any, records who resolved it and how.
+TR-3 GatedActions carry a verdict, and approvals carry a name.Every consequential action produces a decision entry whose risk class comes from a registry outside the proposing model's control. Refusals are recorded as faithfully as permissions. An approval entry identifies a person or named role holder, sourced from the authentication layer rather than from anything the model can write. The approver is not the principal that proposed the action: a name in a request body is written by whoever sent the request, so a system where the acting agent's own credential can approve its action does not reach this level, however the entry is spelled.
+TR-4 VerifiableThe record can be shown not to have changed.The implementation publishes an integrity scheme (deterministic replay, a hash chain, signatures, or an external anchor) under which an independent party can reproduce or verify the record's state at a past moment, and detect alteration.
+Most systems shipping today are at TR-1 without meaning to be. The gap that matters commercially is TR-2 to TR-3: that is where a record stops being a log and starts being an answer.
+If you are not sure where your own agent sits, there are eleven questions that will tell you, scored in the browser. Nothing is uploaded and there is no signup, which matters given who tends to need the answer.
+
+## Checking a claim
+
+A conformance level that cannot be checked by the person hearing it is an adjective. So the validator is published alongside the specification: one file, standard library only, no network, MIT. It checks the things a JSON Schema cannot, which is the relationships between entries: that cited evidence exists, that both sides of a contradiction are still present, that the risk class did not come from the model proposing the action, that the approver was a person the authentication layer named, and that the approver was not the agent whose action was approved.
+terminal
+Copy code
+1# any record, from any implementation
+2python3 testimony_validate.py record.jsonl
+3# ...
+4# Conformance: TR-3
+5# To reach TR-4, fix:
+6# - the record publishes an integrity scheme
+7
+8# in CI, fail the build below a level you promised
+9python3 testimony_validate.py record.jsonl --require TR-3
+
+Copy it into your own repository and run it in your own CI. Vendors checking their own homework is the problem, not the solution.
+
+## Mapping to the EU AI Act
+
+The specification is not legal advice and conformance is not compliance. It is written so that the engineering work overlaps with the record-keeping obligations that became enforceable for high-risk systems in August 2026.
+ObligationWhere the format meets it
+Automatic recording of events over the system's lifetime (Art. 12(1))TR-1. Entries are written as events occur, not reconstructed afterwards.
+Logs enabling identification of risk situations and post-market monitoring (Art. 12(2))TR-2 and TR-3. Conflicts surface disagreement; decision entries surface refusals and the actions that were attempted.
+Records kept by providers and deployers, at least six months (Art. 19, Art. 26)Out of scope for the format, but TR-1's append-only requirement makes retention a storage decision rather than a reconstruction problem.
+Human oversight, including the ability to intervene (Art. 14)TR-3. The approval entry is the evidence that oversight was real and attributable.
+
+## Versioning and governance
+
+Every entry names its version. Within a major version, entry types and required fields are only ever added, never removed or repurposed, so a reader written against 0.1 keeps working. Breaking changes get a new major version and both remain published.
+This specification is edited by its author. Proposals, objections and implementation reports are welcome as issues on the OMEM repository, and the editor decides what enters a version. That is stated plainly rather than dressed up as a committee: a small standard with a named editor moves faster than a large one with a process, and you can see exactly who to argue with.
+
+## Licence, name, and conformance claims
+
+The specification text is CC BY 4.0: copy it, quote it, translate it, build products on it, including commercially, with attribution. The JSON Schema and any reference code are MIT. Implementing this specification costs nothing and requires no permission.
+“Testimony Record” and the conformance level marks (TR-1 through TR-4) are trademarks of the author. You may state that a product “implements the Testimony Record Specification” or “conforms to TR-3” when it genuinely meets those requirements, and that claim is expected to survive being checked. What you may not do is publish a modified document under the same name, because a standard that anyone can redefine is not one.
+Copyright 2026 Michael Brandon Clifford. Specification text under CC BY 4.0; schema and reference code under MIT.
+
+## Reference implementation
+
+OMEM is the reference implementation and emits records at TR-4: beliefs are append-only with provenance, contradictions are kept with both sides marked, risky actions wait for a named approver with refusals recorded, and the engine replays the whole record byte-identically on every commit. It is MIT, self-hosted, and installs with one command.
+Point the exporter at any running server and it writes a record this validator accepts. Nothing in the output is composed for the occasion: belief states come from the memory, risk classes from the action registry rather than from the plan that proposed the action, and approver identities from the authenticated principal.
+terminal
+Copy code
+1# any OMEM server, running anywhere you can reach it
+2python3 export_testimony.py --url http://127.0.0.1:8787 \
+3 --key omem_sk_... --project proj_... --out record.jsonl
+4
+5python3 testimony_validate.py record.jsonl --require TR-4
+6# Conformance: TR-4
+
+That round trip runs in CI on every commit, against a real server: a contradiction is created, a high-risk action is refused, a named reviewer approves it, and the export is validated. If OMEM ever stops conforming to this document, the build goes red before anyone else finds out.
+If you implement this in another system, send a record and it gets checked and listed on the implementations page, along with the conformance mark for the level it reaches. Comparable records from systems that compete with each other are worth more than any one implementation, including this one.
+The JSON SchemaRun the reference implementation
+
+---
+
+# Testimony Record implementations
+Source: https://infrastructure.omem-cloud.com/spec/testimony-record/implementations
+
+Testimony Record
+
+# Implementations
+
+Systems that emit conforming records, the level each one reaches, and when its record was last checked. Nothing on this page is self reported. A listing follows a record that passed the validator, which anyone can run against the same file.
+ImplementationLevelChecked
+OMEMBelief revision memory and an approval gate for AI agents. MIT, self-hosted.
+export_testimony.py against a running server. The export is validated in CI on every commit, so the level is checked continuously rather than once.
+TR-41 September 2026
+One implementation is not a standard, and the editor of a specification listing only his own software has written a manual. That is the honest state of this page today. It changes when other people emit records, which is the whole reason the format, the schema and the validator cost nothing to use and ask no permission.
+
+## Getting listed
+
+Send a record your system produced, along with the command that produced it, to hello@omem-cloud.com. It gets run through the published validator. If it passes, the implementation is listed here with the level it reached and the date it was checked. There is no fee, no membership, and no requirement to use OMEM or anything else in particular. An implementation in any language, on any stack, counts the same.
+Records are checked, not trusted. If a later version stops conforming, the listing says so rather than quietly keeping the old level.
+terminal
+Copy code
+1# what a listing requires: a record your system produced,
+2# and the command that produced it
+3python3 testimony_validate.py your-record.jsonl --require TR-2
+4
+5# in your own CI, on every commit
+6- uses: troybrandonc-bit/Omem/.github/actions/testimony-conformance@main
+7 with:
+8 record: record.jsonl
+9 require: TR-3
+
+## The conformance marks
+
+An implementation may display the mark for the level its record actually reaches, in its README, its documentation, or its product. The marks are served from this domain so they cannot drift:
+
+README.md
+Copy code
+1[![testimony record TR-3](https://infrastructure.omem-cloud.com/badge/testimony-record-tr3.svg)](https://infrastructure.omem-cloud.com/spec/testimony-record/)
+
+The specification text is CC BY 4.0 and the schema and reference code are MIT, so implementing costs nothing and needs no permission. The name and the marks are different: they exist to identify records that actually pass, so displaying a level a record does not reach is the one thing that is not allowed. If a claim looks wrong, the editor may ask to see a record.
+Read the specificationA conforming record
+
+---
+
+# Agent audit-readiness check
+Source: https://infrastructure.omem-cloud.com/agent-audit-check
+
+Free check
+
+# Would your agent’s record survive an audit?
+
+Eleven questions about what your agent actually records, scored against the four Testimony Record conformance levels. It grades the format rather than any particular software, so the answer holds whatever you built with.
+Everything is scored in your browser. Nothing is uploaded, nothing is stored, and there is no signup, because the people who most need this run systems they are not allowed to describe to strangers.
+- 1 of 11 · TR-1
+New information arrives that contradicts something your agent already recorded. What happens to the earlier record?
+It is updated or overwritten with the newer valueThe earlier record stays, and the new one is added alongside itI am not certain
+
+- 2 of 11 · TR-1
+Can you reconstruct exactly what your agent believed at a specific moment three months ago?
+Yes, exactly, as a state rather than as raw logsRoughly, by reading through logsNo
+
+- 3 of 11 · TR-1
+Are entries ever edited or deleted after they are written?
+Never. A correction is a new entryOccasionally, for cleanup or correctionsYes, routinely
+
+- 4 of 11 · TR-2
+For something your agent currently believes, can you name the specific source it came from?
+Yes, every belief resolves to the evidence under itSome do, depending which path it came in throughNo
+
+- 5 of 11 · TR-2
+Can your system record that something is believed but nothing actually supports it?
+Yes, an unsupported belief is marked as oneNo, everything is stored the same way
+
+- 6 of 11 · TR-2
+Two sources disagree about the same fact. What does the record show afterwards?
+Both sides, marked as in conflictWhichever one wonWhichever arrived most recently
+
+- 7 of 11 · TR-3
+Your agent proposes a consequential action. Where does the risk level of that action come from?
+A registry or allowlist you control, outside the modelThe model's own plan or outputNothing classifies risk
+
+- 8 of 11 · TR-3
+Are actions that were blocked or refused recorded as durably as the ones that ran?
+Yes, with the reason they were refusedOnly in application logs, if at allNo
+
+- 9 of 11 · TR-3
+A human approves a risky action. Where does that person's identity come from?
+The authentication layer: a session or a credential that was checkedA name supplied in the requestThere is no human approval step
+
+- 10 of 11 · TR-3
+Could the agent's own credential approve the agent's own action?
+No. Approval requires a principal that is not the agentYes, if it holds the right permissionI am not certain
+
+- 11 of 11 · TR-4
+Can you show a third party that the record has not been altered since it was written?
+Yes: deterministic replay, a hash chain, signatures or an external anchorNo
+
+11 still to answerAnswering honestly is the only thing that makes this worth anything.
+
+---
+
+# Installing a licence
+Source: https://infrastructure.omem-cloud.com/docs/licence
+
+Documentation
+
+# Installing a licence
+
+A licence unlocks the components in server/ee/. Everything else in OMEM works without one and always will.
+
+## What it does not do
+
+Worth stating before the instructions, because it is the first question a security reviewer asks. Verification is a signature check against a public key compiled into the server. It opens no connection, sends nothing anywhere, and reports no usage to us. There is no callback to fail, no endpoint to allowlist, and no telemetry to turn off. An OMEM server with a licence installed reaches the network exactly as often as one without: never, unless you connected something to it yourself.
+The server also cannot issue a licence. It holds the public half of the signing key, which can check a token and cannot produce one, so a complete read of the software you are running reveals no way to mint a licence for it.
+
+## Install it
+
+shell
+Copy code
+1# as an environment variable
+2export OMEM_LICENCE="eyJjdXN0b21lciI6...Ijp9.Xk3v..."
+3
+4# or from a file, which is easier to rotate
+5export OMEM_LICENCE_FILE=/etc/omem/licence.token
+6
+7omem-server
+
+Nothing else changes. If the token is missing or invalid, the server starts normally and the paid components stay off.
+
+## Check it took
+
+terminal
+Copy code
+1curl -H "Authorization: Bearer $OMEM_API_KEY" http://127.0.0.1:8787/v1/licence
+2
+3{
+4 "licensed": true,
+5 "customer": "Acme Ltd",
+6 "expires": 1790000000,
+7 "features": ["approval_policy"],
+8 "catalogue": { "approval_policy": "Policy over who may approve which risk class" }
+9}
+
+Readable by anyone with a key on purpose, because the person asked to prove the install is licensed is usually not the person who bought it. It names the customer and the expiry and nothing else: no secret, and nothing about your data.
+
+## Use it: an approval policy
+
+The free gate already refuses to let an agent approve its own action, and records every refusal. A policy narrows it further, so that the person who may clear a cache is not automatically the person who may move money.
+terminal
+Copy code
+1curl -X POST -H "Authorization: Bearer $OMEM_OWNER_KEY" -H "Content-Type: application/json" "http://127.0.0.1:8787/v1/healing/policy?project=$PROJECT" -d '{
+2 "default": "allow",
+3 "rules": [
+4 {"action_type": "issue_refund", "approvers": ["key:key_finance"]},
+5 {"risk_class": "high", "approvers": ["user:usr_head_of_ops"]}
+6 ]
+7 }'
+
+Approvers are matched against the principal your authentication layer resolved, and then against the name the caller supplied. A policy written in terms of principals is the stronger one, because a name in a request body is written by whoever sent the request. Anything no rule covers falls to default, which is allow unless you say otherwise, so adding a rule about refunds does not silently freeze everything else.
+A refusal names the rule that refused it rather than saying “denied by policy”, so whoever is looking at the record can go and read the line responsible.
+
+## When it expires
+
+Paid components stop unlocking. The server keeps running, the free gate keeps refusing agent self-approval, and every refusal is still recorded. An unpaid invoice should not become an outage, and a product that behaves otherwise teaches people not to buy infrastructure from a small company.
+
+## If you would rather not
+
+Delete server/ee/. OMEM behaves exactly as the open version does, because the core does not depend on it. That is not a loophole, it is the design: the MIT core is MIT permanently and the paid parts are separate components rather than a relicensing of anything you already had.
+What a licence costsTalk about one
+
+---
+
+# For your vendor security review
+Source: https://infrastructure.omem-cloud.com/vendor-review
+
+Vendor review
+
+# The answers your security team is about to ask for.
+
+Written to be forwarded. Most vendor questionnaires assume the supplier holds your data, so most of one is not applicable here, and the reason is architectural rather than a policy we could quietly change later. Where the answer is unfavourable it is on this page too, because a reviewer who finds one omission re-reads everything looking for the next one.
+
+## Your data, and what reaches us
+
+Nothing reaches us. That is not a commitment we are asking you to take on trust: it is enforced by a test that fails the build.
+
+Where your data goesNowhere. OMEM runs on your infrastructure and holds your data there. There is no OMEM-hosted service, no account to create, and no upload step, so there is no transfer to assess and no residency question to answer.
+What it sends usNothing. No telemetry, no usage reporting, no crash reports, no licence check-in. A build fails in CI if any part of the system opens a connection to anything but loopback, and that test has run on every commit since 2026.
+SubprocessorsNone. There is no cloud provider, no analytics vendor and no support tool in the path of your data, because your data never enters a path we operate. Most of a subprocessor questionnaire is not applicable, and this is the reason.
+The licence checkA signature verified offline against a public key compiled into the server. It opens no connection and reports no usage. There is no endpoint to allowlist, and nothing fails closed if your network blocks us.
+Access by usNone is possible. We hold no credentials to your install, there is no support tunnel and no break-glass path. If you want help, you send us what you choose to send us.
+
+## What happens to you if we disappear
+
+The usual answer from a small supplier is a promise. This one is a licence you already hold and a format you can already read.
+
+If we stop existingYou keep running it, permanently. The core is MIT: not a promise to open-source later, and not a source-available licence with conditions, but a grant already made that cannot be withdrawn from the version you hold.
+Source escrowUnnecessary, which is worth saying plainly because it is usually a cost line in an agreement like this. Escrow exists to release source if a supplier fails. The source is already public, on GitHub and inside the package you installed. There is nothing to hold that you do not already have.
+The format is not ours to withdrawThe record OMEM writes is the Testimony Record, a published specification with a JSON Schema and a validator that depends on nothing of ours. If we disappear the format keeps working and other implementations can read what you already wrote.
+Key-person riskReal, and named rather than dressed up. OMEM is maintained by one person. What that risk costs you is bounded by the two answers above: your deployment does not depend on our continuity, and neither does the readability of your records.
+Lock-inThe exit is the export. One endpoint returns every belief with its provenance, and the testimony exporter writes the whole record in an open format. Leaving costs a command rather than a project.
+
+## Where we will fail your review
+
+Listed so you find it here rather than in week three.
+
+No SOC 2, ISO 27001, or HIPAA BAANone held, none in progress. If your policy requires one from every supplier regardless of architecture, we will fail that check, and you should stop here rather than spend three weeks discovering it.
+No SSO or SCIMAccounts are email and password with TOTP. SSO gets built for the first customer who requires it, as part of their licence rather than in advance of it.
+No uptime SLAYou operate it, so the uptime is yours. We cannot credibly promise availability for a process we cannot see.
+Small supplierOne person, no outside funding. Everything above is designed so that this matters to you as little as it possibly can. It is not nothing, and we will not pretend otherwise.
+
+## Checking any of this
+
+Every claim on this page is checkable without asking us. The source is public, the network test is in the CI configuration, the format has a validator that runs on your machine, and the licence verification is a file you can read.
+The technical control list, including what is not built yet, is on the security page. A questionnaire we have not answered here is worth sending over: the answer goes on this page afterwards, so the next reviewer does not have to ask.
+
+Technical controlsHow a licence is installed
+
+---
+
+# OMEM vs Mem0 vs Zep, side by side
+Source: https://infrastructure.omem-cloud.com/compare/omem-vs-mem0-vs-zep/
+
+Comparison
+
+# OMEM vs Mem0 vs Zep: which agent memory answers your question?
+
+These three tools get compared because they all say “memory for AI agents,” but they are built for different questions. This page is the comparison we would want to read: specific, dated, and honest about where each one wins, including where we lose. Last checked: September 2026.
+
+## The short version
+
+Mem0 is the most widely adopted: you hand it conversations, an LLM distills them into memories and decides how new facts update old ones, and recall quality with near-zero integration work is the product. Zep builds a temporal knowledge graph: an LLM extracts entities and facts, and conflicting facts are invalidated with validity intervals instead of deleted, which gives real temporal provenance. OMEM is an accountability layer: no model decides what is stored or what is true, contradictions stay on the record with both sides, a named human approves risky actions, and the engine that reads the record must replay it byte-identically, verified in CI on every commit.
+The structural difference underneath every row of the table: Mem0 and Zep put an LLM in the write path, because their job is to manage memory for you. OMEM refuses to, because its job is to be evidence. Both designs are correct for their question.
+
+## Side by side
+
+Mem0ZepOMEM
+What it optimizesRecall quality with minimal integration workTemporal knowledge graph over your dataA defensible record of belief and action
+On conflicting factsAn LLM decides how the new fact updates the oldAn LLM invalidates edges, with validity intervalsBoth sides kept; a contradiction must be declared, never inferred
+LLM in the write pathYes, it distills and updates memoriesYes, it extracts entities and factsNo. Nothing stored is model-decided
+History of a beliefMemory history is availableValidity intervals on graph edgesAppend-only log; ask what was believed at any past moment
+Why-provenanceSimilarity and source metadataGraph paths with time boundsEvidence chain per belief: source, time, basis, what it contradicted
+Action gatingNot its jobNot its jobNamed-approver gate; refusals recorded with reasons
+Tamper evidenceStandard database guaranteesStandard database guaranteesFrozen engine, byte-identical replay verified in CI on every commit
+Network postureHosted service, or self-host the OSS coreHosted cloud; the Graphiti engine is OSSSelf-hosted only; a CI test fails the build on any non-loopback connection
+ErasureDelete APIsDelete APIsRight-to-be-forgotten with replay-verified erasure
+Adoption and ecosystemThe widest: default memory in AWS's Agent SDK, many framework integrationsEstablished, funded, latency-focusedEarly. Small community, one maintainer, integrations growing
+License and costOSS core plus paid hosted tiersOSS engine plus paid cloudMIT, free, self-hosted; the paid offering is hands-on pilot time
+
+Descriptions of Mem0 and Zep come from their public documentation as of September 2026; if something is out of date, open an issue and it gets fixed.
+
+## Where Mem0 and Zep genuinely win
+
+If you want memory that manages itself from raw conversation, both beat OMEM today. OMEM makes you assert claims explicitly, subjects and proposition, which is more integration work; that explicitness is where its guarantees come from, but it is honest to call it a cost. Mem0’s ecosystem is far larger, and if you want a hosted service with an SLA, OMEM does not offer one: it is self-hosted by design. Zep’s graph gives you entity-level queries OMEM does not attempt. If your agent is a chatbot whose worst failure is a wrong preference, their trade is the right one.
+
+## Where OMEM wins
+
+The stakes change when an agent acts on someone’s behalf and a client, an auditor, or a regulator can ask “why did it do that?” An LLM-curated memory cannot fully answer, because the curation itself is an unrecorded judgment: the model that decided the new fact should replace the old one left no defensible reason behind. OMEM’s answer is structural. Every belief carries its evidence chain. Contradictions keep both sides. Risky actions wait for a named approver, and refusals are recorded with reasons. The engine is frozen: it must replay the whole log byte-identically, checked in CI on every commit, so not even an upgrade can change what was said. And a CI test fails the build if the server ever makes a non-loopback connection, so “nothing leaves your environment” is a test result, not a promise.
+We also benchmark this differently, and publish it: Witness measures truthfulness duties, keeping contradictions, refusing unsupported claims, surviving retraction, rather than recall accuracy. It ships adapters for Mem0 and Graphiti so you can run the comparison yourself, with your own keys, rather than trusting our numbers.
+
+## Choose honestly
+
+- Choose Mem0 for the best self-managing recall with the least work, the biggest ecosystem, and a hosted option.
+- Choose Zep when you want temporal, entity-level structure over your data and graph queries against it.
+- Choose OMEM when someone can ask you to prove why the agent believed and did what it did: agents that act for clients, security reviews, EU AI Act Article 12 exposure.
+- Or run two. A recall layer behind the model and OMEM in front of the action is a coherent architecture, not a compromise.
+Try OMEM in five minutesThe accountability side
+
+---
+
+# OMEM vs Mem0
+Source: https://infrastructure.omem-cloud.com/compare/mem0/
+
+OMEM vs Mem0
+
+# Mem0 remembers what was said. OMEM decides nothing about what is true.
+
+Mem0 is a popular memory layer that extracts memories from conversations and retrieves them by relevance, with a managed platform if you want one. OMEM is a belief engine: it tracks what is currently believed, on what evidence, and what disagrees. Different questions, honestly different tools.
+
+## What Mem0 is genuinely good at
+
+A comparison that cannot say this is an advertisement. These are real strengths, and if they match your problem, use Mem0.
+Fast conversational personalizationDrop it into a chat product and it starts remembering user preferences with very little ceremony. That is a real strength and the reason for its adoption.
+A managed service existsIf you want memory as a hosted platform with someone else running it, that option is on the table. OMEM is self-hosted only, by design.
+A large communityPlenty of integrations, examples and answered questions. Ecosystem maturity counts for something real.
+
+## What OMEM does differently
+
+Every claim below is asserted by the repository's CI, so none of it can quietly stop being true.
+Belief state, not stored stringsEvery claim has a state (believed, contradicted, unknown) computed from the evidence at query time. Two agents asserting opposite things produces CONTRADICTED with both sides on the record, never a silent overwrite.
+Conflicts are declared, never guessedTwo claims disagree only when someone declared them opposed. No model reads your memories to decide they conflict, which is what keeps the same question giving the same answer a year later.
+Answers for itselfAsk why about any belief and get the evidence chain: who said it, the quoted source, what was concluded from it, what contradicts it. The whole state replays from an append-only log, and omem-verify proves it rather than claims it.
+Takes things backRetract a fact and everything concluded from it is withdrawn in the same request, cascade included. Declared inference rules come with truth maintenance built in.
+Hunches that know they are hunchesThe intuition layer forms expectations from single examples, keeps a case file per hypothesis, interrogates its own guesses, and never lets a hunch pass as a belief. expects() and believes() are different verbs.
+Zero dependencies, committed licenseStdlib-only Python (CI fails the build if a runtime dependency appears), SQLite by default, runs air-gapped. MIT, with a written commitment in CONTRIBUTING.md that the core stays MIT.
+
+the_difference.py
+Copy code
+1mem.remember(agent="sales", about="customer:acme", claim="prefers_annual_billing")
+2mem.remember(agent="support", about="customer:acme", claim="not:prefers_annual_billing")
+3
+4mem.believes(about="customer:acme", claim="prefers_annual_billing")
+5# -> CONTRADICTED (both sides on the record, neither silently wins)
+6
+7mem.why(assertion_id)
+8# -> the evidence chain: who said it, the quoted source, what conflicts
+
+## The honest decision guide
+
+### Choose Mem0 when
+
+- You want a hosted, managed memory service
+- The job is remembering user preferences in a chat product, and audit questions never come up
+- You want the largest possible community around your memory layer
+
+### Choose OMEM when
+
+- Someone will eventually ask why the agent believed something, and you need a real answer
+- Conflicting information must be surfaced, not silently resolved by recency
+- You need to reconstruct what the agent believed at a past moment, exactly
+- Your deployment is self-hosted, regulated, or air-gapped
+
+Read the sourceTry it in five minutesAll comparisons
+
+---
+
+# OMEM vs Zep
+Source: https://infrastructure.omem-cloud.com/compare/zep/
+
+OMEM vs Zep
+
+# Zep builds a knowledge graph of your sessions. OMEM keeps a court record.
+
+Zep assembles conversations into a temporal knowledge graph and serves fast, relevant context, with a managed cloud. OMEM optimizes for a different property: every belief is an auditable claim with evidence, state, and a replayable history. Speed of recall versus defensibility of the record.
+
+## What Zep is genuinely good at
+
+A comparison that cannot say this is an advertisement. These are real strengths, and if they match your problem, use Zep.
+Temporal knowledge graphsEntities and relations extracted from sessions into a graph that understands time. Genuinely strong engineering, and a good fit for context assembly.
+Session summarization at scaleLong conversations become usable context without you building that pipeline.
+A managed cloudIf you want the graph without operating it, that exists. OMEM has no cloud; you run it.
+
+## What OMEM does differently
+
+Every claim below is asserted by the repository's CI, so none of it can quietly stop being true.
+Belief state, not stored stringsEvery claim has a state (believed, contradicted, unknown) computed from the evidence at query time. Two agents asserting opposite things produces CONTRADICTED with both sides on the record, never a silent overwrite.
+Conflicts are declared, never guessedTwo claims disagree only when someone declared them opposed. No model reads your memories to decide they conflict, which is what keeps the same question giving the same answer a year later.
+Answers for itselfAsk why about any belief and get the evidence chain: who said it, the quoted source, what was concluded from it, what contradicts it. The whole state replays from an append-only log, and omem-verify proves it rather than claims it.
+Takes things backRetract a fact and everything concluded from it is withdrawn in the same request, cascade included. Declared inference rules come with truth maintenance built in.
+Hunches that know they are hunchesThe intuition layer forms expectations from single examples, keeps a case file per hypothesis, interrogates its own guesses, and never lets a hunch pass as a belief. expects() and believes() are different verbs.
+Zero dependencies, committed licenseStdlib-only Python (CI fails the build if a runtime dependency appears), SQLite by default, runs air-gapped. MIT, with a written commitment in CONTRIBUTING.md that the core stays MIT.
+
+the_difference.py
+Copy code
+1mem.remember(agent="sales", about="customer:acme", claim="prefers_annual_billing")
+2mem.remember(agent="support", about="customer:acme", claim="not:prefers_annual_billing")
+3
+4mem.believes(about="customer:acme", claim="prefers_annual_billing")
+5# -> CONTRADICTED (both sides on the record, neither silently wins)
+6
+7mem.why(assertion_id)
+8# -> the evidence chain: who said it, the quoted source, what conflicts
+
+## The honest decision guide
+
+### Choose Zep when
+
+- You want managed infrastructure and automatic graph construction from sessions
+- The goal is rich context assembly rather than an auditable belief record
+- Summarized history is acceptable as the source of truth
+
+### Choose OMEM when
+
+- The record matters: who asserted what, on what evidence, and what happened when it was contradicted
+- Extraction must be inspectable and deterministic, with a model only ever proposing
+- You need declared inference with take-backs, not just retrieval
+- Zero-dependency, self-hosted, air-gap-friendly deployment is a requirement
+
+Read the sourceTry it in five minutesAll comparisons
+
+---
+
+# OMEM vs Letta
+Source: https://infrastructure.omem-cloud.com/compare/letta/
+
+OMEM vs Letta
+
+# Letta is an agent framework with memory. OMEM is memory for the agents you already have.
+
+Letta (the MemGPT lineage) is an agent runtime where agents manage their own memory hierarchy. It answers the whole question of how to build an agent. OMEM answers one question extremely thoroughly: what does this agent believe, and why. It sits under whatever framework you already chose, through MCP, a REST API, or the SDK.
+
+## What Letta is genuinely good at
+
+A comparison that cannot say this is an advertisement. These are real strengths, and if they match your problem, use Letta.
+The whole agent runtimeAgents, tools, and self-editing memory in one system, from the team that started the MemGPT line of thinking. If you are starting fresh, that completeness is attractive.
+Self-editing memory hierarchyThe core/archival memory design is a genuinely interesting answer to the context window problem.
+An opinionated, integrated stackFewer decisions for you to make, because the framework made them.
+
+## What OMEM does differently
+
+Every claim below is asserted by the repository's CI, so none of it can quietly stop being true.
+Belief state, not stored stringsEvery claim has a state (believed, contradicted, unknown) computed from the evidence at query time. Two agents asserting opposite things produces CONTRADICTED with both sides on the record, never a silent overwrite.
+Conflicts are declared, never guessedTwo claims disagree only when someone declared them opposed. No model reads your memories to decide they conflict, which is what keeps the same question giving the same answer a year later.
+Answers for itselfAsk why about any belief and get the evidence chain: who said it, the quoted source, what was concluded from it, what contradicts it. The whole state replays from an append-only log, and omem-verify proves it rather than claims it.
+Takes things backRetract a fact and everything concluded from it is withdrawn in the same request, cascade included. Declared inference rules come with truth maintenance built in.
+Hunches that know they are hunchesThe intuition layer forms expectations from single examples, keeps a case file per hypothesis, interrogates its own guesses, and never lets a hunch pass as a belief. expects() and believes() are different verbs.
+Zero dependencies, committed licenseStdlib-only Python (CI fails the build if a runtime dependency appears), SQLite by default, runs air-gapped. MIT, with a written commitment in CONTRIBUTING.md that the core stays MIT.
+
+the_difference.py
+Copy code
+1mem.remember(agent="sales", about="customer:acme", claim="prefers_annual_billing")
+2mem.remember(agent="support", about="customer:acme", claim="not:prefers_annual_billing")
+3
+4mem.believes(about="customer:acme", claim="prefers_annual_billing")
+5# -> CONTRADICTED (both sides on the record, neither silently wins)
+6
+7mem.why(assertion_id)
+8# -> the evidence chain: who said it, the quoted source, what conflicts
+
+## The honest decision guide
+
+### Choose Letta when
+
+- You are starting from zero and want the framework and the memory as one decision
+- Agents editing their own memory is the behaviour you want
+- You are comfortable inside one integrated stack
+
+### Choose OMEM when
+
+- You already have an agent stack (LangGraph, Claude via MCP, your own) and need the belief layer under it
+- Memory must survive audits: evidence chains, declared conflicts, replayable history
+- You want the memory to be framework-agnostic so the stack can change without losing the record
+- The intuition loop matters: hypotheses with case files, interrogation, calibration
+
+Read the sourceTry it in five minutesAll comparisons
 
 ---
 
@@ -317,38 +986,42 @@ Strip the legal text to engineering requirements and you get four properties. Ea
 
 The following runs on your own infrastructure with pip install omem-infrastructure. OMEM is an open-source (MIT) memory and accountability layer for agents; each block below is the mechanism for one property.
 
+Copy code
 1from omem import Memory
 2mem = Memory(api_key="omem_sk_...", project="proj_...",
 3 base_url="http://127.0.0.1:8787")
-4 
+4
 5a = mem.remember("agent:claims-bot", "case:1042",
 6 "eligible_for_fast_track")
-7 
+7
 8mem.why(a["id"])
 9# -> who asserted it, when, the evidence chain, and anything
 10# on record that contradicts it. This is the exportable
 11# answer to "why did it act".
-12 
+12
 13# the agent acted last Tuesday; reconstruct last Tuesday
 14mem.recall(about="case:1042", as_of="2026-08-25T14:00:00Z")
 
+Copy code
 1mem.remember("agent:intake", "case:1042",
 2 "not:eligible_for_fast_track")
-3 
+3
 4mem.conflicts()
 5# -> both claims, each with source and recency. Nothing was
 6# overwritten. The "risky situation" Article 12 wants
 7# identifiable is exactly this, and it stays identifiable.
 
+Copy code
 1result = mem.healing.handle(
 2 error={"component": "payout", "error_type": "AuthError"},
 3 plan={"actions": [{"type": "reload_config"},
 4 {"type": "exec_shell"}]})
-5 
+5
 6result["status"] # "denied" - nothing executed
 7result["decisions"] # per action: permitted / refused, with reason
 8# High-risk actions wait for a NAMED approver; the approval and
 9# every refusal are recorded alongside the beliefs behind them.
+
 Tamper evidence is structural rather than an API call: the record is an append-only operations log, and the engine that interprets it is frozen. It must replay the log to a byte-identical state, and that replay is verified continuously (a CI test also tampers with one operation and requires the check to fail, so the proof is proven able to fail). An upgrade cannot rewrite recorded history.
 And the GDPR coexistence: erasure is a real, first-class operation, not a soft delete. One request rewrites the person’s data out of the record, replay-verified before anything is touched; what remains is a hash, counts, and a date. So the record satisfies retention and lawful deletion at the same time.
 
@@ -404,27 +1077,30 @@ Logs record what the system did. An audit trail for an agent must also record wh
 
 ## Record beliefs, not just events
 
+Copy code
 1pip install omem-infrastructure
 2omem-server
-3 
+3
 4# every belief is recorded with source, time, and evidence
 5from omem import Memory
 6mem = Memory(api_key="omem_sk_...", project="proj_...",
 7 base_url="http://127.0.0.1:8787")
-8 
+8
 9a = mem.remember("agent:support", "customer:alice",
 10 "prefers_annual_billing")
-11 
+11
 12mem.why(a["id"])
 13# -> who asserted it, when, its evidence chain,
 14# and anything on record that contradicts it
+
 why() is the core of the trail: for any belief, the full chain of assertions and evidence that led there. When a client asks why the agent believed something, this is the artifact you export and send.
 
 ## Keep the disagreement, not just the winner
 
+Copy code
 1mem.remember("agent:sales", "customer:alice",
 2 "not:prefers_annual_billing")
-3 
+3
 4mem.conflicts()
 5# -> both claims, each with its agent, source, and recency.
 6# Nothing was overwritten; the disagreement is part of
@@ -432,9 +1108,11 @@ why() is the core of the trail: for any belief, the full chain of assertions and
 
 ## Ask what was believed at the time, not what is believed now
 
+Copy code
 1# the agent acted on Tuesday; reconstruct Tuesday
 2mem.recall(about="customer:alice", as_of="2026-08-25T14:00:00Z")
 3# -> the beliefs as they stood then, not as they stand today
+
 This is the capability request logs cannot fake. If the memory overwrote the past, the honest answer to “what did it know when it acted” is “we no longer know”.
 
 ## Record who approved the risky actions
@@ -471,21 +1149,23 @@ A yes/no prompt fails all four properties: it approves whatever string the model
 
 ## A working pattern: propose, decide, record
 
+Copy code
 1result = mem.healing.handle(
 2 error={"component": "billing-sync", "error_type": "AuthError"},
 3 plan={"diagnosis": "credentials rotated upstream",
 4 "actions": [{"type": "reload_config"},
 5 {"type": "exec_shell"}]},
 6)
-7 
+7
 8result["status"]
 9# "denied" - nothing executed
-10 
+10
 11result["decisions"]
 12# reload_config permitted (low risk, registered)
 13# exec_shell unknown action type (not registered)
 14#
 15# the refusal is recorded with a reason for every action
+
 The model proposed exec_shell. It was not registered, so it could not run, whatever the plan claimed about it. The decision, including the refusal, is written to the record. That is the shape of a defensible gate: the authority lives in code you wrote, and every exercise of it leaves evidence.
 
 ## Where do the waiting questions go?
@@ -556,48 +1236,55 @@ Guide
 
 # Agent memory in Python, with receipts
 
-Most agent memory is a list of facts, and when two of them disagree the newer one silently wins. This guide sets up memory that works like testimony instead: every belief carries evidence, disagreement stays visible, and anything can answer `why`.
+Most agent memory is a list of facts, and when two of them disagree the newer one silently wins. This guide sets up memory that works like testimony instead: every belief carries evidence, disagreement stays visible, and anything can answer why.
 
 ## Install
 
+Copy code
 1pip install omem-infrastructure
 2omem-server
+
 Zero runtime dependencies (CI fails the build if one appears), SQLite by default, works air-gapped. The first run prints your project id and API key.
 
 ## Remember, and ask why
 
+Copy code
 1from omem import Memory
-2 
+2
 3mem = Memory(api_key="omem_sk_...", project="proj_...",
 4 base_url="http://127.0.0.1:8787")
-5 
+5
 6a = mem.remember("agent:support", "customer:alice", "prefers_annual_billing")
-7 
+7
 8mem.believes("customer:alice", "prefers_annual_billing")
 9# -> "BELIEVED_TRUE"
-10 
+10
 11mem.why(a["id"])
 12# -> who said it, when, its evidence, and anything that contradicts it
 
 ## Disagreement stays on the record
 
+Copy code
 1mem.remember("agent:sales", "customer:alice", "not:prefers_annual_billing")
-2 
+2
 3mem.conflicts()
 4# -> both sides, each with its observations, agents and recency.
 5# Nothing was overwritten; nothing was decided by timestamp.
-Claims named `X` and `not:X` are declared mutually exclusive automatically; anything else conflicts only if you declare it. The engine never resolves a disagreement on its own, because arrival order is not evidence.
+
+Claims named X and not:X are declared mutually exclusive automatically; anything else conflicts only if you declare it. The engine never resolves a disagreement on its own, because arrival order is not evidence.
 
 ## Take things back, completely
 
+Copy code
 1mem.declare_rule(when=[("works_at", "fwd"), ("owns", "rev")],
 2 then=("involves", "rev"))
 3mem.infer() # concludes from what is believed
-4 
+4
 5mem.retract(assertion_id, agent="agent:support")
 6# the fact is withdrawn, and every conclusion resting on it
 7# is withdrawn in the same request, cascade included
-History survives all of it. Supersede a fact and the old value keeps the interval it was believed; retract one and the record shows what was withdrawn and when. The whole state rebuilds from an append-only log, and `omem-verify` proves the state follows from the log instead of asserting it.
+
+History survives all of it. Supersede a fact and the old value keeps the interval it was believed; retract one and the record shows what was withdrawn and when. The whole state rebuilds from an append-only log, and omem-verify proves the state follows from the log instead of asserting it.
 
 ## Where to go next
 
@@ -613,40 +1300,46 @@ Guide
 
 # Long-term memory for a LangGraph agent
 
-LangGraph gives your agent a store for memory that survives across threads. The built-in ones are key-value stores: `put` overwrites, `delete` erases. Correct for a cache, wrong for memory, because the question you will actually ask later is “what did the agent believe last week, and what changed it”. This guide wires the same interface to a backend that keeps the history.
+LangGraph gives your agent a store for memory that survives across threads. The built-in ones are key-value stores: put overwrites, delete erases. Correct for a cache, wrong for memory, because the question you will actually ask later is “what did the agent believe last week, and what changed it”. This guide wires the same interface to a backend that keeps the history.
 
 ## Setup
 
 Two installs and one command:
 
+Copy code
 1pip install "omem-infrastructure[langgraph]"
 2omem-server
-`omem-server` prints a project id and API key on first run and serves a dashboard on the same port. SQLite underneath, no other dependencies, runs offline.
+
+omem-server prints a project id and API key on first run and serves a dashboard on the same port. SQLite underneath, no other dependencies, runs offline.
 
 ## The store
 
+Copy code
 1from omem import Memory
 2from omem.integrations.langgraph_store import OmemStore
-3 
+3
 4store = OmemStore(Memory(
 5 api_key="omem_sk_...", # printed on first run
 6 project="proj_...",
 7 base_url="http://127.0.0.1:8787",
 8))
-9 
+9
 10store.put(("memories", "alice"), "billing", {"text": "prefers annual billing"})
 11store.get(("memories", "alice"), "billing").value
 12# -> {"text": "prefers annual billing"}
-Hand it to `create_react_agent(..., store=store)` or any LangGraph graph, exactly as you would hand it an `InMemoryStore`. Cross-thread memory works as before.
+
+Hand it to create_react_agent(..., store=store) or any LangGraph graph, exactly as you would hand it an InMemoryStore. Cross-thread memory works as before.
 
 ## What the second write does
 
+Copy code
 1store.put(("memories", "alice"), "billing", {"text": "switched to monthly"})
-In a key-value store the annual preference now no longer exists, anywhere. Here it is superseded: the old value stays on the record with the moment it stopped being believed, and the dashboard shows both, with the interval each was held and which write ended it. `delete` works the same way: the key stops resolving, the history of what it held survives. Every write is attributed, so `mem.why(assertion_id)` answers where a memory came from.
+
+In a key-value store the annual preference now no longer exists, anywhere. Here it is superseded: the old value stays on the record with the moment it stopped being believed, and the dashboard shows both, with the interval each was held and which write ended it. delete works the same way: the key stops resolving, the history of what it held survives. Every write is attributed, so mem.why(assertion_id) answers where a memory came from.
 
 ## Honest limitations
 
-Vector search over the store interface is not implemented yet; `search(query=...)` raises rather than quietly returning unranked results. Every operation is a network round trip to a real server, where InMemoryStore is a dict. Use this where the audit trail is worth more than the microseconds.
+Vector search over the store interface is not implemented yet; search(query=...) raises rather than quietly returning unranked results. Every operation is a network round trip to a real server, where InMemoryStore is a dict. Use this where the audit trail is worth more than the microseconds.
 
 ## Where to go next
 
@@ -666,14 +1359,17 @@ MCP is how Claude Desktop and other clients talk to outside tools. This guide gi
 
 ## Start the server
 
+Copy code
 1pip install omem-infrastructure
 2omem-server
+
 First run prints a project id and an API key, and serves a dashboard on the same port where you can watch memories arrive.
 
 ## Wire it into Claude Desktop
 
-Add this to `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/`, Windows: `%APPDATA%\Claude\`) and restart the app:
+Add this to claude_desktop_config.json (macOS: ~/Library/Application Support/Claude/, Windows: %APPDATA%\Claude\) and restart the app:
 
+Copy code
 1{
 2 "mcpServers": {
 3 "omem": {
@@ -687,63 +1383,15 @@ Add this to `claude_desktop_config.json` (macOS: `~/Library/Application Support/
 11 }
 12 }
 13}
-`omem-mcp` speaks MCP over stdio and starts with nothing else configured. Claude gets `remember`, `recall` and `why` tools, plus the reasoning verbs.
+
+omem-mcp speaks MCP over stdio and starts with nothing else configured. Claude gets remember, recall and why tools, plus the reasoning verbs.
 
 ## What makes this memory different
 
-The model proposes memories; a belief revision engine decides what is actually believed. When two remembered facts contradict each other, both survive, flagged, with sides. Ask the `why` tool about anything and you get the evidence chain: who said it, when, what contradicts it. Retract a fact and everything concluded from it is withdrawn in the same request. Nothing is silently overwritten because a newer message arrived.
+The model proposes memories; a belief revision engine decides what is actually believed. When two remembered facts contradict each other, both survive, flagged, with sides. Ask the why tool about anything and you get the evidence chain: who said it, when, what contradicts it. Retract a fact and everything concluded from it is withdrawn in the same request. Nothing is silently overwritten because a newer message arrived.
 Everything stays local: SQLite on your disk, zero runtime dependencies, and the server provably makes no outbound connections. The air-gap test in CI fails the build if any code path so much as looks up an external hostname.
 
 ## Where to go next
 
 The quickstart covers the same server from the SDK side, and the Python guide shows the belief-tracking surface the MCP tools sit on.
 QuickstartSource on GitHub
-
----
-
-# OMEM vs Mem0 vs Zep
-Source: https://infrastructure.omem-cloud.com/compare/omem-vs-mem0-vs-zep/
-
-Comparison
-
-# OMEM vs Mem0 vs Zep: which agent memory answers your question?
-
-These three tools get compared because they all say “memory for AI agents,” but they are built for different questions. This page is the comparison we would want to read: specific, dated, and honest about where each one wins, including where we lose. Last checked: September 2026.
-
-## The short version
-
-Mem0 is the most widely adopted: you hand it conversations, an LLM distills them into memories and decides how new facts update old ones, and recall quality with near-zero integration work is the product. Zep builds a temporal knowledge graph: an LLM extracts entities and facts, and conflicting facts are invalidated with validity intervals instead of deleted, which gives real temporal provenance. OMEM is an accountability layer: no model decides what is stored or what is true, contradictions stay on the record with both sides, a named human approves risky actions, and the engine that reads the record must replay it byte-identically, verified in CI on every commit.
-The structural difference underneath every row of the table: Mem0 and Zep put an LLM in the write path, because their job is to manage memory for you. OMEM refuses to, because its job is to be evidence. Both designs are correct for their question.
-
-## Side by side
-
-Mem0ZepOMEM
-What it optimizesRecall quality with minimal integration workTemporal knowledge graph over your dataA defensible record of belief and action
-On conflicting factsAn LLM decides how the new fact updates the oldAn LLM invalidates edges, with validity intervalsBoth sides kept; a contradiction must be declared, never inferred
-LLM in the write pathYes, it distills and updates memoriesYes, it extracts entities and factsNo. Nothing stored is model-decided
-History of a beliefMemory history is availableValidity intervals on graph edgesAppend-only log; ask what was believed at any past moment
-Why-provenanceSimilarity and source metadataGraph paths with time boundsEvidence chain per belief: source, time, basis, what it contradicted
-Action gatingNot its jobNot its jobNamed-approver gate; refusals recorded with reasons
-Tamper evidenceStandard database guaranteesStandard database guaranteesFrozen engine, byte-identical replay verified in CI on every commit
-Network postureHosted service, or self-host the OSS coreHosted cloud; the Graphiti engine is OSSSelf-hosted only; a CI test fails the build on any non-loopback connection
-ErasureDelete APIsDelete APIsRight-to-be-forgotten with replay-verified erasure
-Adoption and ecosystemThe widest: default memory in AWS's Agent SDK, many framework integrationsEstablished, funded, latency-focusedEarly. Small community, one maintainer, integrations growing
-License and costOSS core plus paid hosted tiersOSS engine plus paid cloudMIT, free, self-hosted; the paid offering is hands-on pilot time
-Descriptions of Mem0 and Zep come from their public documentation as of September 2026; if something is out of date, open an issue and it gets fixed.
-
-## Where Mem0 and Zep genuinely win
-
-If you want memory that manages itself from raw conversation, both beat OMEM today. OMEM makes you assert claims explicitly, subjects and proposition, which is more integration work; that explicitness is where its guarantees come from, but it is honest to call it a cost. Mem0’s ecosystem is far larger, and if you want a hosted service with an SLA, OMEM does not offer one: it is self-hosted by design. Zep’s graph gives you entity-level queries OMEM does not attempt. If your agent is a chatbot whose worst failure is a wrong preference, their trade is the right one.
-
-## Where OMEM wins
-
-The stakes change when an agent acts on someone’s behalf and a client, an auditor, or a regulator can ask “why did it do that?” An LLM-curated memory cannot fully answer, because the curation itself is an unrecorded judgment: the model that decided the new fact should replace the old one left no defensible reason behind. OMEM’s answer is structural. Every belief carries its evidence chain. Contradictions keep both sides. Risky actions wait for a named approver, and refusals are recorded with reasons. The engine is frozen: it must replay the whole log byte-identically, checked in CI on every commit, so not even an upgrade can change what was said. And a CI test fails the build if the server ever makes a non-loopback connection, so “nothing leaves your environment” is a test result, not a promise.
-We also benchmark this differently, and publish it: Witness measures truthfulness duties, keeping contradictions, refusing unsupported claims, surviving retraction, rather than recall accuracy. It ships adapters for Mem0 and Graphiti so you can run the comparison yourself, with your own keys, rather than trusting our numbers.
-
-## Choose honestly
-
-- Choose Mem0 for the best self-managing recall with the least work, the biggest ecosystem, and a hosted option.
-- Choose Zep when you want temporal, entity-level structure over your data and graph queries against it.
-- Choose OMEM when someone can ask you to prove why the agent believed and did what it did: agents that act for clients, security reviews, EU AI Act Article 12 exposure.
-- Or run two. A recall layer behind the model and OMEM in front of the action is a coherent architecture, not a compromise.
-Try OMEM in five minutesThe accountability side
