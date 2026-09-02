@@ -154,6 +154,11 @@ def main():
                     help="read a static export (web/out) instead of the live site")
     ap.add_argument("--check", action="store_true",
                     help="exit 1 if the committed file is not what this would write")
+    ap.add_argument("--out", default=None,
+                    help="write somewhere other than the committed file. CI "
+                         "uses this to hand back the file it expected, because "
+                         "the only static export lives there and not every "
+                         "machine can build one")
     args = ap.parse_args()
 
     get = (lambda u: read_export(args.from_dir, u)) if args.from_dir else fetch
@@ -170,10 +175,11 @@ def main():
         print("llms-full.txt is stale. Run: python scripts/gen_llms_full.py")
         return 1
 
-    with open(TARGET, "w", encoding="utf-8", newline="\n") as f:
+    dest = args.out or TARGET
+    with open(dest, "w", encoding="utf-8", newline="\n") as f:
         f.write(built)
     print("wrote %s (%d sections, %d KB)"
-          % (os.path.relpath(TARGET, ROOT), built.count("\nSource: "), len(built) // 1024))
+          % ((dest if args.out else os.path.relpath(TARGET, ROOT)), built.count("\nSource: "), len(built) // 1024))
     return 0
 
 
