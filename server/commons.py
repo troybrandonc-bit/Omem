@@ -37,11 +37,34 @@ CREATE TABLE IF NOT EXISTS commons_meta(k TEXT PRIMARY KEY, v TEXT NOT NULL);
 """
 
 
+POOLED_SCHEMA = """
+CREATE TABLE IF NOT EXISTS commons_pooled(
+  antecedent TEXT NOT NULL,
+  consequent TEXT NOT NULL,
+  support INTEGER NOT NULL,
+  refute INTEGER NOT NULL,
+  subjects INTEGER NOT NULL,
+  sources INTEGER NOT NULL,
+  received REAL NOT NULL,
+  PRIMARY KEY(antecedent, consequent));
+"""
+
+# A pooled prior must have been seen by more than one install before it may
+# influence anything. This is the commons-level echo check: one install's
+# priors are one population, however many subjects stand behind them, and
+# agreement ACROSS installs is the only independence signal available at this
+# layer. It is the same argument scripts/independence_estimate.py makes inside
+# a project -- agreement is cheap, independent agreement is not -- applied at
+# the door where other people's knowledge enters this machine.
+POOLED_MIN_SOURCES = 2
+
+
 def ensure_schema(db):
     """The schema, plus the one column a collector predating calibration will
     not have. A collector is a long-lived install, so the table is older than
     this feature on every machine that already runs one."""
     db.executescript(COMMONS_SCHEMA)
+    db.executescript(POOLED_SCHEMA)
     try:
         db.execute("ALTER TABLE commons_contributions ADD COLUMN calibration TEXT")
         db.commit()
@@ -293,6 +316,72 @@ def latest_calibration_per_instance(db) -> dict:
         except (TypeError, ValueError):
             out[r["instance"]] = []
     return out
+
+
+def accept_pooled(rows) -> tuple[list, str | None]:
+    """The bank coming BACK, checked as hard as the bank going out.
+
+    Until now the commons was one-way: an install contributed and received
+    nothing, so nothing it ran was ever affected by anyone else's data. Reading
+    is the direction that needs the stricter door, because these rows come from
+    a server and end up shaping what this machine believes about the people in
+    front of it.
+
+    Three refusals, in order of how much they matter:
+      * the same identifying and vocabulary checks a contribution passes, so a
+        compromised collector cannot push a name in through the back door;
+      * POOLED_MIN_SOURCES, so a single install cannot teach the world its own
+        idiosyncrasies through a bank that merely echoes it back;
+      * the same floor and count sanity as everything else here."""
+    if not isinstance(rows, list):
+        return [], "pooled patterns must be a list"
+    clean = []
+    for r in rows:
+        if not isinstance(r, dict):
+            return [], "every pooled pattern must be an object"
+        a, c = r.get("antecedent"), r.get("consequent")
+        if not isinstance(a, str) or not isinstance(c, str) or not a or not c:
+            return [], "antecedent/consequent must be strings"
+        if _identifying(a) or _identifying(c):
+            return [], f"identifying token refused: {a if _identifying(a) else c!r}"
+        if _foreign_word(a) or _foreign_word(c):
+            continue        # outside the shared vocabulary: not ours to learn from
+        try:
+            s, f = int(r.get("support", 0)), int(r.get("refute", 0))
+            n = int(r.get("subjects", 0))
+            src = int(r.get("sources", 0))
+        except (TypeError, ValueError):
+            return [], "counts must be integers"
+        if s < 0 or f < 0 or s + f > 10_000_000:
+            return [], "counts out of range"
+        if s < PRIOR_FLOOR_N or src < POOLED_MIN_SOURCES:
+            continue        # too thin, or one install talking to itself
+        clean.append({"antecedent": a, "consequent": c, "support": s,
+                      "refute": f, "subjects": n, "sources": src})
+    return clean, None
+
+
+def store_pooled(db, rows: list):
+    """Replace, never accumulate. The bank is a snapshot of what the commons
+    currently holds; merging successive snapshots would double-count the same
+    populations every time a machine syncs."""
+    db.execute("DELETE FROM commons_pooled")
+    now = time.time()
+    db.executemany(
+        "INSERT INTO commons_pooled(antecedent, consequent, support, refute, "
+        "subjects, sources, received) VALUES(?,?,?,?,?,?,?)",
+        [(r["antecedent"], r["consequent"], r["support"], r["refute"],
+          r["subjects"], r["sources"], now) for r in rows])
+    db.commit()
+
+
+def pooled(db) -> list[dict]:
+    try:
+        return [dict(r) for r in db.execute(
+            "SELECT antecedent, consequent, support, refute, subjects, sources "
+            "FROM commons_pooled")]
+    except Exception:
+        return []           # a database predating the pooled table has none
 
 
 def merged_calibration(own_rows: list, contribs: dict) -> list:

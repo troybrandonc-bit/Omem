@@ -71,6 +71,10 @@ STRENGTH_FLOOR = 0.05
 # and not below PRIOR_MIN_RATE (a pattern that barely holds is not a prior).
 PRIOR_FLOOR_N = 3
 PRIOR_MIN_RATE = 0.6
+# A prior borrowed from the commons is about other people's populations, so a
+# hunch it produces is born this much less bold than the same hunch from a
+# locally mined prior. It only ever lowers strength.
+POOLED_DISCOUNT = 0.75
 PRIOR_MAX = 500          # a bound on how many priors one mining pass may hold
 
 HYPOTHESES_SCHEMA = """
@@ -401,6 +405,21 @@ def priors(db, project_id: str) -> list[dict]:
     return out
 
 
+def _pooled_rows(db) -> list[dict]:
+    """The commons bank as prior-shaped rows.
+
+    Read with SQL rather than through commons.py, which imports this module;
+    the table is the contract between them. A database that has never synced,
+    or predates the table, contributes nothing and raises nothing -- the
+    commons is a gift in both directions and never a dependency."""
+    try:
+        return [dict(r) for r in db.execute(
+            "SELECT antecedent, consequent, support, refute, subjects, sources "
+            "FROM commons_pooled")]
+    except Exception:
+        return []
+
+
 def leap(p, db, about: str | None = None) -> dict:
     """One bounded leap pass. For each target entity, find its closest
     look-alikes and project their beliefs onto it as hypotheses.
@@ -494,6 +513,23 @@ def leap(p, db, about: str | None = None) -> dict:
     # prior's own record (as generator "prior:<id>") takes the win or the loss.
     prior_rows = [dict(r) for r in db.execute(
         "SELECT * FROM priors WHERE project_id=?", (p.id,))]
+    # What the rest of the commons has learned, ranked strictly beneath what
+    # this install learned itself. Three rules keep the order honest:
+    #   * a pooled prior is appended AFTER the local ones, and a pair a local
+    #     prior already covers is dropped, so borrowed knowledge never displaces
+    #     knowledge about this population;
+    #   * its hunches are born weaker (POOLED_DISCOUNT), because a rate across
+    #     other people's populations is weaker evidence about this one;
+    #   * it is still defeasible in exactly the same way, firing only into a
+    #     silence and yielding the instant this person's own evidence speaks.
+    # An install that contributes nothing can still read: the published bank is
+    # CC BY and the loop is not a payment scheme.
+    local_pairs = {(r["antecedent"], r["consequent"]) for r in prior_rows}
+    for r in _pooled_rows(db):
+        if (r["antecedent"], r["consequent"]) in local_pairs:
+            continue
+        prior_rows.append({**r, "pooled": True,
+                           "id": "pooled:%s>%s" % (r["antecedent"], r["consequent"])})
     # Positives-only reps, the same vocabulary the miner used, so a stored
     # antecedent/consequent lines up with what a target actually holds.
     prep = _positive_clusters(profs) if prior_rows else {}
@@ -534,9 +570,19 @@ def leap(p, db, about: str | None = None) -> dict:
             strength = _birth_strength(gen_recs.get(generator, (0, 0)),
                                        fam_recs.get(_family(cons), (0, 0)))
             rate = pr["support"] / total
-            because = (f"people who hold {ant} tend to hold {cons} "
-                       f"(held in {pr['support']} of {total}); {tgt} holds {ant}")
+            if pr.get("pooled"):
+                # Borrowed from populations this install has never seen, so it
+                # is born less bold. Floored, never raised: the discount can
+                # only ever make a hunch more cautious.
+                strength = round(max(STRENGTH_FLOOR, strength * POOLED_DISCOUNT), 2)
+                because = (f"across {pr.get('sources', 0)} other installs, people who "
+                           f"hold {ant} tend to hold {cons} "
+                           f"(held in {pr['support']} of {total}); {tgt} holds {ant}")
+            else:
+                because = (f"people who hold {ant} tend to hold {cons} "
+                           f"(held in {pr['support']} of {total}); {tgt} holds {ant}")
             docket = {"supports": [{"kind": "prior", "prior": pr["id"],
+                                    "pooled": bool(pr.get("pooled")),
                                     "detail": f"{ant} -> {cons}, rate {rate:.2f}"}],
                       "undermines": [],
                       "gaps": [f"no direct evidence about {tgt} yet"]}
