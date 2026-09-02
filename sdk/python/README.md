@@ -1,6 +1,6 @@
 <!-- mcp-name: io.github.troybrandonc-bit/omem -->
 
-# OMEM: trustworthy memory for AI agents
+# OMEM: the system of record for what an AI agent believed and did
 
 OMEM is a memory layer for AI agents that tracks beliefs over time and handles
 contradictions instead of silently overwriting them. This is the official Python

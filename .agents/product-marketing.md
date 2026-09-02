@@ -5,7 +5,7 @@ when positioning changes; do not re-derive this per task.
 
 ## What OMEM is
 
-Open-source (MIT) memory for AI agents built on belief revision, not a vector
+Open-source (MIT) system of record for what an AI agent believed and did, built on belief revision, not a vector
 store. It keeps both sides of a contradiction, tracks what was believed and
 when, answers "why" with a provenance chain, and puts a human approval step
 before a risky action runs. Self-hosted, one `pip install omem-infrastructure`,

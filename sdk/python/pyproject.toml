@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "omem-infrastructure"
 version = "0.3.15"
-description = "Trustworthy memory for AI agents. The official OMEM Python SDK."
+description = "The system of record for what an AI agent believed and did. The official OMEM Python SDK."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }

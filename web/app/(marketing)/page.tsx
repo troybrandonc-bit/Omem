@@ -130,7 +130,7 @@ const JSONLD = {
       applicationCategory: "DeveloperApplication",
       operatingSystem: "Windows, macOS, Linux",
       description:
-        "Open-source memory for AI agents built on belief revision: keeps both sides of a contradiction, tracks belief over time, answers why with a provenance chain, and gates risky actions behind a human approval step. Self-hosted, MIT.",
+        "The open-source system of record for what an AI agent believed and did: keeps both sides of a contradiction, tracks belief over time, answers why with a provenance chain, and gates risky actions behind a human approval step. Self-hosted, MIT.",
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
       license: "https://opensource.org/licenses/MIT",
       url: "https://infrastructure.omem-cloud.com",

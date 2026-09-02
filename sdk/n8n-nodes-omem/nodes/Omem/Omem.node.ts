@@ -25,7 +25,7 @@ export class Omem implements INodeType {
 		version: 1,
 		subtitle: '={{$parameter["operation"]}}',
 		description:
-			'Belief-revision memory for AI agents: keeps contradictions, proves why, self-hosted',
+			'The record of what an AI agent believed and did: keeps contradictions, proves why, self-hosted',
 		defaults: { name: 'OMEM' },
 		// String literal keeps compatibility across n8n-workflow versions where
 		// NodeConnectionType is a type-only export.

@@ -1,7 +1,7 @@
 {
   "name": "n8n-nodes-omem",
   "version": "0.1.0",
-  "description": "OMEM for n8n: belief-revision memory for AI agents. Remember, recall, believes, why. Keeps contradictions, proves provenance, self-hosted.",
+  "description": "OMEM for n8n: the system of record for what an AI agent believed and did. Remember, recall, believes, why. Keeps contradictions, proves provenance, self-hosted.",
   "keywords": ["n8n-community-node-package", "omem", "ai-agents", "memory", "audit-trail", "belief-revision"],
   "license": "MIT",
   "homepage": "https://infrastructure.omem-cloud.com",

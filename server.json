@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.troybrandonc-bit/omem",
   "title": "OMEM",
-  "description": "Memory for AI agents that tracks beliefs over time and surfaces contradictions",
+  "description": "The system of record for what an AI agent believed and did: append-only beliefs with evidence, contradictions kept, risky actions gated behind a named human",
   "version": "0.3.15",
   "websiteUrl": "https://infrastructure.omem-cloud.com",
   "repository": {

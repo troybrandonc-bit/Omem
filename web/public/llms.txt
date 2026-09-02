@@ -1,6 +1,6 @@
 # OMEM
 
-> Open-source (MIT) memory for AI agents built on belief revision. OMEM keeps
+> The open-source (MIT) system of record for what an AI agent believed and did. OMEM keeps
 > both sides of a contradiction, tracks what an agent believed and when, answers
 > "why" with a provenance chain, and puts a human approval step before a risky
 > action runs. Self-hosted, one `pip install omem-infrastructure`, no
