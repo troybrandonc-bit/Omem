@@ -36,6 +36,15 @@ const POINTS = [
         surveillance.`,
   },
   {
+    k: "Contributing grants one use, and it is written down",
+    d: `Every contribution records the terms it was made under, at the moment it
+        was made. Today those terms grant one thing: publication in the public
+        commons under CC BY. Any other use, commercial ones included, needs its
+        own question, asked before it applies and never applied backwards. And
+        turning contribution off now withdraws what was already sent, so the
+        counts stop being published and stop reaching anyone.`,
+  },
+  {
     k: "A prior yields to the person",
     d: `A rate across a population is a place to start, not a verdict on the one
         in front of you. A prior fires only into a silence, and the instant that

@@ -31,9 +31,13 @@ CREATE TABLE IF NOT EXISTS commons_contributions(
   instance TEXT NOT NULL,
   received REAL NOT NULL,
   patterns TEXT NOT NULL,
-  calibration TEXT);
+  calibration TEXT,
+  terms TEXT);
 CREATE INDEX IF NOT EXISTS commons_inst ON commons_contributions(instance, received);
 CREATE TABLE IF NOT EXISTS commons_meta(k TEXT PRIMARY KEY, v TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS commons_withdrawals(
+  instance TEXT PRIMARY KEY,
+  withdrawn REAL NOT NULL);
 """
 
 
@@ -58,18 +62,107 @@ CREATE TABLE IF NOT EXISTS commons_pooled(
 # the door where other people's knowledge enters this machine.
 POOLED_MIN_SOURCES = 2
 
+# ── the terms a contribution was made under ─────────────────────────────────
+#
+# A count is anonymous, so this is not a privacy record. It is a RIGHTS record,
+# and it exists because the bank may one day be published in more than one
+# form. Which uses an operator agreed to is a fact about the moment they
+# agreed, and it cannot be reconstructed afterwards from anything else in the
+# database -- so it is written down at the moment of contribution or it is lost.
+#
+# The rule that makes it worth having: the stored record carries the GRANTS
+# THEMSELVES, not just a version pointer. A table keyed by version would mean
+# editing this file could silently widen what a contribution made last year
+# permitted, which is the failure this is here to prevent. The table below is
+# used only to MINT a record; nothing ever reads a grant out of it for a
+# contribution already stored.
+TERMS_VERSION = "2026-09-02"
+
+# Every use a contribution can grant. A grant absent from a record is a grant
+# that was never given.
+GRANTS = ("public_commons", "commercial")
+
+TERMS = {
+    "2026-09-02": {
+        "granted": ["public_commons"],
+        "summary": "Counts join the public commons and are published there "
+                   "under CC BY 4.0. They are not licensed for any commercial "
+                   "dataset; that would need a separate question, asked "
+                   "before it applies and never backdated.",
+    },
+}
+
+
+def mint_terms() -> dict:
+    """The terms record to attach to a contribution made right now."""
+    t = TERMS[TERMS_VERSION]
+    return {"version": TERMS_VERSION, "granted": list(t["granted"]),
+            "recorded": time.time()}
+
+
+def grants_of(terms) -> set:
+    """What a stored record actually permits.
+
+    A missing or unreadable record grants the public commons and nothing else.
+    That is not a lenient default, it is the accurate one: a contribution that
+    arrived before this existed was made by an operator who was shown the
+    public-commons opt-in and no other question, so the public commons is
+    exactly what they agreed to. Every other use has to be asked for. Silence
+    is never a grant."""
+    if isinstance(terms, str):
+        try:
+            terms = json.loads(terms)
+        except (TypeError, ValueError):
+            terms = None
+    if not isinstance(terms, dict):
+        return {"public_commons"}
+    granted = terms.get("granted")
+    if not isinstance(granted, list):
+        return {"public_commons"}
+    return {g for g in granted if g in GRANTS}
+
+
+def validate_terms(payload) -> tuple[dict | None, str | None]:
+    """The terms half of a contribution, checked at the door.
+
+    A contributor may omit it -- an older client has no such field, and the
+    commons must not break under a version skew -- and omission reads as the
+    restrictive default above. What is refused is a MALFORMED one, and a grant
+    this collector does not recognise, because a record nobody can interpret is
+    worse than no record: it looks like consent and cannot be read as any."""
+    if not isinstance(payload, dict):
+        return None, "payload must be an object"
+    t = payload.get("terms")
+    if t is None:
+        return None, None
+    if not isinstance(t, dict):
+        return None, "terms must be an object"
+    ver = t.get("version")
+    if not isinstance(ver, str) or not (1 <= len(ver) <= 32):
+        return None, "terms.version must be a short string"
+    granted = t.get("granted")
+    if not isinstance(granted, list) or len(granted) > len(GRANTS):
+        return None, "terms.granted must be a list of grant names"
+    for g in granted:
+        if g not in GRANTS:
+            return None, f"unknown grant refused: {g!r}"
+    return {"version": ver, "granted": sorted(set(granted)),
+            "recorded": time.time()}, None
+
 
 def ensure_schema(db):
-    """The schema, plus the one column a collector predating calibration will
-    not have. A collector is a long-lived install, so the table is older than
-    this feature on every machine that already runs one."""
+    """The schema, plus the columns a collector predating calibration and the
+    terms record will not have. A collector is a long-lived install, so the
+    table is older than both features on every machine that already runs
+    one."""
     db.executescript(COMMONS_SCHEMA)
     db.executescript(POOLED_SCHEMA)
-    try:
-        db.execute("ALTER TABLE commons_contributions ADD COLUMN calibration TEXT")
-        db.commit()
-    except Exception:
-        pass  # already there
+    for col in ("calibration", "terms"):
+        try:
+            db.execute(f"ALTER TABLE commons_contributions ADD COLUMN {col} TEXT")
+            db.commit()
+        except Exception:
+            pass  # already there
 
 
 MAX_PATTERNS = 500          # one contribution's pattern cap
@@ -178,11 +271,39 @@ def get_choice(db) -> str | None:
 
 
 def set_choice(db, contribute: bool):
-    """Record the decision. Either answer is durable; both are revocable from
-    Settings, because consent that cannot be withdrawn is not consent."""
+    """Record the decision, and the terms it was made under.
+
+    Either answer is durable; both are revocable from Settings, because consent
+    that cannot be withdrawn is not consent. Saying yes also stamps the terms
+    in force at that moment, so a later version of them cannot claim to cover a
+    decision taken before it existed. Saying no clears the stamp: there is no
+    agreement to describe."""
     db.execute("INSERT OR REPLACE INTO commons_meta(k,v) VALUES('contribute',?)",
                ("yes" if contribute else "no",))
+    if contribute:
+        db.execute("INSERT OR REPLACE INTO commons_meta(k,v) VALUES('terms',?)",
+                   (json.dumps(mint_terms()),))
+    else:
+        db.execute("DELETE FROM commons_meta WHERE k='terms'")
     db.commit()
+
+
+def current_terms(db) -> dict:
+    """The terms this install contributes under, to travel with the payload.
+
+    An install that consented before the record existed has no stamp, so it
+    contributes under the restrictive default -- the same reading the collector
+    applies, arrived at from the same argument, rather than two halves of the
+    system disagreeing about what an operator agreed to."""
+    r = db.execute("SELECT v FROM commons_meta WHERE k='terms'").fetchone()
+    if r:
+        try:
+            t = json.loads(r["v"])
+            if isinstance(t, dict):
+                return t
+        except (TypeError, ValueError):
+            pass
+    return {"version": "pre-record", "granted": ["public_commons"]}
 
 
 def instance_id(db) -> str:
@@ -286,31 +407,83 @@ def validate_calibration(payload) -> tuple[list, str | None]:
     return clean, None
 
 
-def store(db, instance: str, patterns: list, calibration: list | None = None):
+def store(db, instance: str, patterns: list, calibration: list | None = None,
+          terms: dict | None = None):
+    """One contribution, with the deal it was made under stored beside it.
+
+    `terms` is None for a client that predates the record; grants_of reads that
+    as the public commons and nothing more, which is what that operator was
+    asked."""
     db.execute("INSERT INTO commons_contributions(instance, received, patterns, "
-               "calibration) VALUES(?,?,?,?)",
+               "calibration, terms) VALUES(?,?,?,?,?)",
                (instance, time.time(), json.dumps(patterns),
-                json.dumps(calibration or [])))
+                json.dumps(calibration or []),
+                json.dumps(terms) if terms else None))
     db.commit()
 
 
-def latest_per_instance(db) -> dict:
+def withdraw(db, instance: str) -> int:
+    """An install takes its contributions back.
+
+    set_choice's own docstring says consent that cannot be withdrawn is not
+    consent, and until now that was true only of FUTURE sends: revoking stopped
+    the next contribution and left every earlier one in the bank. A withdrawal
+    is registered here and excluded from every artifact built afterwards, so
+    the counts stop being published and stop influencing any install that pulls
+    the bank.
+
+    The instance id is the credential, as it is for any pseudonymous
+    contribution: it is a uuid4 nobody but that install holds, and requiring an
+    account would mean knowing who contributed, which is the one thing this
+    design refuses to know. Rows are kept rather than deleted so the ledger
+    stays append-only and a withdrawal is itself auditable; nothing reads
+    them again."""
+    db.execute("INSERT OR REPLACE INTO commons_withdrawals(instance, withdrawn) "
+               "VALUES(?,?)", (instance, time.time()))
+    db.commit()
+    r = db.execute("SELECT COUNT(*) AS n FROM commons_contributions WHERE "
+                   "instance=?", (instance,)).fetchone()
+    return int(r["n"]) if r else 0
+
+
+def withdrawn(db) -> set:
+    """Instances that have taken their contributions back."""
+    return {r["instance"] for r in
+            db.execute("SELECT instance FROM commons_withdrawals")}
+
+
+def latest_per_instance(db, grant: str = "public_commons") -> dict:
     """{instance: (received, patterns)} using each instance's newest snapshot,
-    so a contributor that reports weekly is counted once, not cumulatively."""
+    so a contributor that reports weekly is counted once, not cumulatively.
+
+    `grant` is the use the artifact being built is for, and it is the single
+    place the rights record is enforced. A contribution that did not grant this
+    use is not returned, so it cannot reach a dataset, a public endpoint, or
+    the pooled view, and a withdrawn instance is not returned at all. Putting
+    the check here rather than in each caller is deliberate: a future artifact
+    gets the filter by construction rather than by remembering."""
+    gone = withdrawn(db)
     out: dict = {}
-    for r in db.execute("SELECT instance, received, patterns FROM commons_contributions "
-                        "ORDER BY received"):
+    for r in db.execute("SELECT instance, received, patterns, terms FROM "
+                        "commons_contributions ORDER BY received"):
+        if r["instance"] in gone:
+            continue
+        if grant not in grants_of(r["terms"]):
+            continue
         out[r["instance"]] = (r["received"], json.loads(r["patterns"]))
     return out
 
 
-def latest_calibration_per_instance(db) -> dict:
+def latest_calibration_per_instance(db, grant: str = "public_commons") -> dict:
     """{instance: rows} from each instance's newest snapshot. A contribution
     that predates calibration stores NULL, which reads as no rows rather than
     as an error, so an old collector keeps working while clients catch up."""
+    gone = withdrawn(db)
     out: dict = {}
-    for r in db.execute("SELECT instance, calibration FROM commons_contributions "
-                        "ORDER BY received"):
+    for r in db.execute("SELECT instance, calibration, terms FROM "
+                        "commons_contributions ORDER BY received"):
+        if r["instance"] in gone or grant not in grants_of(r["terms"]):
+            continue
         try:
             out[r["instance"]] = json.loads(r["calibration"]) if r["calibration"] else []
         except (TypeError, ValueError):
@@ -546,6 +719,19 @@ def dataset_card(rows: list, stats: dict) -> str:
         f"{len(rows)} patterns, {stats.get('stances', 0)} stances, "
         f"{stats.get('contributors', 0) + 1} contributing installations.",
         "",
+        "## Consent and rights",
+        "",
+        "Every line in this file comes from a contribution whose operator",
+        "granted publication in the public commons, recorded at the moment",
+        "they contributed rather than assumed afterwards. A contribution that",
+        "granted no such use, and one whose install has since withdrawn, is",
+        "not in this file and was never in an earlier one. No other use is",
+        "granted by the act of contributing: a commercial dataset, if one is",
+        "ever offered, requires its own question, asked before it applies and",
+        "never applied backwards.",
+        "",
+        f"Terms in force at export: {TERMS_VERSION}.",
+        "",
         "## License and intended use",
         "",
         f"{DATASET_LICENSE}, attribution to \"the OMEM commons\". Intended for",
@@ -562,7 +748,11 @@ def analytics(rows: list, contribs: dict, db) -> dict:
     """What the creator wants to know at a glance: how much human regularity
     the commons holds, where it comes from, and what kind it is."""
     weeks: dict = {}
-    for r in db.execute("SELECT received FROM commons_contributions ORDER BY received"):
+    gone = withdrawn(db)
+    for r in db.execute("SELECT instance, received FROM commons_contributions "
+                        "ORDER BY received"):
+        if r["instance"] in gone:
+            continue  # withdrawn: it is not in the rows, so it is not in the count
         wk = time.strftime("%Y-%m-%d", time.gmtime(r["received"] - (r["received"] % 604800)))
         weeks[wk] = weeks.get(wk, 0) + 1
     cats: dict = {}
