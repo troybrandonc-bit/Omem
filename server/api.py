@@ -58,6 +58,10 @@ from connectors import (OAuthStore, GmailConnector, MockGmailTransport, GmailTra
 from scheduler import Scheduler
 from enterprise import Enterprise, role_allows, ROLES, PLANS
 import licence as LICENCE
+try:
+    from ee import approval_policy as APPROVAL_POLICY
+except Exception:      # the ee/ directory is removable, and OMEM runs without it
+    APPROVAL_POLICY = None
 import providers
 from omem_engine import __version__ as ENGINE_VERSION
 from omem_engine.engine import Engine, ACCEPTED  # the authoritative engine
@@ -2183,11 +2187,41 @@ class Handler(BaseHTTPRequestHandler):
                 # having to infer it from a list that is never empty any more
                 "reported_count": len(reported)}
 
-    def _make_healer(self, can_fn):
+    def _approval_policy_check(self, project_id):
+        """The per-request policy hook, or None when policy does not apply.
+
+        None is returned in three ordinary cases: the paid component is absent,
+        no licence unlocks it, or nobody has written a policy. All three mean
+        the open-source gate decides alone, which is the behaviour every
+        install has today and keeps forever."""
+        if APPROVAL_POLICY is None or not LICENCE.has("approval_policy"):
+            return None
+        raw = ENT.setting(project_id, "approval_policy")
+        if not raw:
+            return None
+        try:
+            policy = APPROVAL_POLICY.parse(raw)
+        except APPROVAL_POLICY.PolicyError:
+            # Stored policies are validated on write, so this means the row was
+            # edited underneath us. Refusing every high-risk action would be a
+            # denial of service triggered by a bad database row, so the base
+            # gate decides and the operator is told loudly.
+            ENT.audit("healing.policy.unreadable", actor=None, project_id=project_id,
+                      metadata={"effect": "policy ignored, base gate still applies"})
+            return None
+
+        def check(action_type, risk, approver, approved_by):
+            return APPROVAL_POLICY.evaluate(policy, action_type, risk,
+                                            str(approver or ""), str(approved_by or ""))
+        return check
+
+    def _make_healer(self, can_fn, project_id=None):
         """Build a Healer bound to this request's authorization. Reuses the shared
         action + component registries and the shared healing store; the policy is
         bound to the caller's permissions so RBAC is enforced per request."""
-        policy = HEAL.Policy(HEAL_ACTIONS, can_fn)
+        policy = HEAL.Policy(HEAL_ACTIONS, can_fn,
+                             approver_ok=self._approval_policy_check(project_id)
+                             if project_id else None)
         audit = lambda action, resource=None, metadata=None: ENT.audit(
             action, actor=None, resource=resource, metadata=metadata)
         return HEAL.Healer(HEAL_STORE, HEAL_ACTIONS, HEAL_COMPONENTS, policy, audit_fn=audit)
@@ -2272,6 +2306,27 @@ class Handler(BaseHTTPRequestHandler):
             # GET /v1/healing/health
             if parts[2:] == ["health"]:
                 return self._send(200, self._healing_health(org_id, p.id))
+            # GET /v1/healing/policy -> who may approve what, if anyone has said.
+            if parts[2:] == ["policy"]:
+                if APPROVAL_POLICY is None:
+                    return self._err(404, "not_found",
+                                     "the approval policy component is not installed")
+                raw = ENT.setting(p.id, "approval_policy")
+                policy = None
+                if raw:
+                    try:
+                        policy = APPROVAL_POLICY.parse(raw)
+                    except APPROVAL_POLICY.PolicyError as e:
+                        return self._send(200, {"policy": None, "error": str(e),
+                                                "licensed": LICENCE.has("approval_policy")})
+                return self._send(200, {
+                    "policy": policy,
+                    # Whether it is being ENFORCED is a different question from
+                    # whether it is stored, and an operator who cannot tell the
+                    # two apart will believe they are protected when they are not.
+                    "licensed": LICENCE.has("approval_policy"),
+                    "enforced": bool(policy) and LICENCE.has("approval_policy"),
+                    "summary": APPROVAL_POLICY.describe(policy) if policy else None})
             # GET /v1/healing/actions -> what may execute, and at what risk.
             # The risk class an auditor sees has to come from here rather than
             # from the plan that proposed the action, so the registry has to be
@@ -4930,11 +4985,40 @@ class Handler(BaseHTTPRequestHandler):
             def _bound_can(permission):
                 return self._require(auth, permission, org_id, p.id)
 
+            # POST /v1/healing/policy - set who may approve what. POST rather
+            # than PUT because this server has no do_PUT, and a route that
+            # cannot be reached is worse than one that never existed.
+            if parts[2:] == ["policy"]:
+                if APPROVAL_POLICY is None:
+                    return self._err(404, "not_found",
+                                     "the approval policy component is not installed")
+                if not _bound_can("connector.manage"):
+                    return self._err(403, "permission", "requires an admin or owner key")
+                if not LICENCE.has("approval_policy"):
+                    # Refused at write time rather than stored and ignored. A
+                    # policy that exists but does nothing is the worst outcome
+                    # available: it reads as protection in a review.
+                    return self._err(402, "licence_required",
+                                     "approval policy requires a commercial licence. "
+                                     "The open gate still refuses agent self-approval "
+                                     "and records every refusal.")
+                try:
+                    policy = APPROVAL_POLICY.parse(body if body is not None else {})
+                except APPROVAL_POLICY.PolicyError as e:
+                    return self._err(422, "invalid_request", str(e))
+                ENT.set_setting(p.id, "approval_policy", json.dumps(policy))
+                ENT.audit("healing.policy.set", actor=actor, org_id=org_id,
+                          project_id=p.id,
+                          metadata={"rules": len(policy["rules"]),
+                                    "default": policy["default"]})
+                return self._send(200, {"policy": policy,
+                                        "summary": APPROVAL_POLICY.describe(policy)})
+
             # POST /v1/healing/failures - report a failure, get prior memory back
             if parts[2:] == ["failures"]:
                 if not _bound_can("heal.report"):
                     return self._err(403, "permission", "requires heal.report")
-                healer = self._make_healer(_bound_can)
+                healer = self._make_healer(_bound_can, p.id)
                 failure = healer.capture(org_id, p.id, body if isinstance(body, dict) else {})
                 memory = healer.recall(org_id, p.id, failure)
                 ENT.audit("healing.failure.reported", actor=actor, org_id=org_id, project_id=p.id,
@@ -4947,7 +5031,7 @@ class Handler(BaseHTTPRequestHandler):
             if parts[2:] == ["handle"]:
                 if not _bound_can("heal.execute.low"):
                     return self._err(403, "permission", "requires at least heal.execute.low")
-                healer = self._make_healer(_bound_can)
+                healer = self._make_healer(_bound_can, p.id)
                 error = body.get("error") if isinstance(body, dict) else None
                 if not isinstance(error, dict) or not error.get("component"):
                     return self._err(422, "invalid_request", "error{component,error_type,...} required")
