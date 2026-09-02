@@ -1538,6 +1538,28 @@ def _write_bank_export(dest_dir):
         except Exception:
             pass  # the commons is a gift, never a dependency
 
+    # THE RETURN LEG. Until now this was one-way: an install contributed and
+    # got nothing, so nothing it ran was ever better for having shared. Now the
+    # published bank comes back and ranks strictly beneath this install's own
+    # priors (see hypotheses.leap), which is what makes contributing
+    # self-interested rather than charitable.
+    #
+    # Reading does NOT require having contributed -- the dataset is CC BY and
+    # already public, so gating it would be a payment scheme wearing a consent
+    # model's clothes. It requires only that the operator pointed this install
+    # at a commons at all, which is the same explicit act as before.
+    if consented and not BANK_COLLECTOR:
+        try:
+            url = COMMONS_URL or _commons.DEFAULT_COMMONS_URL
+            with urllib.request.urlopen(
+                    url.rstrip("/") + "/v1/commons/public", timeout=5) as r:
+                body = json.loads(r.read().decode())
+            rows, err = _commons.accept_pooled(body.get("patterns") or [])
+            if not err and rows:
+                _commons.store_pooled(STORE.db, rows)
+        except Exception:
+            pass  # unreachable, unparseable, or refused: keep what we had
+
 
 BACKUPS.extra_writer = _write_bank_export
 SCHEDULER.backup_manager = BACKUPS
