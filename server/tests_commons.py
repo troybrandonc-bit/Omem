@@ -163,5 +163,78 @@ check("yes is recorded", commons.get_choice(con) == "yes")
 commons.set_choice(con, False)
 check("consent is revocable", commons.get_choice(con) == "no")
 
+print("== calibration: the half that says what a guess is worth ==")
+import hypotheses as _h  # noqa: E402
+
+# The leak this feature nearly shipped. `leap()` sets generator = the
+# NEIGHBOUR'S SUBJECT ID, so the raw column is people. Only the class travels.
+check("a subject id is classed, never published",
+      _h._generator_class("person:alice@corp.example") == "neighbour")
+check("a prior-driven leap is classed as prior",
+      _h._generator_class("prior:p-1731") == "prior")
+
+cal_db = sqlite3.connect(":memory:")
+cal_db.row_factory = sqlite3.Row
+cal_db.executescript(_h.HYPOTHESES_SCHEMA)
+for gen, w, l in (("person:alice@corp.example", 4, 1), ("person:bob@corp.example", 2, 2),
+                  ("prior:p-1", 5, 0)):
+    cal_db.execute("INSERT INTO leap_generators VALUES('proj',?,?,?)", (gen, w, l))
+for i, (prop, st) in enumerate((("prefers_email", "supported"), ("prefers_email", "supported"),
+                                ("prefers_email", "refuted"), ("wants_pdf", "supported"))):
+    cal_db.execute("INSERT INTO hypotheses VALUES(?,'proj','s','%s','b','g','c',0.4,?,'d',0,"
+                   "'fp',0,0)" % prop, (f"h{i}", st))
+cal_db.commit()
+
+rows = _h.calibration_bank(cal_db, ["proj"])
+names = {r["name"] for r in rows}
+check("no subject id reaches the bank",
+      not any("@" in n or "person:" in n for n in names), names)
+check("the two generator classes are pooled, not the six generators",
+      names >= {"neighbour", "prior"} and len(names & {"neighbour", "prior"}) == 2, names)
+neigh = [r for r in rows if r["name"] == "neighbour"][0]
+check("neighbour verdicts are summed across the subjects they came from",
+      (neigh["supported"], neigh["refuted"]) == (6, 3), neigh)
+check("a family below the floor does not travel",
+      "wants" not in names, names)
+
+print("== calibration is refused at the door too ==")
+_, e = commons.validate_calibration({"calibration": [
+    {"scope": "generator_class", "name": "person:alice@corp.example",
+     "supported": 9, "refuted": 1}]})
+check("a raw generator is refused even when it is spelled like a class",
+      e is not None and "generator class" in e, e)
+_, e = commons.validate_calibration({"calibration": [
+    {"scope": "family", "name": "johnsmith", "supported": 9, "refuted": 1}]})
+check("a family outside the lexicon is refused with the word named",
+      e is not None and "lexicon" in e, e)
+_, e = commons.validate_calibration({"calibration": [
+    {"scope": "audience", "name": "prior", "supported": 9, "refuted": 1}]})
+check("an unknown scope is refused", e is not None, e)
+ok, e = commons.validate_calibration({"calibration": [
+    {"scope": "generator_class", "name": "prior", "supported": 1, "refuted": 0},
+    {"scope": "generator_class", "name": "neighbour", "supported": 6, "refuted": 3}]})
+check("the floor drops the thin row and keeps the real one",
+      e is None and len(ok) == 1 and ok[0]["name"] == "neighbour", (ok, e))
+check("an absent calibration key is not an error (older clients)",
+      commons.validate_calibration({"patterns": []}) == ([], None))
+
+print("== calibration storage and merge ==")
+commons.ensure_schema(con)
+commons.store(con, "inst-cal", [], [{"scope": "generator_class", "name": "neighbour",
+                                     "supported": 6, "refuted": 3}])
+con.execute("INSERT INTO commons_contributions(instance, received, patterns, calibration) "
+            "VALUES('inst-old',?,'[]',NULL)", (time.time(),))
+con.commit()
+latest = commons.latest_calibration_per_instance(con)
+check("a contribution predating calibration reads as no rows, not an error",
+      latest.get("inst-old") == [], latest.get("inst-old"))
+merged = commons.merged_calibration(
+    [{"scope": "generator_class", "name": "neighbour", "supported": 4, "refuted": 0}],
+    latest)
+n = [r for r in merged if r["name"] == "neighbour"][0]
+check("own and contributed verdicts merge into one rate",
+      (n["supported"], n["refuted"], n["sources"]) == (10, 3, 2), n)
+check("the rate is computed from what survived", n["rate"] == round(10 / 13, 3), n)
+
 print("\n%d passed, %d failed" % (PASS, FAIL))
 sys.exit(1 if FAIL else 0)

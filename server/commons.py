@@ -30,13 +30,34 @@ CREATE TABLE IF NOT EXISTS commons_contributions(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   instance TEXT NOT NULL,
   received REAL NOT NULL,
-  patterns TEXT NOT NULL);
+  patterns TEXT NOT NULL,
+  calibration TEXT);
 CREATE INDEX IF NOT EXISTS commons_inst ON commons_contributions(instance, received);
 CREATE TABLE IF NOT EXISTS commons_meta(k TEXT PRIMARY KEY, v TEXT NOT NULL);
 """
 
+
+def ensure_schema(db):
+    """The schema, plus the one column a collector predating calibration will
+    not have. A collector is a long-lived install, so the table is older than
+    this feature on every machine that already runs one."""
+    db.executescript(COMMONS_SCHEMA)
+    try:
+        db.execute("ALTER TABLE commons_contributions ADD COLUMN calibration TEXT")
+        db.commit()
+    except Exception:
+        pass  # already there
+
+
 MAX_PATTERNS = 500          # one contribution's pattern cap
+MAX_CALIBRATION = 200       # families are few; this is a bound, not a target
 MAX_INSTANCE_LEN = 64
+
+# The two halves of the bank answer different questions. A pattern says what
+# people are like; a calibration row says how much a guess about a person is
+# worth. `scope` names which kind of rate a row carries.
+CALIBRATION_SCOPES = ("generator_class", "family")
+GENERATOR_CLASSES = ("neighbour", "prior")
 
 # ── the commons vocabulary ───────────────────────────────────────────────────
 # The structural checks in _identifying stop rel_ tokens, colons, digits, and
@@ -194,9 +215,59 @@ def validate(payload) -> tuple[list, str | None]:
     return clean, None
 
 
-def store(db, instance: str, patterns: list):
-    db.execute("INSERT INTO commons_contributions(instance, received, patterns) "
-               "VALUES(?,?,?)", (instance, time.time(), json.dumps(patterns)))
+def validate_calibration(payload) -> tuple[list, str | None]:
+    """The calibration half of a contribution, checked at the same door.
+
+    Stricter than the pattern check in one place that matters: `name` under
+    `generator_class` must be one of two literals. The local column this is
+    derived from holds SUBJECT IDS for look-alike projections (see
+    hypotheses._generator_class), so a contributor that sent the raw column
+    would be sending people. An enum cannot carry one, and a contributor that
+    tries is refused rather than trimmed."""
+    if not isinstance(payload, dict):
+        return [], "payload must be an object"
+    rows = payload.get("calibration")
+    if rows is None:
+        return [], None                      # optional: an older client sends none
+    if not isinstance(rows, list) or len(rows) > MAX_CALIBRATION:
+        return [], f"calibration must be a list of at most {MAX_CALIBRATION}"
+    clean = []
+    for r in rows:
+        if not isinstance(r, dict):
+            return [], "every calibration row must be an object"
+        scope, name = r.get("scope"), r.get("name")
+        if scope not in CALIBRATION_SCOPES:
+            return [], f"calibration scope must be one of {CALIBRATION_SCOPES}"
+        if not isinstance(name, str) or not name or len(name) > 64:
+            return [], "calibration name must be a short string"
+        if scope == "generator_class":
+            if name not in GENERATOR_CLASSES:
+                return [], (f"generator class must be one of {GENERATOR_CLASSES}, "
+                            f"refused: {name!r}")
+        else:
+            if _identifying(name):
+                return [], f"identifying token refused: {name!r}"
+            fw = _foreign_word(name)
+            if fw:
+                return [], (f"token outside the commons vocabulary refused: {name!r} "
+                            f"(word {fw!r} is not in the lexicon)")
+        try:
+            s, f = int(r.get("supported")), int(r.get("refuted"))
+        except (TypeError, ValueError):
+            return [], "supported/refuted must be integers"
+        if s < 0 or f < 0 or s + f > 10_000_000:
+            return [], "counts out of range"
+        if s + f < PRIOR_FLOOR_N:
+            continue  # too few verdicts to be a rate about anything
+        clean.append({"scope": scope, "name": name, "supported": s, "refuted": f})
+    return clean, None
+
+
+def store(db, instance: str, patterns: list, calibration: list | None = None):
+    db.execute("INSERT INTO commons_contributions(instance, received, patterns, "
+               "calibration) VALUES(?,?,?,?)",
+               (instance, time.time(), json.dumps(patterns),
+                json.dumps(calibration or [])))
     db.commit()
 
 
@@ -207,6 +278,42 @@ def latest_per_instance(db) -> dict:
     for r in db.execute("SELECT instance, received, patterns FROM commons_contributions "
                         "ORDER BY received"):
         out[r["instance"]] = (r["received"], json.loads(r["patterns"]))
+    return out
+
+
+def latest_calibration_per_instance(db) -> dict:
+    """{instance: rows} from each instance's newest snapshot. A contribution
+    that predates calibration stores NULL, which reads as no rows rather than
+    as an error, so an old collector keeps working while clients catch up."""
+    out: dict = {}
+    for r in db.execute("SELECT instance, calibration FROM commons_contributions "
+                        "ORDER BY received"):
+        try:
+            out[r["instance"]] = json.loads(r["calibration"]) if r["calibration"] else []
+        except (TypeError, ValueError):
+            out[r["instance"]] = []
+    return out
+
+
+def merged_calibration(own_rows: list, contribs: dict) -> list:
+    """Own calibration plus every contributor's latest, one population view of
+    how well thin-evidence guesses about people actually land."""
+    agg: dict = {}
+    for rows in [own_rows] + list(contribs.values()):
+        for r in rows:
+            k = (r["scope"], r["name"])
+            e = agg.setdefault(k, {"scope": r["scope"], "name": r["name"],
+                                   "supported": 0, "refuted": 0, "sources": 0})
+            e["supported"] += int(r.get("supported", 0))
+            e["refuted"] += int(r.get("refuted", 0))
+            e["sources"] += 1
+    out = []
+    for e in agg.values():
+        total = e["supported"] + e["refuted"]
+        if total < PRIOR_FLOOR_N:
+            continue
+        out.append({**e, "rate": round(e["supported"] / total, 3)})
+    out.sort(key=lambda x: (x["scope"], -x["supported"], x["name"]))
     return out
 
 

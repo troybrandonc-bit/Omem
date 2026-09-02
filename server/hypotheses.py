@@ -786,3 +786,56 @@ def bank(db, project_ids: list[str]) -> list[dict]:
                     "fires": rate >= PRIOR_MIN_RATE})
     out.sort(key=lambda x: (-x["rate"], -x["support"], x["pattern"]))
     return out
+
+
+GENERATOR_CLASSES = ("neighbour", "prior")
+
+
+def _generator_class(generator: str) -> str:
+    """WHICH KIND of leap produced a hypothesis, without saying which one.
+
+    `generator` is not a code identifier and must never be published. For a
+    look-alike projection `leap()` sets it to the NEIGHBOUR'S SUBJECT ID, so the
+    column holds real people; `_identifying` never sees it, because that
+    refusal inspects proposition tokens. The class can be published: it is the
+    distinction the calibration question actually turns on -- does projecting
+    from a similar person beat projecting from a population rate -- and it
+    names nobody."""
+    return "prior" if generator.startswith("prior:") else "neighbour"
+
+
+def calibration_bank(db, project_ids: list[str]) -> list[dict]:
+    """How the guessing went, per generator CLASS and per claim family, pooled
+    across projects. Counts only, floored like priors.
+
+    This is the half of the bank that says how much a thin-evidence claim about
+    a person is worth, rather than what people are like. One install learns it
+    slowly and only about its own population; pooled, it is the question no
+    single install can answer.
+
+    Family tokens are refused here if they could carry an identity, and the
+    caller filters again against the commons vocabulary before anything is
+    sent -- the same two doors a prior passes through."""
+    gens: dict = {}
+    fams: dict = {}
+    for pid in project_ids:
+        for r in db.execute("SELECT generator, wins, losses FROM leap_generators "
+                            "WHERE project_id=?", (pid,)):
+            k = _generator_class(r["generator"])
+            w, l = gens.get(k, (0, 0))
+            gens[k] = (w + r["wins"], l + r["losses"])
+        for fam, (w, l) in _family_records(db, pid).items():
+            if _identifying(fam):
+                continue
+            pw, pl = fams.get(fam, (0, 0))
+            fams[fam] = (pw + w, pl + l)
+
+    out = []
+    for scope, table in (("generator_class", gens), ("family", fams)):
+        for name, (w, l) in sorted(table.items()):
+            if w + l < PRIOR_FLOOR_N:
+                continue  # too few verdicts to be a rate about anything
+            out.append({"scope": scope, "name": name,
+                        "supported": w, "refuted": l,
+                        "rate": round(w / (w + l), 3)})
+    return out
