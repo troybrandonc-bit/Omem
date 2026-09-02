@@ -318,6 +318,156 @@ def instance_id(db) -> str:
     return v
 
 
+# ── what may leave this machine, and the argument for each field ────────────
+#
+# The doors validate what ARRIVES. Nothing pinned what departs, and that is the
+# gap the calibration work walked into: `leap_generators.generator` holds
+# subject ids, the design proposed contributing the table, and both existing
+# doors would have passed it because they inspect proposition tokens rather
+# than that column. The lesson written down then was that the anonymity
+# argument has to be made per column. This is that lesson as code.
+#
+# A field absent from these maps is not sent. Not trimmed at the far end, not
+# dropped quietly on arrival: never transmitted. Adding one means adding the
+# sentence that says why it is safe, which is the point.
+CONTRIBUTION_FIELDS = {
+    "instance": "a uuid4 minted on this machine, carrying nothing about it or "
+                "its owner",
+    "patterns": "counts over populations, tokens built from the closed commons "
+                "vocabulary and refused at both doors",
+    "calibration": "how much a guess about a person was worth, by generator "
+                   "CLASS and by lexicon-bound family",
+    "terms": "which uses this operator granted, recorded when they granted them",
+}
+
+PATTERN_FIELDS = {
+    "antecedent": "a behaviour token from the closed vocabulary",
+    "consequent": "a behaviour token from the closed vocabulary",
+    "support": "how many subjects held both",
+    "refute": "how many held the first and opposed the second",
+    "subjects": "how many held the first at all",
+}
+
+CALIBRATION_FIELDS = {
+    "scope": "generator_class or family, which kind of rate this row carries",
+    "name": "one of two literals, or a lexicon-bound family token",
+    "supported": "how many guesses of this kind reality confirmed",
+    "refuted": "how many of those same guesses reality refuted",
+}
+
+# Fields the local bank carries for the operator to read, derived entirely from
+# the counts above and deliberately NOT transmitted. Listed so a new field is a
+# decision rather than a default: the suite fails on any key in neither map,
+# which is what turns "we should think about that" into CI.
+# `projects` is the one this guard caught on its first run: it counts how
+# many of the operator's OWN projects a pattern appeared in, and it was
+# travelling because the client sent bank() rows as they sat. It says
+# nothing about a person, but it does describe the contributor's
+# deployment, and the bank has no use for it. Local.
+DERIVED_LOCAL_ONLY = {"pattern", "rate", "fires", "sources", "projects"}
+
+
+def _project(row: dict, fields: dict) -> dict:
+    return {k: row[k] for k in fields if k in row}
+
+
+def contribution_payload(instance: str, patterns: list, calibration: list,
+                         terms: dict) -> dict:
+    """The only place a contribution is assembled.
+
+    Rows are projected onto the approved fields rather than sent as they sit in
+    the local bank, so a column added upstream cannot travel by accident. The
+    projection is the runtime guarantee; the suite pinning these maps against
+    what the bank actually produces is what makes anyone notice."""
+    body = {
+        "instance": instance,
+        "patterns": [_project(p, PATTERN_FIELDS) for p in patterns],
+        "calibration": [_project(c, CALIBRATION_FIELDS) for c in calibration],
+        "terms": terms,
+    }
+    unknown = sorted(set(body) - set(CONTRIBUTION_FIELDS))
+    if unknown:
+        raise ValueError("field with no stated argument refused: %s" % unknown)
+    return body
+
+
+NOTICE_KEY = "notice_shown"
+
+
+def notice(db, patterns: int, bank_path: str, dashboard: str) -> str | None:
+    """The one time a terminal-only install is told the commons exists.
+
+    The opt-in prompt lives in the dashboard, and `pip install
+    omem-infrastructure && omem-server` is the documented way in. A developer
+    who used the SDK and never opened a browser was therefore never asked, and
+    an install that is never asked can never contribute. That is not a shy
+    consent model, it is a consent model the largest group of users cannot
+    reach, and the commons cannot fill from a population it never speaks to.
+
+    Three rules, because a notice like this is one step from being a nag:
+
+    It is printed only when there is something real to contribute. Asking on
+    first boot means asking about an empty bank, which is a question with no
+    content and an answer worth nothing.
+
+    It is printed once, ever. An install that read it and did nothing has
+    answered, and asking again would be pretending otherwise.
+
+    It changes nothing on its own. Saying yes still happens in the dashboard,
+    under the session-only rule that keeps an API key from deciding an
+    instance-wide question, and until then nothing is sent."""
+    if patterns <= 0 or get_choice(db) is not None:
+        return None
+    if db.execute("SELECT v FROM commons_meta WHERE k=?",
+                  (NOTICE_KEY,)).fetchone():
+        return None
+    db.execute("INSERT OR REPLACE INTO commons_meta(k,v) VALUES(?,?)",
+               (NOTICE_KEY, str(time.time())))
+    db.commit()
+    return chr(10).join([
+        "",
+        "  The commons",
+        "    This install has learned %d pattern%s about how people behave,"
+        % (patterns, "" if patterns == 1 else "s"),
+        "    like \"people who prefer async usually prefer email\". They can",
+        "    join a shared bank that studies human behaviour in general, so AI",
+        "    can understand people better.",
+        "",
+        "    Counts only. Never a name, a company, a message, or a number from",
+        "    your data. The exact file is already on your disk:",
+        "      %s" % bank_path,
+        "",
+        "    It goes both ways: contributing also pulls the published bank",
+        "    back, ranked beneath everything this install learned itself. A",
+        "    pattern needs two separate installations before it returns to",
+        "    anyone, so early on there is little to receive.",
+        "",
+        "    Nothing has been sent and nothing will be unless you say so:",
+        "      %s" % dashboard,
+        "",
+        "    Printed once. Ignoring it is an answer.",
+        "",
+    ])
+
+
+def should_contribute(db, env_url, is_collector: bool) -> bool:
+    """Whether this install may send anything at all.
+
+    Named and testable rather than an inline condition, because it is the
+    sentence the whole consent model rests on: a stock install never sends, and
+    only an explicit act by the operator changes that. Setting
+    OMEM_COMMONS_URL is such an act; so is answering the prompt. Silence is
+    not, and a collector never contributes to itself."""
+    if is_collector:
+        return False
+    if env_url:
+        return True
+    try:
+        return get_choice(db) == "yes"
+    except Exception:
+        return False
+
+
 def validate(payload) -> tuple[list, str | None]:
     """A contribution, checked at the door. Returns (clean_patterns, error).
     Only counts survive: identifying tokens, absurd sizes, and non-integer
@@ -706,7 +856,16 @@ def dataset_card(rows: list, stats: dict) -> str:
         "No names, no organisations, no message text, no prices or terms, no",
         "identifiers of any kind. A line is two behaviour tokens and the counts",
         "of subjects who held both, held one and opposed the other, or were",
-        "silent. Truly anonymous counts of this kind are not personal data.",
+        "silent. Every word in both tokens has to appear in a fixed vocabulary",
+        f"of {len(COMMONS_LEXICON)} behaviour words, so a word that is not in it,",
+        "a name or a company among them, cannot appear at all. No line is",
+        f"published on fewer than {PRIOR_FLOOR_N} supporting subjects.",
+        "",
+        "That is what the file contains, stated so a reader can check it. It is",
+        "deliberately not followed by the sentence that this therefore is not",
+        "personal data under any particular law. That is a conclusion for the",
+        "reader and their own counsel to reach, and this project does not make",
+        "claims it cannot hand you a way to test.",
         "",
         "## Schema",
         "",

@@ -22,6 +22,7 @@ false. Everything below can fail.
 | Pooling priors across installations earns its keep only where the populations share their regularities and the behaviour is not already near-universal; where they do not, borrowed knowledge stops paying | `benchmarks/commons/`, `server/tests_commons_benchmark.py` |
 | Priors learned about people in general fire only into a silence and yield to a person's own evidence; a pattern seen on too few people cannot fire | `server/tests_priors.py` |
 | The Witness card: no fabrication, retraction honoured, disagreement visible, identities kept apart, conclusions die with premises, every memory sourced | `benchmarks/witness/harness.py`, `server/tests_witness_benchmark.py` |
+| Only a field with a written argument for why it is safe ever leaves the machine, and an install that was never asked, or said no, contacts nobody | `server/tests_commons_guards.py` |
 | It phones home to nobody: a socket guard proves a full working session performs zero outbound connections or lookups | `server/tests_airgap.py` |
 | Upgrades never rewrite your past: a log frozen on 2026-08-29 must replay to a byte-identical state digest in every future version | `server/testdata/golden_log_v1.json`, `server/tests_upgrade_stability.py` |
 | Encryption at rest uses real AEAD or refuses to run, and the entire suite passes against ciphertext | `.github/workflows/ci.yml` |

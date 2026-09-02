@@ -295,6 +295,131 @@ Run OMEMHow the priors work
 
 ---
 
+# The commons
+Source: https://infrastructure.omem-cloud.com/commons/
+
+The commons
+
+# What people are like, holding a fact about no one.
+
+Installations that choose to pool their counts into one shared bank, published under CC BY so an AI can be trained on how people behave without anyone handing over a fact about a person. These are the live figures, straight from the collector.
+
+—installations contributing
+—patterns in the bank
+—stances behind them
+
+## The rules it runs under
+
+### A line is counts, never a person
+
+Two behaviour tokens and how many subjects held both. Every word in both
+tokens has to appear in a fixed vocabulary of 383 behaviour words, so a
+name or a company cannot appear at all, and nothing is published on fewer
+than three supporting subjects.
+
+### Nothing moves without an answer
+
+A stock installation has no bank and makes no request. Contribution happens
+only after the operator says yes, either answer is durable, and saying no
+later asks the collector to withdraw what was already sent.
+
+### Every contribution records its own terms
+
+What an operator agreed to is written down when they agree to it, with the
+permissions stored beside the counts rather than looked up later. Today
+that grants one thing: publication here under CC BY. Anything else needs
+its own question, asked before it applies.
+
+### It goes both ways, beneath your own knowledge
+
+Contributing also pulls the published bank back. Borrowed patterns rank
+below anything an installation learned itself, are born more cautious, and
+still only ever fire into a silence, so one steps aside the moment the
+person in front of it says otherwise.
+
+### One installation cannot teach the world
+
+A pattern has to have been seen by two separate installations before it
+returns to anyone. Agreement is cheap; agreement across separate
+populations is not.
+
+## What contributing buys you, and where it stops
+
+We measured this rather than asserting it. A simulated installation that had seen six people could mine almost nothing on its own, and with the bank it formed an opinion about 111 claims it could not otherwise reach, beating the base rate of those same claims by twelve points.
+It stops paying in two places, and both are in the published result. When the contributing populations have nothing in common the lift falls to zero and then below, which is the control that makes the first number worth reading. And when a behaviour is so common that almost everyone already holds it, there is nothing left for a pattern to add.
+So the honest version is not that contributing makes your installation better. It is that it does when the people you work with resemble other contributors’, and that early on, before two installations have seen the same pattern, there is little to receive at all.
+
+Why this existsRun an installation
+
+---
+
+# The claims ledger
+Source: https://infrastructure.omem-cloud.com/claims/
+
+The claims ledger
+
+# Every sentence, next to the test that would go red.
+
+Marketing that cannot fail is indistinguishable from marketing that is false. Everything below can fail. Each row pairs a load bearing claim with the executable statement that would stop passing if the claim stopped being true, and a claim with no row here is opinion rather than a promise.
+This page is generated from CLAIMS.md when the site is built, so it cannot drift from the file. The ledger is itself guarded: a row whose file is missing, or a row with no proof at all, fails tests_claims_ledger.py before the sentence it backs can ship. Every run is public in the workflow log.
+
+The claimWhat would go red
+Zero runtime dependencies, and CI fails the build the moment one appears- scripts/gen_sbom.py
+- --check
+
+The demos in the README are asserted tests: every line shown is verified on every commit- scripts/demo_refusal.py
+- scripts/demo_reasoning.py
+
+Memory state follows from the append-only log: replay is deterministic, and an anchor detects a rewritten log- server/replay_verify.py
+- server/tests_replay_verify.py
+
+The belief engine is frozen and hash-verified; the server refuses to boot over a modified engine- server/omem_engine/ENGINE_HASHES.txt
+- server/engine_baseline.py
+- server/tests_p10_1_conformance.py
+
+Contradictions are surfaced with both sides preserved, never resolved by timestamp- server/tests_contradiction.py
+
+Retracting a fact withdraws every conclusion resting on it, in the same request- server/tests_inference_rules.py
+- scripts/demo_reasoning.py
+
+A shared name is not a shared identity, and a split a person makes is final for the machine- server/tests_identity_resolution.py
+
+A hunch is never allowed to quietly become a belief: it is proven, refuted, or escalated to a human- server/tests_hypotheses.py
+
+How bold a hunch is born follows the record of past ones, weighted by how much each verdict surprised it; the counts the commons contributes stay whole verdicts- server/tests_surprise_weighting.py
+
+Pooling priors across installations earns its keep only where the populations share their regularities and the behaviour is not already near-universal; where they do not, borrowed knowledge stops paying- benchmarks/commons/
+- server/tests_commons_benchmark.py
+
+Priors learned about people in general fire only into a silence and yield to a person's own evidence; a pattern seen on too few people cannot fire- server/tests_priors.py
+
+The Witness card: no fabrication, retraction honoured, disagreement visible, identities kept apart, conclusions die with premises, every memory sourced- benchmarks/witness/harness.py
+- server/tests_witness_benchmark.py
+
+Only a field with a written argument for why it is safe ever leaves the machine, and an install that was never asked, or said no, contacts nobody- server/tests_commons_guards.py
+
+It phones home to nobody: a socket guard proves a full working session performs zero outbound connections or lookups- server/tests_airgap.py
+
+Upgrades never rewrite your past: a log frozen on 2026-08-29 must replay to a byte-identical state digest in every future version- server/testdata/golden_log_v1.json
+- server/tests_upgrade_stability.py
+
+Encryption at rest uses real AEAD or refuses to run, and the entire suite passes against ciphertext- .github/workflows/ci.yml
+
+A write it refuses leaves a trace saying so- server/tests_require_grounded.py
+- scripts/demo_refusal.py
+
+The LangGraph store adapter supersedes instead of overwriting and retracts instead of deleting- sdk/python/omem/integrations/langgraph_store.py
+- server/tests_langgraph_store.py
+
+pip install omem-infrastructure is the whole install: server, dashboard and credentials on one port- scripts/verify_quickstart.py
+
+The same log means the same state under SQLite and PostgreSQL alike- server/tests_postgres.py
+- server/db_adapter.py
+
+20 claims. If one of these ever goes red and the sentence is still on the site, that is a bug worth reporting, and the fastest way to report it is the failing run.
+
+---
+
 # Security
 Source: https://infrastructure.omem-cloud.com/security/
 
