@@ -30,6 +30,9 @@ const DOCS_NAV: { group: string; items: { href: string; label: string; note?: st
     { href: "/developers", label: "API reference", note: "dashboard" },
     { href: "/playground", label: "Playground", note: "dashboard" },
   ]},
+  { group: "Operating", items: [
+    { href: "/docs/licence", label: "Installing a licence", note: "paid" },
+  ]},
 ];
 
 const FLAT = DOCS_NAV.flatMap(g => g.items);
