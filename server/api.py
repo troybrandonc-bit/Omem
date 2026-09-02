@@ -1510,10 +1510,7 @@ def _write_bank_export(dest_dir):
     # random instance pseudonym -- so consent is informed by a file they can
     # open, and a long-tail local token never travels. No answer, or no: no
     # network call exists. A collector never contributes to itself.
-    try:
-        consented = bool(COMMONS_URL) or _commons.get_choice(STORE.db) == "yes"
-    except Exception:
-        consented = False
+    consented = _commons.should_contribute(STORE.db, COMMONS_URL, BANK_COLLECTOR)
     sendable = [r for r in rows
                 if _commons.lexicon_ok(r["antecedent"])
                 and _commons.lexicon_ok(r["consequent"])]
@@ -1525,17 +1522,19 @@ def _write_bank_export(dest_dir):
     sendable_cal = [r for r in cal
                     if r["scope"] == "generator_class"
                     or _commons.lexicon_ok(r["name"])]
-    if consented and (sendable or sendable_cal) and not BANK_COLLECTOR:
+    if consented and (sendable or sendable_cal):
         try:
             url = COMMONS_URL or _commons.DEFAULT_COMMONS_URL
             # The terms this operator agreed to travel WITH the counts. A
             # rights record kept only on the collector would be the collector's
             # word for what a contributor agreed to; sent from here it is the
             # contributor's own statement, recorded at the moment they gave it.
-            payload = json.dumps({"instance": _commons.instance_id(STORE.db),
-                                  "patterns": sendable,
-                                  "calibration": sendable_cal,
-                                  "terms": _commons.current_terms(STORE.db)}).encode()
+            # Assembled in commons.py, which projects every row onto the
+            # fields that have a written argument, so a column added to the
+            # local bank cannot travel by accident.
+            payload = json.dumps(_commons.contribution_payload(
+                _commons.instance_id(STORE.db), sendable, sendable_cal,
+                _commons.current_terms(STORE.db))).encode()
             req = urllib.request.Request(
                 url.rstrip("/") + "/v1/commons", data=payload,
                 headers={"Content-Type": "application/json"}, method="POST")

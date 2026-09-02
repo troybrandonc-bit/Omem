@@ -318,6 +318,97 @@ def instance_id(db) -> str:
     return v
 
 
+# ── what may leave this machine, and the argument for each field ────────────
+#
+# The doors validate what ARRIVES. Nothing pinned what departs, and that is the
+# gap the calibration work walked into: `leap_generators.generator` holds
+# subject ids, the design proposed contributing the table, and both existing
+# doors would have passed it because they inspect proposition tokens rather
+# than that column. The lesson written down then was that the anonymity
+# argument has to be made per column. This is that lesson as code.
+#
+# A field absent from these maps is not sent. Not trimmed at the far end, not
+# dropped quietly on arrival: never transmitted. Adding one means adding the
+# sentence that says why it is safe, which is the point.
+CONTRIBUTION_FIELDS = {
+    "instance": "a uuid4 minted on this machine, carrying nothing about it or "
+                "its owner",
+    "patterns": "counts over populations, tokens built from the closed commons "
+                "vocabulary and refused at both doors",
+    "calibration": "how much a guess about a person was worth, by generator "
+                   "CLASS and by lexicon-bound family",
+    "terms": "which uses this operator granted, recorded when they granted them",
+}
+
+PATTERN_FIELDS = {
+    "antecedent": "a behaviour token from the closed vocabulary",
+    "consequent": "a behaviour token from the closed vocabulary",
+    "support": "how many subjects held both",
+    "refute": "how many held the first and opposed the second",
+    "subjects": "how many held the first at all",
+}
+
+CALIBRATION_FIELDS = {
+    "scope": "generator_class or family, which kind of rate this row carries",
+    "name": "one of two literals, or a lexicon-bound family token",
+    "supported": "how many guesses of this kind reality confirmed",
+    "refuted": "how many of those same guesses reality refuted",
+}
+
+# Fields the local bank carries for the operator to read, derived entirely from
+# the counts above and deliberately NOT transmitted. Listed so a new field is a
+# decision rather than a default: the suite fails on any key in neither map,
+# which is what turns "we should think about that" into CI.
+# `projects` is the one this guard caught on its first run: it counts how
+# many of the operator's OWN projects a pattern appeared in, and it was
+# travelling because the client sent bank() rows as they sat. It says
+# nothing about a person, but it does describe the contributor's
+# deployment, and the bank has no use for it. Local.
+DERIVED_LOCAL_ONLY = {"pattern", "rate", "fires", "sources", "projects"}
+
+
+def _project(row: dict, fields: dict) -> dict:
+    return {k: row[k] for k in fields if k in row}
+
+
+def contribution_payload(instance: str, patterns: list, calibration: list,
+                         terms: dict) -> dict:
+    """The only place a contribution is assembled.
+
+    Rows are projected onto the approved fields rather than sent as they sit in
+    the local bank, so a column added upstream cannot travel by accident. The
+    projection is the runtime guarantee; the suite pinning these maps against
+    what the bank actually produces is what makes anyone notice."""
+    body = {
+        "instance": instance,
+        "patterns": [_project(p, PATTERN_FIELDS) for p in patterns],
+        "calibration": [_project(c, CALIBRATION_FIELDS) for c in calibration],
+        "terms": terms,
+    }
+    unknown = sorted(set(body) - set(CONTRIBUTION_FIELDS))
+    if unknown:
+        raise ValueError("field with no stated argument refused: %s" % unknown)
+    return body
+
+
+def should_contribute(db, env_url, is_collector: bool) -> bool:
+    """Whether this install may send anything at all.
+
+    Named and testable rather than an inline condition, because it is the
+    sentence the whole consent model rests on: a stock install never sends, and
+    only an explicit act by the operator changes that. Setting
+    OMEM_COMMONS_URL is such an act; so is answering the prompt. Silence is
+    not, and a collector never contributes to itself."""
+    if is_collector:
+        return False
+    if env_url:
+        return True
+    try:
+        return get_choice(db) == "yes"
+    except Exception:
+        return False
+
+
 def validate(payload) -> tuple[list, str | None]:
     """A contribution, checked at the door. Returns (clean_patterns, error).
     Only counts survive: identifying tokens, absurd sizes, and non-integer
