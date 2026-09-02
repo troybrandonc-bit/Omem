@@ -197,6 +197,23 @@ function CommonsAsk({ onDone }: { onDone: () => void }) {
           Never a name, a company, a message, or a number from your data, and the
           exact file is on your disk to inspect (intelligence-bank.json). Nothing
           is sent until you say yes, and you can change your answer in Settings.
+          Saying no later also asks the commons to withdraw what you
+          already sent.
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-muted">
+          It goes both ways, so you should know what arrives too. Saying yes also
+          pulls the published bank back and lets it inform this install&rsquo;s
+          guesses about people it knows nothing about yet. Borrowed patterns rank
+          beneath anything OMEM learned here, are born more cautious, and still
+          only ever fire into a silence, so one steps aside the moment the person
+          in front of it says otherwise.
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-muted">
+          Being honest about the size of that: a pattern has to have been seen by
+          at least two separate installations before it comes back to anyone, so
+          early on there is little or nothing to receive. It helps most when the
+          people you work with resemble other contributors&rsquo;, and least when
+          a behaviour is so common that a pattern about it says nothing.
         </p>
         <div className="mt-4 flex items-center justify-end gap-2">
           <button onClick={() => answer(false)} disabled={busy}

@@ -189,5 +189,39 @@ CALLS.clear()
 api._write_bank_export(dest)
 check("an install that was never asked makes no request either", CALLS == [], CALLS)
 
+print("== the words match the machine, and cannot go stale ==")
+# Numbers in outward-facing copy drift silently, and a stale number in a
+# consent dialog or a dataset card is the same defect as a wrong one.
+card = commons.dataset_card([], {"stances": 0, "contributors": 0})
+check("the card states the real size of the vocabulary",
+      str(len(commons.COMMONS_LEXICON)) in card, len(commons.COMMONS_LEXICON))
+check("and the real floor a published line clears",
+      str(commons.PRIOR_FLOOR_N) in card, commons.PRIOR_FLOOR_N)
+check("it does not conclude the law for the reader",
+      "not personal data" not in card)
+check("it says what the file contains instead",
+      "cannot appear at all" in card and "supporting subjects" in card)
+
+# The consent dialog. The commons goes both ways, so an operator told only
+# what leaves has not been told what they are agreeing to.
+DIALOG = os.path.join(os.path.dirname(HERE), "web", "components", "shell.tsx")
+ui = io.open(DIALOG, encoding="utf-8").read() if os.path.exists(DIALOG) else ""
+_MARK = chr(10) + "function "
+ask = ui.split("function CommonsAsk")[1].split(_MARK)[0] if "function CommonsAsk" in ui else ""
+check("the consent dialog is where we think it is", bool(ask), DIALOG)
+check("it still says what leaves", "leaves this machine" in ask)
+check("it also says what arrives, because the commons goes both ways",
+      "pulls the published bank back" in ask)
+check("it says borrowed patterns rank beneath local knowledge",
+      "rank" in ask and "beneath" in ask)
+check("and that one only ever fires into a silence", "silence" in ask)
+NUMBER_WORD = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five"}
+check("it discloses the threshold before anything comes back, and the number "
+      "it names is the one the code enforces",
+      NUMBER_WORD[commons.POOLED_MIN_SOURCES] + " separate install" in ask,
+      commons.POOLED_MIN_SOURCES)
+check("and it does not promise a benefit the benchmark calls conditional",
+      "helps most when" in ask and "least when" in ask)
+
 print("\n%d passed, %d failed" % (PASS, FAIL))
 sys.exit(1 if FAIL else 0)
