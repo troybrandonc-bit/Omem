@@ -41,8 +41,9 @@ const POINTS = [
         was made. Today those terms grant one thing: publication in the public
         commons under CC BY. Any other use, commercial ones included, needs its
         own question, asked before it applies and never applied backwards. And
-        turning contribution off now withdraws what was already sent, so the
-        counts stop being published and stop reaching anyone.`,
+        turning contribution off now asks the commons to withdraw what was
+        already sent, so the counts stop being published and stop reaching
+        anyone.`,
   },
   {
     k: "A prior yields to the person",
