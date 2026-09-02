@@ -57,6 +57,7 @@ from connectors import (OAuthStore, GmailConnector, MockGmailTransport, GmailTra
                         LLMExtractor, MockLLMClient, EntityResolver)
 from scheduler import Scheduler
 from enterprise import Enterprise, role_allows, ROLES, PLANS
+import licence as LICENCE
 import providers
 from omem_engine import __version__ as ENGINE_VERSION
 from omem_engine.engine import Engine, ACCEPTED  # the authoritative engine
@@ -2296,6 +2297,15 @@ class Handler(BaseHTTPRequestHandler):
                     "diagnoses": HEAL_STORE.diagnoses_for(org_id, p.id, fid),
                 })
             return self._err(404, "not_found", "unknown healing route")
+        # /v1/licence - what this install is licensed for, if anything.
+        # Authenticated because it names the customer, but deliberately
+        # readable by any caller with a key: the person asked to prove the
+        # install is licensed is usually not the person who bought it.
+        if parts == ["v1", "licence"] or parts == ["v1", "license"]:
+            if auth is None:
+                return self._err(401, "authentication",
+                                 "Missing or invalid credentials.")
+            return self._send(200, LICENCE.status())
         # /v1/health
         if parts == ["v1", "health"]:
             # P9.6: a REAL readiness probe (load balancers / k8s rely on this),
