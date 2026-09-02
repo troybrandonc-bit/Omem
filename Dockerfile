@@ -6,6 +6,10 @@ COPY web/package.json web/package-lock.json* ./
 RUN npm install --no-audit --no-fund
 # build the app
 COPY web/ ./
+# The claims page is generated from the ledger when the site builds, so the
+# ledger has to be in the build context. WORKDIR is /web and the page looks one
+# directory up, which is the repo root in a checkout and this path in an image.
+COPY CLAIMS.md /CLAIMS.md
 # the dashboard talks to the server via the /api/omem rewrite -> OMEM_API_URL,
 # which we set at runtime; localhost inside the container is correct there.
 RUN npm run build
