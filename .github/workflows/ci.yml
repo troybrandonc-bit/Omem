@@ -215,6 +215,13 @@ jobs:
           npm run build
           test -f out/index.html || { echo "::error::static export produced no index.html"; exit 1; }
           echo "exported $(find out -type f | wc -l) files"
+      # llms.txt promises the full text of every page and llms-full.txt was
+      # written by hand, so it drifted to half the site without anything
+      # noticing. This is the only job with an export to read, and it refuses a
+      # page that rendered nothing, so a public route that has lost its shell
+      # fails here too.
+      - name: llms-full.txt must still be the whole site
+        run: python scripts/gen_llms_full.py --from-dir web/out --check
       - run: pip install build
       - name: Build the wheel
         working-directory: sdk/python
