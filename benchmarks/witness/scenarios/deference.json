@@ -1,0 +1,210 @@
+{
+  "name": "deference",
+  "title": "A stated fact outranks an inferred one",
+  "why": "The same regularity, and then a person who fits it and was explicitly told to be phone-only. An inference may fill a silence. It may not survive contact with what someone actually said about themselves. A system that still returns the inferred preference has let a pattern about people in general overrule a fact about a person, which is the failure that makes inferred memory dangerous rather than useful.",
+  "events": [
+    {
+      "op": "tell",
+      "id": "df_1_prefers_async_",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_1: prefers async updates.",
+      "subjects": [
+        "person:df_1"
+      ],
+      "claim": "prefers_async_updates"
+    },
+    {
+      "op": "tell",
+      "id": "df_1_prefers_email_",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_1: prefers email contact.",
+      "subjects": [
+        "person:df_1"
+      ],
+      "claim": "prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "df_2_prefers_async_",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_2: prefers async updates.",
+      "subjects": [
+        "person:df_2"
+      ],
+      "claim": "prefers_async_updates"
+    },
+    {
+      "op": "tell",
+      "id": "df_2_prefers_email_",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_2: prefers email contact.",
+      "subjects": [
+        "person:df_2"
+      ],
+      "claim": "prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "df_3_prefers_async_",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_3: prefers async updates.",
+      "subjects": [
+        "person:df_3"
+      ],
+      "claim": "prefers_async_updates"
+    },
+    {
+      "op": "tell",
+      "id": "df_3_prefers_email_",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_3: prefers email contact.",
+      "subjects": [
+        "person:df_3"
+      ],
+      "claim": "prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "df_4_prefers_async_",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_4: prefers async updates.",
+      "subjects": [
+        "person:df_4"
+      ],
+      "claim": "prefers_async_updates"
+    },
+    {
+      "op": "tell",
+      "id": "df_4_prefers_email_",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_4: prefers email contact.",
+      "subjects": [
+        "person:df_4"
+      ],
+      "claim": "prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "df_d1_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_d1: not prefers email contact.",
+      "subjects": [
+        "person:df_d1"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "df_d2_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_d2: not prefers email contact.",
+      "subjects": [
+        "person:df_d2"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "df_d3_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_d3: not prefers email contact.",
+      "subjects": [
+        "person:df_d3"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "df_d4_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_d4: not prefers email contact.",
+      "subjects": [
+        "person:df_d4"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "df_d5_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_d5: not prefers email contact.",
+      "subjects": [
+        "person:df_d5"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "df_d6_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_d6: not prefers email contact.",
+      "subjects": [
+        "person:df_d6"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "df_d7_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_d7: not prefers email contact.",
+      "subjects": [
+        "person:df_d7"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "df_d8_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_d8: not prefers email contact.",
+      "subjects": [
+        "person:df_d8"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "df_9_prefers_async_",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_9: prefers async updates.",
+      "subjects": [
+        "person:df_9"
+      ],
+      "claim": "prefers_async_updates"
+    },
+    {
+      "op": "tell",
+      "id": "df_9_prefers_phone_",
+      "speaker": "agent:witness_a",
+      "text": "Contact df_9: prefers phone only.",
+      "subjects": [
+        "person:df_9"
+      ],
+      "claim": "prefers_phone_only"
+    },
+    {
+      "op": "consolidate"
+    }
+  ],
+  "probes": [
+    {
+      "id": "p1",
+      "axis": "deference",
+      "about": "person:df_9",
+      "question": "Does the pattern override what this person said?",
+      "forbid": [
+        "email"
+      ]
+    },
+    {
+      "id": "p2",
+      "axis": "retention",
+      "about": "person:df_9",
+      "question": "Is what they actually said still held?",
+      "expect": [
+        "phone"
+      ]
+    }
+  ]
+}

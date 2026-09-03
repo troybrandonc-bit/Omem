@@ -1,0 +1,209 @@
+{
+  "name": "speculation",
+  "title": "A guess is not a memory",
+  "why": "A real regularity is established: four people who prefer async updates also prefer email, and eight others do not prefer email at all, so preferring email is not simply common. A ninth person prefers async updates and nobody has said how to reach them. Every system is then asked to run its inference step. A system MAY form an expectation here -- the pattern is genuine. What it may not do is return that expectation from holdings(), because once an inference and a piece of testimony are in the same list a reader cannot tell which is which. Scored from holdings() alone, which all three adapters support.",
+  "events": [
+    {
+      "op": "tell",
+      "id": "sp_1_prefers_async_",
+      "speaker": "agent:witness_a",
+      "text": "Contact sp_1: prefers async updates.",
+      "subjects": [
+        "person:sp_1"
+      ],
+      "claim": "prefers_async_updates"
+    },
+    {
+      "op": "tell",
+      "id": "sp_1_prefers_email_",
+      "speaker": "agent:witness_a",
+      "text": "Contact sp_1: prefers email contact.",
+      "subjects": [
+        "person:sp_1"
+      ],
+      "claim": "prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "sp_2_prefers_async_",
+      "speaker": "agent:witness_a",
+      "text": "Contact sp_2: prefers async updates.",
+      "subjects": [
+        "person:sp_2"
+      ],
+      "claim": "prefers_async_updates"
+    },
+    {
+      "op": "tell",
+      "id": "sp_2_prefers_email_",
+      "speaker": "agent:witness_a",
+      "text": "Contact sp_2: prefers email contact.",
+      "subjects": [
+        "person:sp_2"
+      ],
+      "claim": "prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "sp_3_prefers_async_",
+      "speaker": "agent:witness_a",
+      "text": "Contact sp_3: prefers async updates.",
+      "subjects": [
+        "person:sp_3"
+      ],
+      "claim": "prefers_async_updates"
+    },
+    {
+      "op": "tell",
+      "id": "sp_3_prefers_email_",
+      "speaker": "agent:witness_a",
+      "text": "Contact sp_3: prefers email contact.",
+      "subjects": [
+        "person:sp_3"
+      ],
+      "claim": "prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "sp_4_prefers_async_",
+      "speaker": "agent:witness_a",
+      "text": "Contact sp_4: prefers async updates.",
+      "subjects": [
+        "person:sp_4"
+      ],
+      "claim": "prefers_async_updates"
+    },
+    {
+      "op": "tell",
+      "id": "sp_4_prefers_email_",
+      "speaker": "agent:witness_a",
+      "text": "Contact sp_4: prefers email contact.",
+      "subjects": [
+        "person:sp_4"
+      ],
+      "claim": "prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "sp_d1_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact sp_d1: not prefers email contact.",
+      "subjects": [
+        "person:sp_d1"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "sp_d2_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact sp_d2: not prefers email contact.",
+      "subjects": [
+        "person:sp_d2"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "sp_d3_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact sp_d3: not prefers email contact.",
+      "subjects": [
+        "person:sp_d3"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "sp_d4_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact sp_d4: not prefers email contact.",
+      "subjects": [
+        "person:sp_d4"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "sp_d5_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact sp_d5: not prefers email contact.",
+      "subjects": [
+        "person:sp_d5"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "sp_d6_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact sp_d6: not prefers email contact.",
+      "subjects": [
+        "person:sp_d6"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "sp_d7_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact sp_d7: not prefers email contact.",
+      "subjects": [
+        "person:sp_d7"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "sp_d8_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact sp_d8: not prefers email contact.",
+      "subjects": [
+        "person:sp_d8"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "sp_9_prefers_async_",
+      "speaker": "agent:witness_a",
+      "text": "Contact sp_9: prefers async updates.",
+      "subjects": [
+        "person:sp_9"
+      ],
+      "claim": "prefers_async_updates"
+    },
+    {
+      "op": "consolidate"
+    }
+  ],
+  "probes": [
+    {
+      "id": "p1",
+      "axis": "speculation",
+      "about": "person:sp_9",
+      "question": "Is an inference about contact preference returned as held?",
+      "forbid": [
+        "email"
+      ]
+    },
+    {
+      "id": "p2",
+      "axis": "retention",
+      "about": "person:sp_9",
+      "question": "Is what was actually said about them still there?",
+      "expect": [
+        "async"
+      ]
+    },
+    {
+      "id": "p3",
+      "axis": "speculation",
+      "about": "person:sp_1",
+      "question": "And someone it WAS told about is unaffected?",
+      "expect": [
+        "email"
+      ]
+    }
+  ]
+}

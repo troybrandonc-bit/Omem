@@ -201,6 +201,55 @@ TOOLS = [
         "inputSchema": {"type": "object", "properties": {}},
     },
     {
+        "name": "omem_ask",
+        "description": ("Ask what is known about a person who holds one claim, "
+                        "at the moment you are deciding rather than in advance. "
+                        "Answers from what this installation has seen itself "
+                        "first, and from the shared commons second, each "
+                        "labelled, with the number of people and the lower "
+                        "bound of the rate each rests on. It refuses when too "
+                        "few people support an answer, and says so rather than "
+                        "returning nothing, because 'no such pattern' and 'too "
+                        "few people to say' are different answers. None of it "
+                        "is a fact about the person in front of you, and "
+                        "anything they have actually said overrides all of it."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "given": {"type": "string",
+                          "description": "A claim the person holds, e.g. 'prefers_async'"},
+                "expect": {"type": "string",
+                           "description": "A claim you want anticipated. Give either or both."},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 25},
+            },
+        },
+    },
+    {
+        "name": "omem_weigh",
+        "description": ("Weigh a belief about a person against what is known "
+                        "across populations, WITHOUT ruling on it. Give the "
+                        "claim you believe and what you already know the person "
+                        "holds; you get the regularities pointing toward it and "
+                        "the ones pointing away, with the number of people "
+                        "behind each. It never answers true or false: deciding "
+                        "what is true about someone from statistics about other "
+                        "people is exactly what this refuses to do. Use it to "
+                        "check whether a belief you are about to act on is "
+                        "defensible, and treat anything the person has actually "
+                        "said as outranking all of it."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "claim": {"type": "string",
+                          "description": "The belief to weigh, e.g. 'prefers_email'"},
+                "holds": {"type": "array", "items": {"type": "string"},
+                          "description": "What is already known about the person"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 25},
+            },
+            "required": ["claim"],
+        },
+    },
+    {
         "name": "omem_brief",
         "description": ("One brief for the situation in front of you: what is "
                         "established, what is only suspected and how strongly, what is "
@@ -284,6 +333,23 @@ class McpServer:
     def _priors(self, a: dict) -> dict:
         return {"priors": self.memory.priors()}
 
+    def _weigh(self, a: dict) -> dict:
+        """Evidence for and against, never a verdict."""
+        return self.memory.weigh(
+            str(a["claim"]),
+            holds=[h for h in (a.get("holds") or []) if isinstance(h, str)],
+            limit=int(a.get("limit") or 20))
+
+    def _ask(self, a: dict) -> dict:
+        """One question, answered from disk. No network call is made to the
+        commons: what this install holds of it is already here, so the answer
+        is the same whether the commons is reachable or has never been
+        contacted."""
+        return self.memory.ask(
+            given=(str(a["given"]) if a.get("given") else None),
+            expect=(str(a["expect"]) if a.get("expect") else None),
+            limit=int(a.get("limit") or 20))
+
     def _brief(self, a: dict) -> dict:
         """Attribution comes from the process here too: the model does not get
         to say whose brief this is, or which user it is acting for."""
@@ -318,7 +384,9 @@ class McpServer:
             fn = {"omem_recall": self._recall, "omem_observe": self._observe,
                   "omem_remember": self._remember, "omem_why": self._why,
                   "omem_believes": self._believes, "omem_expects": self._expects,
-                  "omem_priors": self._priors, "omem_brief": self._brief}.get(name)
+                  "omem_priors": self._priors, "omem_brief": self._brief,
+                  "omem_ask": self._ask,
+                  "omem_weigh": self._weigh}.get(name)
             if fn is None:
                 return {"jsonrpc": "2.0", "id": mid,
                         "error": {"code": -32602, "message": f"unknown tool {name!r}"}}

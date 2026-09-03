@@ -113,6 +113,10 @@ PRIOR_LIFT_Z = 1.96      # the 95% one-sided bound, so "three of three" is not
 # it takes before the house rate is believed at all. Both are pseudo-counts:
 # BIRTH_K is the weight of the prior on one generator's record, ANCHOR_K the
 # weight of BASE_STRENGTH on the install's overall record.
+# Below this a generator's record is reported with a note rather than as a
+# rate, because a rate on two verdicts is not a rate about anything.
+MIN_VERDICTS_FOR_RATE = 5
+
 BIRTH_K = 8.0            # one verdict nudges a generator, thirty move it a
                          # long way. A smaller number scored better on Brier
                          # here, but only because birth strength is capped
@@ -163,6 +167,7 @@ CREATE TABLE IF NOT EXISTS leap_generators(
   project_id TEXT NOT NULL, generator TEXT NOT NULL,
   wins INTEGER NOT NULL, losses INTEGER NOT NULL,
   w_wins REAL, w_losses REAL,
+  base_sum REAL, verdicts INTEGER,
   PRIMARY KEY(project_id, generator));
 CREATE TABLE IF NOT EXISTS priors(
   id TEXT NOT NULL, project_id TEXT NOT NULL,
@@ -179,7 +184,7 @@ def ensure_schema(db):
     a table that already exists, and every install that has ever scored a
     generator already has this one."""
     db.executescript(HYPOTHESES_SCHEMA)
-    for col in ("w_wins", "w_losses"):
+    for col in ("w_wins", "w_losses", "base_sum", "verdicts"):
         try:
             db.execute("ALTER TABLE leap_generators ADD COLUMN %s REAL" % col)
         except Exception:
@@ -444,16 +449,68 @@ def _gen_counts(db, project_id: str, generator: str) -> tuple[int, int]:
 
 
 def _score_generator(db, project_id: str, generator: str, won: bool,
-                     strength: float):
+                     strength: float, base: float | None = None):
+    """Record a verdict, and what chance would have been on the same claim.
+
+    A win rate on its own is the defect the mining rule was repaired for, one
+    level up. `rate = wins / (wins + losses)` says nothing about whether the
+    guesses were worth making: a generator that only ever predicts claims most
+    people hold accumulates an excellent record and carries no information, in
+    exactly the way a prior selected on popularity did. PRIOR_MIN_LIFT stopped
+    that happening in the miner; nothing stopped it here, and this number feeds
+    birth strength, so the confounded quantity propagated into every forecast.
+
+    `base` is the claim's own rate in the population at the moment the verdict
+    landed. Accumulated, it makes the record's lift readable: how much better
+    than chance this generator has been, rather than merely how often it was
+    right about things that were usually true anyway. It is recorded rather
+    than acted on: correcting birth strength by it is a change that should be
+    measured before it is made, not assumed."""
     wins, losses = _gen_counts(db, project_id, generator)
     w_wins, w_losses = _gen_record(db, project_id, generator)
+    bs, vd = _gen_base(db, project_id, generator)
     s = surprise(strength, won)
     db.execute("INSERT OR REPLACE INTO leap_generators(project_id, generator, "
-               "wins, losses, w_wins, w_losses) VALUES(?,?,?,?,?,?)",
+               "wins, losses, w_wins, w_losses, base_sum, verdicts) "
+               "VALUES(?,?,?,?,?,?,?,?)",
                (project_id, generator, wins + (1 if won else 0),
                 losses + (0 if won else 1),
-                w_wins + (s if won else 0.0), w_losses + (0.0 if won else s)))
+                w_wins + (s if won else 0.0), w_losses + (0.0 if won else s),
+                bs + (base if base is not None else 0.0),
+                vd + (1 if base is not None else 0)))
     db.commit()
+
+
+def _gen_base(db, project_id: str, generator: str) -> tuple:
+    """The accumulated chance level behind one generator's verdicts."""
+    try:
+        r = db.execute("SELECT base_sum, verdicts FROM leap_generators "
+                       "WHERE project_id=? AND generator=?",
+                       (project_id, generator)).fetchone()
+    except Exception:
+        return (0.0, 0)          # database predating these columns
+    if not r:
+        return (0.0, 0)
+    return (r["base_sum"] or 0.0, int(r["verdicts"] or 0))
+
+
+def base_rate_of(profs: dict, prop: str) -> float | None:
+    """How often a claim is held in this population, counting only those who
+    took a position. A negated claim's rate is the rate of denying it.
+
+    This is the yardstick a verdict has to beat to have meant anything, and it
+    is the number the record was missing."""
+    bare = prop[4:] if prop.startswith("not:") else prop
+    yes = no = 0
+    for pa in profs.values():
+        held = pa[0]
+        if bare in held:
+            yes += 1
+        elif ("not:" + bare) in held:
+            no += 1
+    if not (yes + no):
+        return None
+    return (no / (yes + no)) if prop.startswith("not:") else yes / (yes + no)
 
 
 def _wilson_lower(k: int, n: int, z: float = PRIOR_LIFT_Z) -> float:
@@ -594,6 +651,173 @@ def _birth_strength(gen_rec: tuple, fam_rec: tuple,
     return round(max(STRENGTH_FLOOR, min(STRENGTH_CEILING, p)), 2)
 
 
+# What a query has to clear before it is answered rather than refused. A
+# published bank states what it holds; answering a QUESTION is a different act,
+# because the caller is about to do something to a person with the answer.
+ASK_MIN_SUBJECTS = 12
+
+
+def ask(db, project_id: str, given: str = "", expect: str = "",
+        limit: int = 20) -> dict:
+    """What is known about someone who holds `given`, asked at the moment it
+    matters rather than downloaded in advance.
+
+    Answers from this installation's own priors FIRST and the commons snapshot
+    second, each labelled, because knowledge about the people this install has
+    actually seen outranks knowledge borrowed from populations it has not --
+    the same order `leap` applies when it chooses which prior may speak.
+
+    Answered entirely from disk. The pooled rows are the snapshot this machine
+    already holds, so asking costs no network call and works with the commons
+    unreachable or never contacted at all. The commons is a gift in both
+    directions and never a dependency.
+
+    Refuses with a reason rather than returning an empty list. An empty answer
+    reads as `no such regularity exists`, when the truth is nearly always `too
+    few people here for this to be worth saying`, and a caller acts differently
+    on each.
+    """
+    g = (given or "").strip().lower()
+    e = (expect or "").strip().lower()
+    if not g and not e:
+        return {"answered": False, "answers": [],
+                "refused": "ask what? give `given`, a claim the person holds, "
+                           "or `expect`, a claim you want anticipated"}
+
+    def matches(a, c):
+        return (not g or a == g) and (not e or c == e)
+
+    seen, out, thin = set(), [], 0
+    tiers = [("this install", [dict(r) for r in db.execute(
+        "SELECT * FROM priors WHERE project_id=?", (project_id,))]),
+        ("the commons", _pooled_rows(db))]
+    for label, rows in tiers:
+        for r in rows:
+            a, c = r["antecedent"], r["consequent"]
+            if not matches(a, c) or (a, c) in seen:
+                continue
+            total = r["support"] + r["refute"]
+            if total <= 0:
+                continue
+            if r["subjects"] < ASK_MIN_SUBJECTS:
+                thin += 1
+                continue
+            seen.add((a, c))
+            gen = db.execute(
+                "SELECT wins, losses FROM leap_generators WHERE project_id=? "
+                "AND generator=?", (project_id, "prior:" + r["id"])).fetchone()                 if r.get("id") else None
+            out.append({
+                "given": a, "expect": c, "source": label,
+                "rate": round(r["support"] / total, 3),
+                "confident_rate": round(_wilson_lower(r["support"], total), 3),
+                "people": r["subjects"],
+                "held_both": r["support"],
+                "held_first_denied_second": r["refute"],
+                "populations": r.get("frames") or None,
+                "installations": r.get("sources") or None,
+                # What happened when this was actually used here, which is a
+                # different question from how often it held in a population.
+                "when_applied": ({"supported": gen["wins"],
+                                  "refuted": gen["losses"]} if gen else None),
+                "says": "of %d people who hold %s, %d also hold %s"
+                        % (total, a, r["support"], c),
+            })
+    if not out:
+        if thin:
+            return {"answered": False, "answers": [],
+                    "refused": "%d regularity(ies) touch this and none rests on "
+                               "at least %d people. Too thin to answer with."
+                               % (thin, ASK_MIN_SUBJECTS)}
+        return {"answered": False, "answers": [],
+                "refused": "nothing here connects %s. That is not a finding "
+                           "that no connection exists: this install has not "
+                           "seen enough people, and the commons has not been "
+                           "contributed to enough, for it to be sayable."
+                           % (("holding " + g) if g else ("anything to " + e))}
+    out.sort(key=lambda x: (x["source"] != "this install", -x["people"]))
+    return {"answered": True, "answers": out[:limit],
+            "how_to_read": "Rates are over people who took a position, never "
+                           "over everyone. `confident_rate` is the lower bound "
+                           "of the rate, which is what a small sample is "
+                           "actually worth. None of this is a fact about the "
+                           "person in front of you, and anything they have "
+                           "actually said overrides all of it."}
+
+
+def weigh(db, project_id: str, claim: str, holds=None, limit: int = 20) -> dict:
+    """Weigh a belief against the population, without ruling on it.
+
+    `ask` answers what to expect. This answers a different question, and it is
+    the one the record needs: an agent believed something about a person; was
+    that belief defensible on what was known at the time? The Testimony Record
+    says what was believed and on what evidence. This says what the population
+    evidence says about it, which is the other half of being able to check a
+    claim made by a machine.
+
+    It does NOT rule on the claim. Nothing here concludes that a person holds
+    or does not hold anything: the bank holds counts over populations, and a
+    regularity is not a fact about anybody. What it returns is the evidence
+    pointing each way, with the counts behind each piece, so a person can
+    judge. A system that answered `true` or `false` here would be deciding what
+    is true about someone from statistics about other people, which is the one
+    thing this project exists to refuse.
+
+    `holds` is what is known about the person -- the same claims an agent would
+    have had in front of it. Each is looked up as an antecedent: a prior
+    pointing at the claim supports the belief, one pointing at its negation
+    undermines it.
+    """
+    c = (claim or "").strip().lower()
+    if not c:
+        return {"checked": False, "refused": "no claim to check"}
+    bare_c = c[4:] if c.startswith("not:") else c
+    neg_c = bare_c if c.startswith("not:") else ("not:" + bare_c)
+    known = [str(x).strip().lower() for x in (holds or []) if str(x).strip()]
+    if not known:
+        return {"checked": False, "claim": c,
+                "refused": "nothing known about this person to weigh the claim "
+                           "against. Give `holds`: what the agent had in front "
+                           "of it when it formed the belief."}
+
+    supports, undermines = [], []
+    for k in known:
+        for direction, target, bucket in (("for", c, supports),
+                                          ("against", neg_c, undermines)):
+            r = ask(db, project_id, given=k, expect=target, limit=limit)
+            for a in r.get("answers", []):
+                bucket.append({**a, "because_they_hold": k})
+
+    n_for = len(supports)
+    n_against = len(undermines)
+    if not n_for and not n_against:
+        verdict = ("The bank says nothing either way. That is not evidence the "
+                   "belief is wrong: no contributed population has shown a "
+                   "regularity connecting what is known about this person to "
+                   "this claim.")
+    elif n_for and not n_against:
+        verdict = ("The population evidence leans toward the belief. It remains "
+                   "a regularity about other people, not a fact about this one.")
+    elif n_against and not n_for:
+        verdict = ("The population evidence leans against the belief. That is a "
+                   "reason to look again at what it rested on, not a finding "
+                   "that it is false.")
+    else:
+        verdict = ("The evidence is divided, and both sides are below. A "
+                   "regularity pointing each way is exactly the case where a "
+                   "population should not settle anything about a person.")
+
+    return {
+        "checked": True, "claim": c, "given_that_they_hold": known,
+        "supported_by": sorted(supports, key=lambda x: -x["people"])[:limit],
+        "undermined_by": sorted(undermines, key=lambda x: -x["people"])[:limit],
+        "verdict": verdict,
+        "how_to_read": "This weighs a belief against counts over other people. "
+                       "It does not decide whether the belief is true, and "
+                       "nothing here outranks what the person has actually "
+                       "said. Where the two disagree, the person wins.",
+    }
+
+
 def calibration(db, project_id: str) -> dict:
     """What OMEM knows about its own guessing: per claim-family and per
     generator, how the verdicts have gone. Read-only self-knowledge; the
@@ -602,11 +826,42 @@ def calibration(db, project_id: str) -> dict:
                   "rate": round(w / (w + l), 2) if (w + l) else None}
             for fam, (w, l) in sorted(_family_records(db, project_id).items())}
     gens = {}
-    for r in db.execute("SELECT generator, wins, losses FROM leap_generators "
-                        "WHERE project_id=? ORDER BY generator", (project_id,)):
+    try:
+        rows = list(db.execute(
+            "SELECT generator, wins, losses, base_sum, verdicts FROM "
+            "leap_generators WHERE project_id=? ORDER BY generator",
+            (project_id,)))
+    except Exception:      # database predating the base-rate columns
+        rows = [dict(r, base_sum=None, verdicts=None) for r in db.execute(
+            "SELECT generator, wins, losses FROM leap_generators "
+            "WHERE project_id=? ORDER BY generator", (project_id,))]
+    for r in rows:
         t = r["wins"] + r["losses"]
-        gens[r["generator"]] = {"supported": r["wins"], "refuted": r["losses"],
-                                "rate": round(r["wins"] / t, 2) if t else None}
+        rate = round(r["wins"] / t, 2) if t else None
+        e = {"supported": r["wins"], "refuted": r["losses"], "rate": rate,
+             "n": t}
+        vd = int(r["verdicts"] or 0) if r["verdicts"] is not None else 0
+        if vd and rate is not None:
+            exp = (r["base_sum"] or 0.0) / vd
+            e["expected"] = round(exp, 3)
+            e["lift"] = round(rate - exp, 3)
+        # The condition travels with the number. A rate whose lift is unknown,
+        # or which rests on too few verdicts to be a rate about anything, says
+        # so here rather than leaving the reader to assume otherwise -- the one
+        # place this was already done, the calibration scorer's note about the
+        # strength cap, is what identified the largest defect this layer had.
+        if t < MIN_VERDICTS_FOR_RATE:
+            e["note"] = ("%d verdict(s): too few to be a rate about anything"
+                         % t)
+        elif "lift" not in e:
+            e["note"] = ("rate only, no lift: these verdicts predate the "
+                         "base rate being recorded, so how much better than "
+                         "chance this was is unknown")
+        elif e["lift"] <= 0:
+            e["note"] = ("no better than the claim's own base rate: this "
+                         "generator has been right about things that were "
+                         "usually true anyway")
+        gens[r["generator"]] = e
     return {"families": fams, "generators": gens,
             "priors": priors(db, project_id)}
 
@@ -707,27 +962,57 @@ def learn_priors(p, db) -> dict:
     for q in reps:
         yes, no = _popcount(pos_mask[q]), _popcount(opp_mask[q])
         q_base[q] = (yes / (yes + no)) if (yes + no) else None
+    # Both spaces admit negation. Until now `reps` was positive-only and both
+    # loops walked it, so two whole classes of regularity could never be
+    # learned: what people who DENY P tend to hold, and what people who hold P
+    # tend to DENY. The second is the expensive omission -- a system that can
+    # only ever guess "holds" is structurally unable to be right about a denial,
+    # and it either stays silent or is wrong.
+    #
+    # Measured over 19,668 real respondents on three independent seed groups,
+    # admitting both takes coverage from 762/721/740 hunches to 1249/1194/1226
+    # and marginal lift from +0.128/+0.104/+0.130 to +0.197/+0.180/+0.183:
+    # roughly two and a half times the correct answers above chance. Negated
+    # ANTECEDENTS alone are worse than positive-only in all three groups, and
+    # better than positive-only in all three once negated consequents exist
+    # alongside them, because `not:P -> not:Q` is then expressible and "people
+    # who deny P tend to deny Q" is the strongest pattern this data holds.
+    # The interaction is why both ship together or neither does.
+    #
+    # Brier skill is NOT the measure here and falls while this improves, for a
+    # reason worth stating: admitting denials raises the observed rate, which
+    # grows the base-rate reference the score divides by. Coverage and lift are
+    # the comparable pair. See benchmarks/external/README.md.
+    ant_space = [(q, pos_mask[q], pos_holders[q]) for q in reps]
+    ant_space += [("not:" + q, opp_mask[q], opp_of[q])
+                  for q in reps if opp_of[q]]
+    cons_space = []
+    for q in reps:
+        cons_space.append((q, pos_mask[q], opp_mask[q], q_base[q]))
+        _b = q_base[q]
+        cons_space.append(("not:" + q, opp_mask[q], pos_mask[q],
+                           None if _b is None else 1.0 - _b))
+
     result = {"examined_pairs": 0, "learned": 0, "kept": 0}
     kept = 0
-    for P in reps:
-        base = pos_holders[P]
+    for P, base_mask, base in ant_space:
         if len(base) < PRIOR_FLOOR_N:
             continue
-        base_mask = pos_mask[P]
-        for Q in reps:
-            if Q == P:
-                continue
+        bare_p = P[4:] if P.startswith("not:") else P
+        for Q, q_yes, q_no, base_q in cons_space:
+            bare_q = Q[4:] if Q.startswith("not:") else Q
+            if bare_q == bare_p:
+                continue        # a claim never predicts itself or its negation
             result["examined_pairs"] += 1
-            support = _popcount(base_mask & pos_mask[Q])
+            support = _popcount(base_mask & q_yes)
             if support < PRIOR_FLOOR_N:
                 continue
-            refute = _popcount(base_mask & opp_mask[Q])
+            refute = _popcount(base_mask & q_no)
             total = support + refute
             if total == 0 or support / total < PRIOR_MIN_RATE:
                 continue
             # ...and it has to beat what the whole population already says
             # about Q, or it is Q's popularity wearing P as a hat.
-            base_q = q_base[Q]
             if base_q is not None and                     _wilson_lower(support, total) < base_q + PRIOR_MIN_LIFT:
                 continue
             if kept >= PRIOR_MAX:
@@ -862,6 +1147,44 @@ def leap(p, db, about: str | None = None) -> dict:
     # Every new generator starts here instead of at a constant nobody measured.
     house = _house_rate(gen_recs.values())
     result = {"examined": 0, "leapt": [], "skipped_spent": 0, "refused": []}
+    # The system could not see its own selection. It answers only where a
+    # prior fires, and that is not a random subset: measured against an
+    # external reference it turned out to answer the claims whose base rate
+    # already supplies most of the answer, and to decline the balanced ones
+    # where a forecast is worth most. That was invisible from in here.
+    #
+    # So a pass now reports the mean base rate of the claims it spoke about
+    # beside the mean over every claim in the population. If the first is much
+    # the higher, the pass was picking the easy questions, and it says so.
+    _base_cache: dict = {}
+
+    def _base_of(prop):
+        if prop not in _base_cache:
+            _base_cache[prop] = base_rate_of(profs, prop)
+        return _base_cache[prop]
+
+    _spoken: list = []
+    _all_props = {x for pa in profs.values() for x in pa[0]}
+    _pop_bases = [b for b in (_base_of(x) for x in sorted(_all_props))
+                  if b is not None]
+    if _pop_bases:
+        result["population_base_mean"] = round(
+            sum(_pop_bases) / len(_pop_bases), 3)
+
+    def _note_spoken(prop):
+        """Recorded as it happens, not totalled at the end. leap returns from
+        inside its loops when MAX_NEW_PER_RUN fills, so anything computed at
+        the bottom is missing precisely on the pass where the cap fired -- and
+        that is the state a mature installation is in every time."""
+        b = _base_of(prop)
+        if b is None:
+            return
+        _spoken.append(b)
+        result["spoken_base_mean"] = round(sum(_spoken) / len(_spoken), 3)
+        if _pop_bases:
+            result["selection_bias"] = round(
+                result["spoken_base_mean"]
+                - result["population_base_mean"], 3)
     spent = {r["fp"] for r in db.execute(
         "SELECT fp FROM hypotheses WHERE project_id=?", (p.id,))}
     # ONE hypothesis per claim: a second look-alike holding the same belief
@@ -932,6 +1255,7 @@ def leap(p, db, about: str | None = None) -> dict:
                             strength, "open", json.dumps(docket), 0, fp, time.time()))
                 spent.add(fp)
                 claimed.add((tgt, prop))
+                _note_spoken(prop)
                 result["leapt"].append({"hypothesis": hid, "subject": tgt,
                                         "proposition": prop, "strength": strength,
                                         "because": because})
@@ -985,6 +1309,12 @@ def leap(p, db, about: str | None = None) -> dict:
             continue
         held_reps = {prep.get(x, x) for x in profs[tgt][0]
                      if not x.startswith("not:")}
+        # What this person has DENIED, by cluster rep. A prior may now carry a
+        # negated antecedent, and "does not hold P" is a fact about them in
+        # exactly the way "holds P" is: it is in their profile because they
+        # said it.
+        denied_reps = {prep.get(x[4:], x[4:]) for x in profs[tgt][0]
+                       if x.startswith("not:")}
         for pr in prior_rows:
             if len(result["leapt"]) >= MAX_NEW_PER_RUN:
                 break
@@ -993,18 +1323,30 @@ def leap(p, db, about: str | None = None) -> dict:
                     or pr["support"] / total < PRIOR_MIN_RATE:
                 continue
             ant, cons = pr["antecedent"], pr["consequent"]
-            if ant not in held_reps:
+            ant_neg = ant.startswith("not:")
+            bare_ant = ant[4:] if ant_neg else ant
+            cons_neg = cons.startswith("not:")
+            bare_cons = cons[4:] if cons_neg else cons
+            if bare_ant not in (denied_reps if ant_neg else held_reps):
                 continue                      # target doesn't hold the antecedent
-            if prep.get(cons, cons) in held_reps:
-                continue                      # already holds the consequent (or kin)
-            if (tgt, cons) in claimed:
+            _cons_rep = prep.get(bare_cons, bare_cons)
+            if _cons_rep in held_reps or _cons_rep in denied_reps:
+                continue                      # already spoken, either way
+            # Keyed on the BARE claim, so the engine can never hand one person
+            # both "holds Q" and "does not hold Q" about the same silence. A
+            # record whose purpose is to keep contradictions visible must not
+            # manufacture them, and with negation in the space it otherwise
+            # could. The best-evidenced prior now decides the DIRECTION of the
+            # guess, not merely which of two ways to say the same thing.
+            if (tgt, bare_cons) in claimed:
                 continue
             if p.engine.proposition_state([tgt], cons, T) != "UNKNOWN":
                 continue                      # DEFEASIBLE: only ever fill a silence
             born = None
             for a in by_subject.get(tgt, ()):
-                if not a.proposition.startswith("not:") \
-                        and prep.get(a.proposition, a.proposition) == ant:
+                a_neg = a.proposition.startswith("not:")
+                a_bare = a.proposition[4:] if a_neg else a.proposition
+                if a_neg == ant_neg and prep.get(a_bare, a_bare) == bare_ant:
                     born = a
                     break
             if born is None:
@@ -1050,10 +1392,15 @@ def leap(p, db, about: str | None = None) -> dict:
                        (hid, p.id, tgt, cons, born.id, generator, because,
                         strength, "open", json.dumps(docket), 0, fp, time.time()))
             spent.add(fp)
-            claimed.add((tgt, cons))
+            claimed.add((tgt, bare_cons))
+            _note_spoken(cons)
             result["leapt"].append({"hypothesis": hid, "subject": tgt,
                                     "proposition": cons, "strength": strength,
                                     "because": because, "from_prior": pr["id"]})
+    # What this pass chose to speak about, against what was available to speak
+    # about. Reported rather than acted on: a pass that answers only the easy
+    # claims is not necessarily wrong, but it should not be able to look the
+    # same as one that answers the hard ones.
     db.commit()
     return result
 
@@ -1185,8 +1532,12 @@ def interrogate(p, db) -> dict:
                    "WHERE project_id=? AND id=?",
                    (verdict, json.dumps(docket), time.time(), p.id, row["id"]))
         if verdict in ("supported", "refuted"):
+            # What chance was on this claim, in this population, right now.
+            # Without it the record cannot say whether the guess was worth
+            # making -- only whether it happened to be right.
             _score_generator(db, p.id, row["generator"],
-                             verdict == "supported", row["strength"])
+                             verdict == "supported", row["strength"],
+                             base_rate_of(profs, prop))
         result[verdict].append({"hypothesis": row["id"], "subject": subject,
                                 "proposition": prop})
     db.commit()
@@ -1271,7 +1622,14 @@ def _identifying(token: str) -> bool:
     uppercase letter, or any other character is refused at the door. (A token
     engineered to look like a plain lowercase word is the one thing this cannot
     tell from a real one; closing that needs a fixed vocabulary, tracked
-    separately.)"""
+    separately.)
+
+    A single leading `not:` is the negation marker and is stripped before any
+    of that. It is not an entity id: what follows it is checked exactly as a
+    positive token would be, so `not:prefers_pdf` passes and `not:person:sam`
+    still does not, because the second colon survives the strip."""
+    if token.startswith("not:"):
+        token = token[4:]
     if token.startswith("rel_") or ":" in token or bool(re.search(r"\d", token)):
         return True
     return re.fullmatch(r"[a-z_]+", token) is None

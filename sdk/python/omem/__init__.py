@@ -438,6 +438,41 @@ class Memory:
                          f"/v1/memory/expectations/{hypothesis_id}/answer",
                          {"answer": answer, "agent": agent})
 
+    def ask(self, given=None, expect=None, limit=20):
+        """What is known about someone who holds `given`, or what predicts
+        `expect`. Answers from this install's own priors first and the commons
+        snapshot second, each labelled, with the counts each rests on.
+
+        Refuses with a reason rather than returning an empty list: `nothing
+        matched` and `too few people for this to be worth saying` are different
+        answers and you act differently on each."""
+        q = []
+        if given:
+            q.append("given=" + str(given))
+        if expect:
+            q.append("expect=" + str(expect))
+        q.append("limit=%d" % int(limit))
+        return self._req("GET", "/v1/memory/ask?" + "&".join(q))
+
+    def weigh(self, claim, holds=None, limit=20):
+        """Weigh a belief against the population, without ruling on it.
+
+        Named `weigh` and not `check` because `check` is already the constraint
+        checker, and because the verb is the honest one: this puts evidence on
+        both sides of a scale and hands it over. It does not check anything in
+        the sense of settling it.
+
+        `ask` answers what to expect. This answers whether a belief already
+        formed was defensible on what was known: it returns the regularities
+        pointing toward the claim and the ones pointing away, with the counts
+        behind each. It never returns true or false. Deciding what is true
+        about a person from statistics about other people is the thing this
+        refuses to do, and anything the person has actually said outranks all
+        of it."""
+        return self._req("POST", "/v1/memory/weigh",
+                         {"claim": claim, "holds": list(holds or []),
+                          "limit": int(limit)})
+
     def calibration(self):
         """What OMEM knows about its own guessing: per claim-family and per
         generator, how the verdicts have gone. The same record feeds how

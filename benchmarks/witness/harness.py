@@ -24,8 +24,16 @@ import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCENARIOS = os.path.join(HERE, "scenarios")
 
+# speculation / deference / coherence were added after the intuition layer
+# grew: a system that INFERS has duties a system that only records does not.
+# Each is judged purely from holdings(), which every adapter here supports, so
+# no system is marked UNSUPPORTED on them and none is scored on a capability
+# only one of them has. Adding axes a competitor cannot express is how a
+# vendor benchmark lies, and the constraint is stated here so it can be
+# checked rather than trusted.
 AXES = ("fabrication", "retention", "retraction", "staleness", "history",
-        "contradiction", "identity", "rules", "cascade", "provenance")
+        "contradiction", "identity", "rules", "cascade", "provenance",
+        "speculation", "deference", "coherence")
 
 # What each probe field demands of the adapter.
 _NEEDS = {
@@ -33,6 +41,7 @@ _NEEDS = {
     "want_conflict": "conflicts", "want_sources": "provenance",
 }
 _HISTORY_AXES = {"history"}
+_NEEDS["forbid_both"] = "holdings"
 
 
 def load_scenarios(only=None):
@@ -87,6 +96,11 @@ def run_probe(adapter, probe):
         for tok in probe.get("expect", []):
             if not any(tok.lower() in t for t in texts):
                 problems.append("lost %r" % tok)
+        for pair in probe.get("forbid_both", []):
+            a, b = pair[0].lower(), pair[1].lower()
+            if any(a in t for t in texts) and any(b in t for t in texts):
+                problems.append("asserts BOTH %r and %r about the same "
+                                "subject" % (pair[0], pair[1]))
         if probe.get("want_sources"):
             for r in rows:
                 if not r.get("sources"):
@@ -102,6 +116,15 @@ def run_probe(adapter, probe):
 
 
 def run_scenario(adapter, sc):
+    """Play a scenario's events at one system, then probe what it holds.
+
+    A scenario may ask every system to do its inference step before being
+    probed, with the `consolidate` op. Systems that infer at write time
+    implement it as a no-op; OMEM mines and leaps on a pass, so without it the
+    intuition layer never runs during a benchmark and any probe asking whether
+    an inference was kept out of testimony passes because no inference was
+    ever made. That is a test which cannot fail, which is worse than no test.
+    """
     results = []
     for ev in sc["events"]:
         op = ev["op"]
@@ -111,6 +134,8 @@ def run_scenario(adapter, sc):
             continue
         if op == "rule" and "rules" not in adapter.capabilities:
             continue    # the probes that depend on it report UNSUPPORTED
+        if op == "consolidate" and not hasattr(adapter, "consolidate"):
+            continue    # a system with no separate inference step just skips
         getattr(adapter, op)(ev)
     for p in sc["probes"]:
         results.append(run_probe(adapter, p))

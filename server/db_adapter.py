@@ -204,7 +204,7 @@ _columns_of = {
                    "generator", "because", "strength", "status", "docket",
                    "passes", "fp", "created", "decided"],
     "leap_generators": ["project_id", "generator", "wins", "losses",
-                        "w_wins", "w_losses"],
+                        "w_wins", "w_losses", "base_sum", "verdicts"],
     "priors": ["id", "project_id", "antecedent", "consequent", "context",
                "support", "refute", "subjects", "updated"],
 }

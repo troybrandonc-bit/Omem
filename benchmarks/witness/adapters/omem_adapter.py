@@ -65,6 +65,18 @@ class OmemAdapter(Adapter):
         lbl = row.get("label") or ""
         return [lbl[len("event:"):]] if lbl.startswith("event:") else []
 
+    def consolidate(self, event=None):
+        """Run the inference step, so a probe about inference has something to
+        probe. Without this the intuition layer never executes during a run and
+        any axis asking whether a guess stayed out of testimony passes because
+        no guess was ever made -- a test that cannot fail.
+
+        Mining, then leaping, then interrogating, which is the order a real
+        installation runs them in on its consolidation pass."""
+        self.mem.learn_priors()
+        self.mem.leap()
+        self.mem.interrogate()
+
     def holdings(self, about):
         return [{"text": a["proposition"], "sources": self._sources(a)}
                 for a in self._rows(about, only_open=True)]
