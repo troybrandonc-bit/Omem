@@ -17,6 +17,12 @@ agent believes over time, keeps the evidence under every belief, and handles
 contradictions explicitly, so an agent can reason about what it knows, when it
 learned it, and why it holds.
 
+**The mission:** AI that understands people, learned from data that was given
+rather than taken, and holding no fact about anyone. Models learn what we are
+like from text nobody agreed to hand over. OMEM learns the same kind of thing
+from people who chose to contribute, as counts that name nobody, with the
+consent recorded and the withdrawal real.
+
 And it does not start from nothing. Installs that choose to pool what they
 work out about people in general, as counts that name nobody, and a young
 install borrows that intuition on day one instead of spending six months

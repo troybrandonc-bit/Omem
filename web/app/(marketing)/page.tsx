@@ -187,6 +187,36 @@ export default function Home() {
         </div>
       </Section>
 
+      {/* ── the mission, in one sentence someone can repeat ─────────────
+          It sits above the demo rather than in a section halfway down,
+          because the people this most needs to reach are not evaluating a
+          memory layer. They are deciding whether to contribute to a bank that
+          currently gives nothing back, and the only argument available for
+          that is what it is for. */}
+      <Section className="pb-14 sm:pb-20">
+        <div className="max-w-[52rem] border-t pt-8">
+          <span className="text-caption uppercase tracking-[0.14em] text-faint">
+            The mission
+          </span>
+          <p className="display mt-4 text-2xl leading-tight text-[color:var(--fg)]">
+            AI that understands people, learned from data that was given rather
+            than taken, and holding no fact about anyone.
+          </p>
+          <p className="mt-5 max-w-read text-body text-muted">
+            Models learn what we are like from text nobody agreed to hand over.
+            That is the whole of it: taken, undated, unattributable, and
+            impossible to withdraw. OMEM learns the same kind of thing from
+            people who chose to contribute, as counts that name nobody, with the
+            consent recorded and the withdrawal real. It is a slower way to
+            teach a machine about human nature and it is the only one that
+            leaves the people in it any say.
+          </p>
+          <ButtonLink href="/objectives" variant="quiet" className="mt-5">
+            Why this is the objective
+          </ButtonLink>
+        </div>
+      </Section>
+
       {/* ── the demo, as a figure ───────────────────────────────────────── */}
       <Section className="pb-24 sm:pb-32">
         <figure className="m-0 max-w-[62rem]">
@@ -310,7 +340,7 @@ mem.priors()         # what it learned about people in general
           The identity, stated plainly. The priors above are not just a feature;
           they are in service of this. */}
       <Section className="section-y" id="objective">
-        <SectionHead n="objective" title="Why we are building this: AI that understands people, and holds a fact about no one.">
+        <SectionHead n="objective" title="AI that understands people, learned from data that was given rather than taken, and holding no fact about anyone.">
           OMEM is memory for agents, but the reason it exists runs deeper. From
           what it sees across many people it learns priors, regularities of the
           form &ldquo;people who do X tend to do Y&rdquo;, kept as counts that

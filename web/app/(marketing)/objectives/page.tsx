@@ -2,7 +2,7 @@ import { MarketingShell } from "@/components/marketing/chrome";
 import { Section, Eyebrow, HeroHeading, ButtonLink } from "@/components/marketing/ui";
 
 export const metadata = {
-  title: "Our objective: teach AI what people are like, holding a fact about no one",
+  title: "Our objective: AI that understands people, from data given rather than taken",
   description:
     "OMEM is the system of record for what an AI agent believed and did, but the reason it exists runs deeper: to give AI a real understanding of human nature and behaviour, learned as anonymous patterns that name no one. Consenting installs pool their counts into a shared bank, offered to train AI while holding a fact about nobody.",
 };
@@ -60,7 +60,8 @@ export default function Objectives() {
       <Section className="hero-y">
         <Eyebrow>Our objective</Eyebrow>
         <HeroHeading className="mt-3">
-          Teach AI what people are like, holding a fact about no one.
+          AI that understands people, learned from data that was given rather
+          than taken, and holding no fact about anyone.
         </HeroHeading>
         <div className="mt-10 max-w-[52rem]">
           <p className="lede">
