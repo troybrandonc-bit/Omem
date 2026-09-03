@@ -150,17 +150,21 @@ export default function Home() {
       <Section className="hero-y">
         <div className="max-w-[68rem]">
           <HeroHeading>
-            Prove <em>why</em> your agent did that, and approve before it acts.
+            Learn from every other install. Hand over <em>nobody&rsquo;s</em> data.
           </HeroHeading>
           <div className="mt-10 grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
             <p className="lede !max-w-none">
-              When an agent acts for someone and they ask why, most memory
-              can&rsquo;t say. It overwrote the evidence the moment the facts
-              changed. OMEM keeps both sides of every contradiction, tracks what
-              was believed and when, and puts a human approval step before a
-              risky action runs. An agent&rsquo;s decisions stay answerable: you
-              can show why it believed something, and stop what nobody signed
-              off on.
+              A new agent knows nothing about the people it is about to meet and
+              takes months to learn. OMEM installs pool what they work out about
+              people in general, as counts that name nobody and only when the
+              operator says so, and a young install borrows that intuition on
+              day one while giving its own back as it earns it. Nothing leaves
+              that holds a fact about a person, and a borrowed pattern still
+              yields the moment someone&rsquo;s own evidence disagrees.
+              <span className="mt-3 block text-body text-muted">
+                The bank is empty. No installation has contributed yet, so the
+                first ones decide what it learns.
+              </span>
             </p>
             <div className="lg:pt-1">
               <div className="flex flex-wrap items-center gap-3">

@@ -17,6 +17,22 @@ agent believes over time, keeps the evidence under every belief, and handles
 contradictions explicitly, so an agent can reason about what it knows, when it
 learned it, and why it holds.
 
+And it does not start from nothing. Installs that choose to pool what they
+work out about people in general, as counts that name nobody, and a young
+install borrows that intuition on day one instead of spending six months
+earning it. What you contribute is counts; what you get back is everyone
+else's. A borrowed pattern is born weaker than one you learned yourself, and
+still yields the moment a person's own evidence disagrees, so the general
+never overrides the individual.
+
+The bank is empty today. No installation has contributed yet, which means the
+first ones decide what it learns, and it is worth knowing that a corpus of
+regularities about people can carry the biases of whoever filled it. The
+mining rule was rebuilt so that a pattern has to beat the base rate rather
+than ride it ([Working Paper No. 1](https://machinetestimony.org/papers/wp1/));
+whether the contributing population is representative is a separate question
+and an open one.
+
 It runs locally with no external services and no dependencies to install.
 
 ```bash
