@@ -19,10 +19,14 @@ false. Everything below can fail.
 | A shared name is not a shared identity, and a split a person makes is final for the machine | `server/tests_identity_resolution.py` |
 | A hunch is never allowed to quietly become a belief: it is proven, refuted, or escalated to a human | `server/tests_hypotheses.py` |
 | How bold a hunch is born follows the record of past ones, weighted by how much each verdict surprised it; the counts the commons contributes stay whole verdicts | `server/tests_surprise_weighting.py` |
-| Pooling priors across installations earns its keep only where the populations share their regularities and the behaviour is not already near-universal; where they do not, borrowed knowledge stops paying | `benchmarks/commons/`, `server/tests_commons_benchmark.py` |
+| Pooling priors across installations earns its keep where the populations share their regularities, and stops paying where they do not | `benchmarks/commons/`, `server/tests_commons_benchmark.py` |
+| A prior has to beat its consequent's own base rate, and it is the lower bound of its rate that must clear the line, so a pair resting on three people cannot outrank one resting on three hundred; measured against a known latent structure in 19,668 real respondents | `benchmarks/external/`, `server/tests_prior_lift.py` |
+| Mining stays quadratic in vocabulary rather than cubic, and the work per pair does not grow with the population: the engine consults declared opposites once per proposition, never once per pair | `benchmarks/scale/`, `server/tests_scale_mining.py` |
+| The leap pass reads the belief store once per run however many entities and priors it examines, and compares a target only with entities that share a feature with it | `benchmarks/scale/`, `server/tests_scale_leap.py` |
 | Priors learned about people in general fire only into a silence and yield to a person's own evidence; a pattern seen on too few people cannot fire | `server/tests_priors.py` |
 | The Witness card: no fabrication, retraction honoured, disagreement visible, identities kept apart, conclusions die with premises, every memory sourced | `benchmarks/witness/harness.py`, `server/tests_witness_benchmark.py` |
 | Only a field with a written argument for why it is safe ever leaves the machine, and an install that was never asked, or said no, contacts nobody | `server/tests_commons_guards.py` |
+| How bold a hunch is born is a probability rather than a running tally: the posterior mean of that generator's hit rate, anchored on what this install's hunches do in general rather than on a constant, and never above the ceiling | `server/tests_surprise_weighting.py`, `benchmarks/external/` |
 | It phones home to nobody: a socket guard proves a full working session performs zero outbound connections or lookups | `server/tests_airgap.py` |
 | Upgrades never rewrite your past: a log frozen on 2026-08-29 must replay to a byte-identical state digest in every future version | `server/testdata/golden_log_v1.json`, `server/tests_upgrade_stability.py` |
 | Encryption at rest uses real AEAD or refuses to run, and the entire suite passes against ciphertext | `.github/workflows/ci.yml` |

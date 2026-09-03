@@ -69,8 +69,17 @@ P = "likes_dashboards"          # antecedent
 Q = "wants_pdf_invoices"        # consequent
 
 print("== a population, so a regularity can be learned ==")
-# four people hold P and Q: the support for a prior P -> Q
-for who in ("alpha", "bravo", "charlie", "delta"):
+# Twelve people hold P and Q: the support for a prior P -> Q.
+#
+# It used to be four, and four is no longer enough. The rule requires the
+# LOWER BOUND of the pair's rate to beat the consequent's own base rate, and
+# the bound on four of five is 0.38, which establishes very little. That is
+# the intended behaviour rather than an inconvenience: a regularity about
+# people should not be learnable from five of them. It does mean a small
+# installation will mine nothing for a long time, which is exactly the gap
+# the commons exists to fill.
+for who in ("alpha", "bravo", "charlie", "delta", "echo", "foxtrot",
+            "golf", "hotel", "india", "juliet", "kilo", "lima"):
     mem.remember(A, "person:" + who, P)
     mem.remember(A, "person:" + who, Q)
 # eve holds P and has said nothing about Q: the silence a prior fills
@@ -83,6 +92,17 @@ mem.remember(A, "person:gus", "runs_kubernetes")
 mem.remember(A, "person:gus", "needs_audit_logs")
 mem.remember(A, "person:hank", "runs_kubernetes")
 mem.remember(A, "person:hank", "needs_audit_logs")
+# ...and four people who do NOT like dashboards and do NOT want PDF invoices.
+# Without them this fixture was itself the bug the lift test was added for:
+# nearly everyone here held Q, so "P implies Q" was Q's popularity wearing P
+# as a hat, and PRIOR_MIN_LIFT now refuses it. With them, Q is held by five of
+# eleven overall and by four of five among P-holders, which is an association.
+# ...and twenty who do NOT want PDF invoices and have no view on dashboards,
+# so Q is held by twelve of thirty three overall and by twelve of thirteen
+# among P-holders. That gap is the association; without it the pair would be
+# Q's popularity wearing P as a hat.
+for i in range(20):
+    mem.remember(A, "person:other%d" % i, "not:" + Q)
 
 print("== mining the priors tier ==")
 learned = mem.learn_priors()
@@ -93,12 +113,12 @@ prs = mem.priors()
 by_pattern = {(x["antecedent"], x["consequent"]): x for x in prs}
 pq = by_pattern.get((P, Q))
 check("the prior P -> Q was learned", pq is not None, list(by_pattern))
-check("its population support is the four who hold both",
-      pq and pq["in_population"]["support"] == 4, pq)
+check("its population support is the twelve who hold both",
+      pq and pq["in_population"]["support"] == 12, pq)
 check("frank's opposite counts as refute, not support",
       pq and pq["in_population"]["refute"] == 1, pq)
-check("its population rate is 4 of 5, and it is allowed to fire",
-      pq and pq["in_population"]["rate"] == 0.8 and pq["fires"] is True, pq)
+check("its population rate is 12 of 13, and it is allowed to fire",
+      pq and pq["in_population"]["rate"] == 0.92 and pq["fires"] is True, pq)
 check("nothing has been applied yet, so it has no verdict record",
       pq and pq["when_applied"]["rate"] is None, pq)
 check("a pair seen on only two people did NOT become a prior",

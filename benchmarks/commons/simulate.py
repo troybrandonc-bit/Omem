@@ -64,6 +64,7 @@ import commons as _c  # noqa: E402
 # engine.
 PRIOR_FLOOR_N = _h.PRIOR_FLOOR_N
 PRIOR_MIN_RATE = _h.PRIOR_MIN_RATE
+PRIOR_MIN_LIFT = _h.PRIOR_MIN_LIFT
 BASE_STRENGTH = _h.BASE_STRENGTH
 STRENGTH_FLOOR = _h.STRENGTH_FLOOR
 STRENGTH_CEILING = _h.STRENGTH_CEILING
@@ -129,10 +130,14 @@ class World:
 def mine(subjects: list) -> dict:
     """The prior miner, mirroring learn_priors' rule.
 
-    A pair is kept when at least PRIOR_FLOOR_N subjects hold both and the rate
-    among those holding the antecedent clears PRIOR_MIN_RATE. No law of
-    humanity from two examples."""
+    A pair is kept when at least PRIOR_FLOOR_N subjects hold both, the rate
+    among those holding the antecedent clears PRIOR_MIN_RATE, and that rate
+    beats the consequent's own base rate by PRIOR_MIN_LIFT. No law of humanity
+    from two examples, and no law at all from a consequent everybody holds:
+    the lift test is what the external study found the rule was missing."""
     out = {}
+    pop = len(subjects)
+    base_rate = {c: sum(1 for s in subjects if c in s[1]) / pop for c in CONSEQUENTS}         if pop else {}
     for a in ANTECEDENTS:
         base = [s for s in subjects if a in s[0]]
         if len(base) < PRIOR_FLOOR_N:
@@ -142,7 +147,11 @@ def mine(subjects: list) -> dict:
             refute = len(base) - support
             if support < PRIOR_FLOOR_N or not (support + refute):
                 continue
-            if support / (support + refute) < PRIOR_MIN_RATE:
+            rate = support / (support + refute)
+            if rate < PRIOR_MIN_RATE:
+                continue
+            if _h._wilson_lower(support, support + refute) < (
+                    base_rate.get(c, 0.0) + PRIOR_MIN_LIFT):
                 continue
             out[(a, c)] = (support, refute, len(base))
     return out

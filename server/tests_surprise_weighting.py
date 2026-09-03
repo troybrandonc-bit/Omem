@@ -104,13 +104,20 @@ check("ten quiet misses weigh less than one confident miss",
 check("the counts still say ten and one, so nothing was hidden",
       _h._gen_counts(db, "proj", "timid") == (0, 10)
       and _h._gen_counts(db, "proj", "bold") == (0, 1))
+# At this size the prior still dominates both, so compare the records where
+# the difference can show: a hundred quiet misses against twenty confident
+# ones. The counts say the first generator is five times worse; the weights
+# say it is better, because it never claimed otherwise.
+many_timid = (0.0, 100 * _h.surprise(0.05, False))
+few_bold = (0.0, 20 * _h.surprise(0.6, False))
 check("and boldness follows the weights, so the timid one keeps more of it",
-      _h._birth_strength(timid, (0, 0)) > _h._birth_strength(bold, (0, 0)),
-      (_h._birth_strength(timid, (0, 0)), _h._birth_strength(bold, (0, 0))))
+      _h._birth_strength(many_timid, (0, 0)) > _h._birth_strength(few_bold, (0, 0)),
+      (_h._birth_strength(many_timid, (0, 0)), _h._birth_strength(few_bold, (0, 0))))
 # Under flat counting the timid generator would have been driven to the floor
 # by ten losses (0.35 - 0.8). The weighting is what stops that.
-check("under flat counts the same ten misses would have floored it",
-      _h._birth_strength((0, 10), (0, 0)) == _h.STRENGTH_FLOOR,
+check("ten flat misses take it well below the house rate, without pretending "
+      "ten is certainty",
+      _h.STRENGTH_FLOOR < _h._birth_strength((0, 10), (0, 0)) < 0.2,
       _h._birth_strength((0, 10), (0, 0)))
 
 print("== families are weighted the same way, and reported unweighted ==")
@@ -182,6 +189,35 @@ check("_gen_records returns this project's generators only",
       set(recs) == {"customer:a", "customer:b"}, recs)
 check("and each record matches what _gen_record returns for it",
       all(recs[g] == _h._gen_record(db, "proj", g) for g in recs), recs)
+
+print("== boldness is a probability, anchored on what this install does ==")
+check("with no record at all, a hunch is born at the house rate",
+      _h._birth_strength((0.0, 0.0), (0, 0), 0.4) == 0.4,
+      _h._birth_strength((0.0, 0.0), (0, 0), 0.4))
+check("one win moves it a little off that rate",
+      0.4 < _h._birth_strength((1.0, 0.0), (0, 0), 0.4) < 0.55,
+      _h._birth_strength((1.0, 0.0), (0, 0), 0.4))
+check("thirty wins move it a great deal further",
+      _h._birth_strength((30.0, 0.0), (0, 0), 0.4)
+      > _h._birth_strength((1.0, 0.0), (0, 0), 0.4) + 0.09)
+check("a hunch is never born stronger than the ceiling, whatever its record",
+      _h._birth_strength((10000.0, 0.0), (0, 0), 0.9) == _h.STRENGTH_CEILING)
+check("nor weaker than the floor",
+      _h._birth_strength((0.0, 10000.0), (0, 0), 0.1) == _h.STRENGTH_FLOOR)
+check("the family record counts, at half the weight of the generator's own",
+      _h._birth_strength((0.0, 0.0), (4, 0), 0.4)
+      < _h._birth_strength((4.0, 0.0), (0, 0), 0.4))
+
+print("== and the house rate is learned, not assumed ==")
+check("an install with no verdicts falls back to BASE_STRENGTH",
+      _h._house_rate([]) == _h.BASE_STRENGTH, _h._house_rate([]))
+check("an install whose hunches keep landing raises it",
+      _h._house_rate([(40, 10)]) > 0.6, _h._house_rate([(40, 10)]))
+check("one whose hunches keep failing lowers it",
+      _h._house_rate([(10, 40)]) < 0.3, _h._house_rate([(10, 40)]))
+check("and four verdicts barely move it, because four verdicts are not a rate",
+      abs(_h._house_rate([(4, 0)]) - _h.BASE_STRENGTH) < 0.12,
+      _h._house_rate([(4, 0)]))
 
 print("\n%d passed, %d failed" % (PASS, FAIL))
 sys.exit(1 if FAIL else 0)

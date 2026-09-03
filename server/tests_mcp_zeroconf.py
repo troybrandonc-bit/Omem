@@ -83,8 +83,9 @@ try:
         "serverInfo", {}).get("name") == "omem", str(init)[:200])
     tl = rpc(p, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     names = sorted(t["name"] for t in tl["result"]["tools"])
-    check("the five tools are there",
-          names == ["omem_believes", "omem_observe", "omem_recall",
+    check("the eight tools are there",
+          names == ["omem_believes", "omem_brief", "omem_expects",
+                    "omem_observe", "omem_priors", "omem_recall",
                     "omem_remember", "omem_why"],
           str(names))
 
@@ -298,6 +299,60 @@ finally:
     err3 = p3.stderr.read()
 check("and did NOT provision its own project",
       "created a project" not in err3 and "started OMEM" not in err3, err3[:200])
+
+print("== the intuition layer answers over MCP, and stays a hunch there ==")
+# It was reachable from the SDK and the HTTP API but not from MCP, which is how
+# most agents connect, so everything this layer learned was invisible to the
+# caller who needed it. These three are reads. The surface still has no tool
+# that promotes a hypothesis, answers its open question, or triggers a leap: a
+# hunch gets its verdict from reality during interrogation, and no model gets a
+# lever that marks one true by saying so.
+p4 = spawn()
+try:
+    rpc(p4, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
+
+    ex = rpc(p4, {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                  "params": {"name": "omem_expects", "arguments": {}}})
+    exo = json.loads(ex["result"]["content"][0]["text"])
+    check("omem_expects answers without error",
+          ex["result"]["isError"] is False
+          and isinstance(exo.get("expectations"), list), str(exo)[:200])
+
+    pr = rpc(p4, {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+                  "params": {"name": "omem_priors", "arguments": {}}})
+    pro = json.loads(pr["result"]["content"][0]["text"])
+    check("omem_priors answers without error",
+          pr["result"]["isError"] is False
+          and isinstance(pro.get("priors"), list), str(pro)[:200])
+
+    br = rpc(p4, {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {
+        "name": "omem_brief",
+        "arguments": {"context": "acme renewal", "task": "answer the customer"}}})
+    bro = json.loads(br["result"]["content"][0]["text"])
+    check("omem_brief answers with sections",
+          br["result"]["isError"] is False
+          and isinstance(bro.get("sections"), dict), str(bro)[:200])
+
+    # The property the whole surface rests on: anything expects() lists is still
+    # UNKNOWN to believes(). If a hunch ever read back as a belief through this
+    # surface, the separation the engine maintains would have been undone at the
+    # edge, which is the one thing adding these tools could have broken.
+    leaked = []
+    for h in exo.get("expectations", []):
+        subj, claim = h.get("subject"), h.get("proposition")
+        if not subj or not claim:
+            continue
+        bl = rpc(p4, {"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {
+            "name": "omem_believes", "arguments": {"about": subj, "claim": claim}}})
+        st = json.loads(bl["result"]["content"][0]["text"]).get("state")
+        if st != "UNKNOWN":
+            leaked.append((subj, claim, st))
+    check("every expectation still reads UNKNOWN through omem_believes",
+          not leaked, str(leaked)[:200])
+finally:
+    p4.stdin.close()
+    p4.kill()
+    p4.wait(timeout=10)
 
 shutil.rmtree(DATA, ignore_errors=True)
 print("\n%d passed, %d failed" % (PASS, FAIL))

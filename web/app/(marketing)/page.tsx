@@ -86,7 +86,7 @@ const FEATURES = [
   ["The right to be forgotten, executed",
    "One request rewrites the record for real: the person's data, the cascade behind it, and their sentences quoted under surviving beliefs. Replay-verified before anything is touched; what remains is a hash, counts, and a date."],
   ["A bank that teaches AI what people are like",
-   "The priors OMEM learns collect in an intelligence bank on your own machine, anonymous counts about how people behave, exportable as a training set. Our objective is to give AI a real understanding of our nature while holding no fact about anyone."],
+   "The priors OMEM learns collect in an intelligence bank on your own machine, anonymous counts about how people behave, exportable as a training set. The rule that fills it has been tested against 19,668 real respondents rather than a world we invented. Our objective is to give AI a real understanding of our nature while holding no fact about anyone."],
   ["The dashboard is included",
    "One pip install serves the API and the UI on the same port. No Node at runtime, no second process."],
 ];
@@ -98,6 +98,8 @@ const NOT_YET = [
   "No region pinning",
   "An audit chain that detects tampering, not one that prevents it",
   "One writer per database, so no high availability",
+  "The intuition layer is reachable from the SDK and the HTTP API, not yet from the MCP tools",
+  "The commons can be downloaded whole, but not yet queried a question at a time",
 ];
 
 function SectionHead({ n, title, children }: {
@@ -148,17 +150,21 @@ export default function Home() {
       <Section className="hero-y">
         <div className="max-w-[68rem]">
           <HeroHeading>
-            Prove <em>why</em> your agent did that, and approve before it acts.
+            Learn from every other install. Hand over <em>nobody&rsquo;s</em> data.
           </HeroHeading>
           <div className="mt-10 grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
             <p className="lede !max-w-none">
-              When an agent acts for someone and they ask why, most memory
-              can&rsquo;t say. It overwrote the evidence the moment the facts
-              changed. OMEM keeps both sides of every contradiction, tracks what
-              was believed and when, and puts a human approval step before a
-              risky action runs. An agent&rsquo;s decisions stay answerable: you
-              can show why it believed something, and stop what nobody signed
-              off on.
+              A new agent knows nothing about the people it is about to meet and
+              takes months to learn. OMEM installs pool what they work out about
+              people in general, as counts that name nobody and only when the
+              operator says so, and a young install borrows that intuition on
+              day one while giving its own back as it earns it. Nothing leaves
+              that holds a fact about a person, and a borrowed pattern still
+              yields the moment someone&rsquo;s own evidence disagrees.
+              <span className="mt-3 block text-body text-muted">
+                The bank is empty. No installation has contributed yet, so the
+                first ones decide what it learns.
+              </span>
             </p>
             <div className="lg:pt-1">
               <div className="flex flex-wrap items-center gap-3">
@@ -253,8 +259,17 @@ export default function Home() {
             <p className="mt-5 max-w-read text-body text-muted">
               And it generalizes. From what it has seen across many people OMEM
               learns priors, regularities of the form &ldquo;people who hold P
-              tend to hold Q&rdquo;, and uses them to read someone new from very
-              little. A prior fires only into a silence and yields the instant
+              tend to hold Q&rdquo; &mdash; but only where holding P actually
+              moves the odds. A pattern that holds because Q is common
+              everywhere is discarded, and the test is applied to the lower
+              bound of the rate rather than the rate itself, so a regularity
+              resting on a handful of people must be far cleaner than one
+              resting on hundreds. Against 19,668 real respondents that rule
+              recovers known structure at 4.8 times chance; the rule it replaced
+              recovered it at chance exactly.
+            </p>
+            <p className="mt-5 max-w-read text-body text-muted">
+              A prior fires only into a silence and yields the instant
               that person&apos;s own evidence disagrees, so a general pattern
               never overrides an individual. Each prior stores counts, never a
               person, so the learned model of people carries no fact about
@@ -282,7 +297,10 @@ mem.believes(about="customer:gamma",
 
 mem.priors()         # what it learned about people in general
 # holds P -> holds Q
-#   in_population: 4 of 5    when_applied: 3-0
+#   in_population: 41 of 52     Q on its own: 0.29
+#   kept because the lower bound of that rate clears
+#   0.29, not because Q happens to be common
+#   when_applied: 3-0
 #   fires only into a silence, yields to the person`}
           />
         </div>
@@ -302,9 +320,24 @@ mem.priors()         # what it learned about people in general
           and AI by giving AI a real understanding of who we are, learned from
           patterns people chose to share, held by no one.
         </SectionHead>
-        <ButtonLink href="/objectives" variant="quiet" className="mt-5">
-          Read the objective
-        </ButtonLink>
+        <p className="mt-5 max-w-read text-body text-muted">
+          Today a model reasons about people by recalling studies. A study hands
+          it a finding stripped of the person in front of it, and says nothing
+          about when the finding should not be applied &mdash; which is where
+          confabulation comes from. Every entry OMEM holds has the opposite
+          shape: it is already an application, carrying the evidence it rests on
+          and, uniquely, the record of when it refused. The counts are worth
+          little without the discipline that decides when to use them, so the
+          intention is that both travel together.
+        </p>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <ButtonLink href="/objectives" variant="quiet">
+            Read the objective
+          </ButtonLink>
+          <ButtonLink href="https://machinetestimony.org/papers/wp1/" variant="quiet" external>
+            The rule, audited against 19,668 people &rarr;
+          </ButtonLink>
+        </div>
       </Section>
 
       {/* ── 04 the refusal, shown ─────────────────────────────────────── */}
@@ -439,6 +472,9 @@ await mem.believes({ about: "customer:alice",
             ["Upgrades never rewrite your past",
              "An ops log frozen on 2026-08-29 replays on every commit and must produce a byte-identical state digest. The suite also tampers with one op and requires the digest to move, so the check is proven able to fail.",
              "server/tests_upgrade_stability.py"],
+            ["Tested against people we did not invent",
+             "The mining rule was run over 19,668 Big Five respondents, whose correlation structure nobody here chose and where the neutral answer is a genuine silence a prior can fire into. It recovered the dataset's known five-factor structure at chance exactly, which is how the defect was found; the repaired rule recovers it at 4.8 times chance, on 94% fewer priors that cover more claims. The harness downloads the data at run time and this repository redistributes nobody's survey answers.",
+             "benchmarks/external/README.md"],
             ["The claims ledger",
              "Sixteen load-bearing sentences mapped to the test behind each. The ledger is itself guarded: a row whose file goes missing fails CI. A claim with no row is opinion.",
              "CLAIMS.md"],

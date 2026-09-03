@@ -62,3 +62,4 @@ web/tsconfig.tsbuildinfo
 # of it once reached a public pull request, and "remember not to add it" is not
 # a control.
 distribution/
+benchmarks/external/_big5.tsv
