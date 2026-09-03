@@ -26,6 +26,53 @@ scored on six scenarios along ten axes:
 | rules | declared inference derives what it should |
 | cascade | a conclusion dies with its premises |
 | provenance | every held memory names the event it came from |
+| speculation | a guess is available as a guess, never returned as a memory |
+| deference | an inference yields to what the person actually said |
+| coherence | never a claim and its opposite, asserted about one person |
+
+The last three were added once the intuition layer existed. A system that
+INFERS has duties a system that only records does not, and the duties are not
+OMEM's: any system that enriches, extracts or derives can be judged on all
+three. Each is scored from `holdings()` alone, which every adapter here
+supports, so nothing comes back UNSUPPORTED and no system is measured on a
+capability only one of them has. Writing an axis another system cannot express
+is how a benchmark flatters whoever wrote it; the constraint is written down
+so it can be checked rather than trusted.
+
+This is not a scoreboard and no comparison is published here. The adapters
+exist so that the duties can be checked against any system by whoever doubts
+them, which is the only thing that makes a conformance claim worth more than
+an adjective. What OMEM's own card is for is stating, in a form somebody else
+can run, what this system holds itself to.
+
+## Making sure the new axes can fail
+
+A probe asking whether a guess stayed out of memory proves nothing if no guess
+was made. The adapter did not run OMEM's inference step at all, so all three
+axes would have passed against a system that had not attempted the thing being
+scored -- a test that cannot fail, which is worse than no test.
+
+Scenarios now carry a `consolidate` op. Systems that infer at write time
+implement it as a no-op; OMEM mines, leaps and interrogates. The three
+scenarios are also sized so the engine's lift test actually mines the pattern:
+four people holding it and eight denying the consequent, because with fewer
+deniers the consequent is common enough that holding the antecedent says
+nothing and nothing is learned.
+
+Confirmed to fire, on the run that produced the card below:
+
+```
+person:sp_9    prefers_email_contact    strength 0.05
+person:df_9    prefers_email_contact    strength 0.05   (told phone-only)
+person:ch_9    prefers_phone_only       strength 0.10
+person:ch_9    prefers_email_contact    strength 0.05
+```
+
+Every one of those is a real inference the system made and then kept out of
+`holdings()`. `ch_9` holding two opposing expectations at once is not a
+failure: rival hypotheses competing until reality settles them is the design.
+The violation would be asserting both as memory, which is what the coherence
+probe looks for.
 
 ## How scoring works
 

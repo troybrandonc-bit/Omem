@@ -464,7 +464,7 @@ await mem.believes({ about: "customer:alice",
         <ul className="mt-10 grid gap-x-14 gap-y-9 sm:grid-cols-2">
           {([
             ["The Witness benchmark",
-             "Memory benchmarks measure recall. Witness measures testimony: no asserting what nobody said, retraction honoured, disagreement kept visible, two people with one name kept apart, conclusions dying with their premises. OMEM's card is asserted in CI. Adapters for Mem0 and Graphiti are included and run with your keys, because this repo publishes no numbers it did not run.",
+             "Memory benchmarks measure recall. Witness measures testimony: thirteen duties a system either meets or does not. Assert nothing you were not told. What was withdrawn stops being asserted. Disagreement stays visible. Two people with one name stay two people. A conclusion dies with its premises. And, since this system infers: a guess is available as a guess and never returned as a memory, an inference yields to what the person actually said, and no one is handed a claim and its opposite at once. OMEM's card is asserted in CI. The harness is public and adapters are included so anyone can run their own; no comparison is published here, because a conformance claim the listener cannot check is an adjective.",
              "benchmarks/witness/README.md"],
             ["It phones home to nobody",
              "A guard installed under the socket layer, then a full working session: identity, contradiction, a rule cascade, recall, hunches. One outbound connection or DNS lookup that is not loopback fails the build with the address in hand.",

@@ -55,6 +55,11 @@ class GraphitiAdapter(Adapter):
         return [{"text": getattr(r, "fact", str(r)), "sources": []}
                 for r in results]
 
+    def consolidate(self, event=None):
+        """Graphiti builds its graph as episodes are added, so there is
+        no separate inference pass. Present for the same reason as mem0's."""
+        return None
+
     def holdings(self, about):
         # Graphiti marks superseded edges invalid rather than deleting them;
         # search returns current facts, which is its notion of holdings.

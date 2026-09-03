@@ -59,6 +59,12 @@ class Mem0Adapter(Adapter):
             out.append({"text": r.get("memory", ""), "sources": src})
         return out
 
+    def consolidate(self, event=None):
+        """mem0 extracts and infers at write time, so there is no
+        separate pass to run. Present so the op is a no-op rather than a
+        skip, which keeps the scenario identical across systems."""
+        return None
+
     def holdings(self, about):
         return self._all()
 

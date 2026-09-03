@@ -1,0 +1,264 @@
+{
+  "system": "omem",
+  "report": [
+    {
+      "scenario": "cascade",
+      "title": "Retract the premise; the conclusion falls with it",
+      "results": [
+        {
+          "probe": "c1p1",
+          "axis": "rules",
+          "outcome": "PASS",
+          "problems": []
+        },
+        {
+          "probe": "p1",
+          "axis": "cascade",
+          "outcome": "PASS",
+          "problems": []
+        },
+        {
+          "probe": "p2",
+          "axis": "staleness",
+          "outcome": "PASS",
+          "problems": []
+        },
+        {
+          "probe": "p3",
+          "axis": "retention",
+          "outcome": "PASS",
+          "problems": []
+        }
+      ]
+    },
+    {
+      "scenario": "coherence",
+      "title": "Never a claim and its opposite about one person",
+      "results": [
+        {
+          "probe": "p1",
+          "axis": "coherence",
+          "outcome": "PASS",
+          "problems": []
+        },
+        {
+          "probe": "p2",
+          "axis": "retention",
+          "outcome": "PASS",
+          "problems": []
+        }
+      ]
+    },
+    {
+      "scenario": "contradiction",
+      "title": "Disagreement is surfaced, not resolved by timestamp",
+      "results": [
+        {
+          "probe": "p1",
+          "axis": "contradiction",
+          "outcome": "PASS",
+          "problems": []
+        },
+        {
+          "probe": "p2",
+          "axis": "history",
+          "outcome": "PASS",
+          "problems": []
+        }
+      ]
+    },
+    {
+      "scenario": "deference",
+      "title": "A stated fact outranks an inferred one",
+      "results": [
+        {
+          "probe": "p1",
+          "axis": "deference",
+          "outcome": "PASS",
+          "problems": []
+        },
+        {
+          "probe": "p2",
+          "axis": "retention",
+          "outcome": "PASS",
+          "problems": []
+        }
+      ]
+    },
+    {
+      "scenario": "never_told",
+      "title": "Repeats only what it was told",
+      "results": [
+        {
+          "probe": "p1",
+          "axis": "fabrication",
+          "outcome": "PASS",
+          "problems": []
+        },
+        {
+          "probe": "p2",
+          "axis": "retention",
+          "outcome": "PASS",
+          "problems": []
+        },
+        {
+          "probe": "p3",
+          "axis": "provenance",
+          "outcome": "PASS",
+          "problems": []
+        }
+      ]
+    },
+    {
+      "scenario": "retraction",
+      "title": "A retracted fact stops being asserted",
+      "results": [
+        {
+          "probe": "p1",
+          "axis": "retraction",
+          "outcome": "PASS",
+          "problems": []
+        },
+        {
+          "probe": "p2",
+          "axis": "retraction",
+          "outcome": "PASS",
+          "problems": []
+        },
+        {
+          "probe": "p3",
+          "axis": "retention",
+          "outcome": "PASS",
+          "problems": []
+        }
+      ]
+    },
+    {
+      "scenario": "shared_name",
+      "title": "Two people with one name stay two people",
+      "results": [
+        {
+          "probe": "p1",
+          "axis": "identity",
+          "outcome": "PASS",
+          "problems": []
+        },
+        {
+          "probe": "p2",
+          "axis": "identity",
+          "outcome": "PASS",
+          "problems": []
+        }
+      ]
+    },
+    {
+      "scenario": "speculation",
+      "title": "A guess is not a memory",
+      "results": [
+        {
+          "probe": "p1",
+          "axis": "speculation",
+          "outcome": "PASS",
+          "problems": []
+        },
+        {
+          "probe": "p2",
+          "axis": "retention",
+          "outcome": "PASS",
+          "problems": []
+        },
+        {
+          "probe": "p3",
+          "axis": "speculation",
+          "outcome": "PASS",
+          "problems": []
+        }
+      ]
+    },
+    {
+      "scenario": "supersession",
+      "title": "An update replaces the present without erasing the past",
+      "results": [
+        {
+          "probe": "p1",
+          "axis": "staleness",
+          "outcome": "PASS",
+          "problems": []
+        },
+        {
+          "probe": "p2",
+          "axis": "history",
+          "outcome": "PASS",
+          "problems": []
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "fabrication": {
+      "pass": 1,
+      "violation": 0,
+      "unsupported": 0
+    },
+    "retention": {
+      "pass": 6,
+      "violation": 0,
+      "unsupported": 0
+    },
+    "retraction": {
+      "pass": 2,
+      "violation": 0,
+      "unsupported": 0
+    },
+    "staleness": {
+      "pass": 2,
+      "violation": 0,
+      "unsupported": 0
+    },
+    "history": {
+      "pass": 2,
+      "violation": 0,
+      "unsupported": 0
+    },
+    "contradiction": {
+      "pass": 1,
+      "violation": 0,
+      "unsupported": 0
+    },
+    "identity": {
+      "pass": 2,
+      "violation": 0,
+      "unsupported": 0
+    },
+    "rules": {
+      "pass": 1,
+      "violation": 0,
+      "unsupported": 0
+    },
+    "cascade": {
+      "pass": 1,
+      "violation": 0,
+      "unsupported": 0
+    },
+    "provenance": {
+      "pass": 1,
+      "violation": 0,
+      "unsupported": 0
+    },
+    "speculation": {
+      "pass": 2,
+      "violation": 0,
+      "unsupported": 0
+    },
+    "deference": {
+      "pass": 1,
+      "violation": 0,
+      "unsupported": 0
+    },
+    "coherence": {
+      "pass": 1,
+      "violation": 0,
+      "unsupported": 0
+    }
+  }
+}

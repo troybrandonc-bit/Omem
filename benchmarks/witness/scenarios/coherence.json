@@ -1,0 +1,374 @@
+{
+  "name": "coherence",
+  "title": "Never a claim and its opposite about one person",
+  "why": "Two regularities point opposite ways: people who prefer async updates tend to prefer email, and people who use the CRM daily tend to be phone-only. A ninth person does both and nobody has said how to reach them. A system may decline, and it may pick the better-evidenced side. What it may not do is hold both, which is not a record of a disagreement but a record that contradicts itself, asserted about a person with the authority of memory behind it.",
+  "events": [
+    {
+      "op": "tell",
+      "id": "ch_1_prefers_async_",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_1: prefers async updates.",
+      "subjects": [
+        "person:ch_1"
+      ],
+      "claim": "prefers_async_updates"
+    },
+    {
+      "op": "tell",
+      "id": "ch_1_prefers_email_",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_1: prefers email contact.",
+      "subjects": [
+        "person:ch_1"
+      ],
+      "claim": "prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "ch_2_prefers_async_",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_2: prefers async updates.",
+      "subjects": [
+        "person:ch_2"
+      ],
+      "claim": "prefers_async_updates"
+    },
+    {
+      "op": "tell",
+      "id": "ch_2_prefers_email_",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_2: prefers email contact.",
+      "subjects": [
+        "person:ch_2"
+      ],
+      "claim": "prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "ch_3_prefers_async_",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_3: prefers async updates.",
+      "subjects": [
+        "person:ch_3"
+      ],
+      "claim": "prefers_async_updates"
+    },
+    {
+      "op": "tell",
+      "id": "ch_3_prefers_email_",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_3: prefers email contact.",
+      "subjects": [
+        "person:ch_3"
+      ],
+      "claim": "prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "ch_4_prefers_async_",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_4: prefers async updates.",
+      "subjects": [
+        "person:ch_4"
+      ],
+      "claim": "prefers_async_updates"
+    },
+    {
+      "op": "tell",
+      "id": "ch_4_prefers_email_",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_4: prefers email contact.",
+      "subjects": [
+        "person:ch_4"
+      ],
+      "claim": "prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "ch_d1_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_d1: not prefers email contact.",
+      "subjects": [
+        "person:ch_d1"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "ch_d2_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_d2: not prefers email contact.",
+      "subjects": [
+        "person:ch_d2"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "ch_d3_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_d3: not prefers email contact.",
+      "subjects": [
+        "person:ch_d3"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "ch_d4_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_d4: not prefers email contact.",
+      "subjects": [
+        "person:ch_d4"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "ch_d5_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_d5: not prefers email contact.",
+      "subjects": [
+        "person:ch_d5"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "ch_d6_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_d6: not prefers email contact.",
+      "subjects": [
+        "person:ch_d6"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "ch_d7_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_d7: not prefers email contact.",
+      "subjects": [
+        "person:ch_d7"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "ch_d8_no_prefers_ema",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_d8: not prefers email contact.",
+      "subjects": [
+        "person:ch_d8"
+      ],
+      "claim": "not:prefers_email_contact"
+    },
+    {
+      "op": "tell",
+      "id": "ci_1_uses_crm_daily",
+      "speaker": "agent:witness_a",
+      "text": "Contact ci_1: uses crm daily.",
+      "subjects": [
+        "person:ci_1"
+      ],
+      "claim": "uses_crm_daily"
+    },
+    {
+      "op": "tell",
+      "id": "ci_1_prefers_phone_",
+      "speaker": "agent:witness_a",
+      "text": "Contact ci_1: prefers phone only.",
+      "subjects": [
+        "person:ci_1"
+      ],
+      "claim": "prefers_phone_only"
+    },
+    {
+      "op": "tell",
+      "id": "ci_2_uses_crm_daily",
+      "speaker": "agent:witness_a",
+      "text": "Contact ci_2: uses crm daily.",
+      "subjects": [
+        "person:ci_2"
+      ],
+      "claim": "uses_crm_daily"
+    },
+    {
+      "op": "tell",
+      "id": "ci_2_prefers_phone_",
+      "speaker": "agent:witness_a",
+      "text": "Contact ci_2: prefers phone only.",
+      "subjects": [
+        "person:ci_2"
+      ],
+      "claim": "prefers_phone_only"
+    },
+    {
+      "op": "tell",
+      "id": "ci_3_uses_crm_daily",
+      "speaker": "agent:witness_a",
+      "text": "Contact ci_3: uses crm daily.",
+      "subjects": [
+        "person:ci_3"
+      ],
+      "claim": "uses_crm_daily"
+    },
+    {
+      "op": "tell",
+      "id": "ci_3_prefers_phone_",
+      "speaker": "agent:witness_a",
+      "text": "Contact ci_3: prefers phone only.",
+      "subjects": [
+        "person:ci_3"
+      ],
+      "claim": "prefers_phone_only"
+    },
+    {
+      "op": "tell",
+      "id": "ci_4_uses_crm_daily",
+      "speaker": "agent:witness_a",
+      "text": "Contact ci_4: uses crm daily.",
+      "subjects": [
+        "person:ci_4"
+      ],
+      "claim": "uses_crm_daily"
+    },
+    {
+      "op": "tell",
+      "id": "ci_4_prefers_phone_",
+      "speaker": "agent:witness_a",
+      "text": "Contact ci_4: prefers phone only.",
+      "subjects": [
+        "person:ci_4"
+      ],
+      "claim": "prefers_phone_only"
+    },
+    {
+      "op": "tell",
+      "id": "ci_d1_no_prefers_pho",
+      "speaker": "agent:witness_a",
+      "text": "Contact ci_d1: not prefers phone only.",
+      "subjects": [
+        "person:ci_d1"
+      ],
+      "claim": "not:prefers_phone_only"
+    },
+    {
+      "op": "tell",
+      "id": "ci_d2_no_prefers_pho",
+      "speaker": "agent:witness_a",
+      "text": "Contact ci_d2: not prefers phone only.",
+      "subjects": [
+        "person:ci_d2"
+      ],
+      "claim": "not:prefers_phone_only"
+    },
+    {
+      "op": "tell",
+      "id": "ci_d3_no_prefers_pho",
+      "speaker": "agent:witness_a",
+      "text": "Contact ci_d3: not prefers phone only.",
+      "subjects": [
+        "person:ci_d3"
+      ],
+      "claim": "not:prefers_phone_only"
+    },
+    {
+      "op": "tell",
+      "id": "ci_d4_no_prefers_pho",
+      "speaker": "agent:witness_a",
+      "text": "Contact ci_d4: not prefers phone only.",
+      "subjects": [
+        "person:ci_d4"
+      ],
+      "claim": "not:prefers_phone_only"
+    },
+    {
+      "op": "tell",
+      "id": "ci_d5_no_prefers_pho",
+      "speaker": "agent:witness_a",
+      "text": "Contact ci_d5: not prefers phone only.",
+      "subjects": [
+        "person:ci_d5"
+      ],
+      "claim": "not:prefers_phone_only"
+    },
+    {
+      "op": "tell",
+      "id": "ci_d6_no_prefers_pho",
+      "speaker": "agent:witness_a",
+      "text": "Contact ci_d6: not prefers phone only.",
+      "subjects": [
+        "person:ci_d6"
+      ],
+      "claim": "not:prefers_phone_only"
+    },
+    {
+      "op": "tell",
+      "id": "ci_d7_no_prefers_pho",
+      "speaker": "agent:witness_a",
+      "text": "Contact ci_d7: not prefers phone only.",
+      "subjects": [
+        "person:ci_d7"
+      ],
+      "claim": "not:prefers_phone_only"
+    },
+    {
+      "op": "tell",
+      "id": "ci_d8_no_prefers_pho",
+      "speaker": "agent:witness_a",
+      "text": "Contact ci_d8: not prefers phone only.",
+      "subjects": [
+        "person:ci_d8"
+      ],
+      "claim": "not:prefers_phone_only"
+    },
+    {
+      "op": "tell",
+      "id": "ch_9_prefers_async_",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_9: prefers async updates.",
+      "subjects": [
+        "person:ch_9"
+      ],
+      "claim": "prefers_async_updates"
+    },
+    {
+      "op": "tell",
+      "id": "ch_9_uses_crm_daily",
+      "speaker": "agent:witness_a",
+      "text": "Contact ch_9: uses crm daily.",
+      "subjects": [
+        "person:ch_9"
+      ],
+      "claim": "uses_crm_daily"
+    },
+    {
+      "op": "consolidate"
+    }
+  ],
+  "probes": [
+    {
+      "id": "p1",
+      "axis": "coherence",
+      "about": "person:ch_9",
+      "question": "Does it assert a preference and its opposite at once?",
+      "forbid_both": [
+        [
+          "prefers_email_contact",
+          "prefers_phone_only"
+        ]
+      ]
+    },
+    {
+      "id": "p2",
+      "axis": "retention",
+      "about": "person:ch_9",
+      "question": "Is what was actually said still there?",
+      "expect": [
+        "async",
+        "crm"
+      ]
+    }
+  ]
+}
