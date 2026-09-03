@@ -993,6 +993,97 @@ def merged(own_rows: list, contribs: dict) -> list:
     return out
 
 
+# How many populations must agree before a query is answered with a pattern
+# rather than a refusal. The bank publishes what it holds; a QUERY is a
+# different act, because the caller is about to do something with the answer.
+ASK_MIN_SOURCES = 2
+ASK_MIN_SUBJECTS = 20
+
+
+def ask(rows: list, given: str = "", expect: str = "", limit: int = 20) -> dict:
+    """What the commons will say about a person who holds `given`.
+
+    The bank has been downloadable and not consultable: an agent wanting one
+    regularity had to fetch the entire corpus, which is the difference between
+    a dataset and something you can ask.
+
+    Every answer carries what it rests on -- how many people, how many
+    installations, the rate, the lower bound of that rate, and the date -- so a
+    caller can weigh it rather than take it. An answer without its evidence is
+    the thing this whole project exists to refuse.
+
+    And it refuses. A query that nothing in the bank supports returns a stated
+    refusal with the reason, never an empty list: an empty list reads as "there
+    is no such regularity", when the truth is almost always "not enough people
+    have contributed for this to be worth saying". Those are different answers
+    and a caller acts differently on each.
+    """
+    g = (given or "").strip().lower()
+    e = (expect or "").strip().lower()
+    if not g and not e:
+        return {"answered": False,
+                "refused": "ask what? give `given` (a claim the person holds) "
+                           "or `expect` (a claim you want predicted)",
+                "answers": []}
+
+    hits = []
+    for r in rows:
+        if g and r["antecedent"] != g:
+            continue
+        if e and r["consequent"] != e:
+            continue
+        total = r["support"] + r["refute"]
+        if total <= 0:
+            continue
+        hits.append(r)
+
+    thin = [r for r in hits
+            if r.get("sources", 0) < ASK_MIN_SOURCES
+            or r.get("subjects", 0) < ASK_MIN_SUBJECTS]
+    strong = [r for r in hits if r not in thin]
+
+    if not hits:
+        return {"answered": False, "answers": [],
+                "refused": "nothing in the bank connects %s. That is not a "
+                           "finding that no connection exists: it means no "
+                           "contributed population has shown one."
+                           % (("holding " + g) if g else ("anything to " + e))}
+    if not strong:
+        return {"answered": False, "answers": [],
+                "refused": "%d pattern(s) touch this, and none is backed by at "
+                           "least %d installations and %d people. Too thin to "
+                           "answer with; the counts are in the published "
+                           "dataset if you want to judge them yourself."
+                           % (len(hits), ASK_MIN_SOURCES, ASK_MIN_SUBJECTS)}
+
+    from hypotheses import _wilson_lower
+    out = []
+    for r in sorted(strong, key=lambda x: (-x["subjects"], -x["rate"]))[:limit]:
+        total = r["support"] + r["refute"]
+        out.append({
+            "given": r["antecedent"],
+            "expect": r["consequent"],
+            "rate": r["rate"],
+            "confident_rate": round(_wilson_lower(r["support"], total), 3),
+            "people": r["subjects"],
+            "held_both": r["support"],
+            "held_first_denied_second": r["refute"],
+            "installations": r.get("sources", 0),
+            "says": "of %d people who hold %s, %d also hold %s"
+                    % (total, r["antecedent"], r["support"], r["consequent"]),
+        })
+    return {"answered": True, "answers": out,
+            "license": DATASET_LICENSE,
+            "terms_version": TERMS_VERSION,
+            "how_to_read": "Rates are over people who took a position, never "
+                           "over everyone. `confident_rate` is the lower bound "
+                           "of the rate, which is what a small sample is "
+                           "actually worth. Nothing here is a fact about any "
+                           "person, and a pattern about people in general "
+                           "should yield to anything the person in front of "
+                           "you has actually said."}
+
+
 # What a token is ABOUT, for the analytics breakdown. A pattern is filed under
 # its consequent: the thing the regularity lets you anticipate.
 _CATEGORIES = (

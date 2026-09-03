@@ -3305,6 +3305,42 @@ class Handler(BaseHTTPRequestHandler):
                 out["patterns"] = rows
             return self._send(200, out)
 
+        # ── the commons, asked a question rather than downloaded whole.
+        # It has been four bulk endpoints: an agent wanting one regularity had
+        # to fetch the entire corpus, which is the difference between a dataset
+        # and something you can consult at the moment you are deciding.
+        #
+        # Same gate as the patterns on /v1/commons/public, because this returns
+        # them: alive only once the operator has published the dataset. Rate
+        # limited per IP like the rest of the prefix. Every answer carries the
+        # counts it rests on, and a question the bank cannot support is refused
+        # with the reason rather than answered with an empty list, which would
+        # read as "no such regularity exists" when the truth is almost always
+        # "not enough people have contributed for this to be worth saying".
+        if parts == ["v1", "commons", "ask"]:
+            if not BANK_COLLECTOR:
+                return self._err(404, "not_found", "not found")
+            if not DATASET_PUBLIC:
+                return self._err(404, "not_found", "not found")
+            ip = self.client_address[0] if self.client_address else "unknown"
+            if not COMMONS_LIMITER.allow(f"ask:{ip}"):
+                return self._err(429, "rate_limited", "Slow down and retry.")
+            given = (qs.get("given", [""])[0] or "").strip()
+            expect = (qs.get("expect", [""])[0] or "").strip()
+            for tok in (given, expect):
+                if tok and len(tok) > 64:
+                    return self._err(422, "invalid_request",
+                                     "token too long", param="given")
+            try:
+                limit = _clamp_limit(qs.get("limit", [None])[0], 20)
+            except (TypeError, ValueError):
+                limit = 20
+            contribs = _commons.latest_per_instance(STORE.db)
+            rows = _commons.merged(
+                _hypo.bank(STORE.db, list(PROJECTS.keys())), contribs)
+            return self._send(200, _commons.ask(rows, given=given,
+                                                expect=expect, limit=limit))
+
         # ── the commons as a training corpus. Two doors to one payload:
         # /v1/commons-dataset is the owner's (session, collector only), for
         # downloading and publishing by hand; /v1/commons/dataset is the
