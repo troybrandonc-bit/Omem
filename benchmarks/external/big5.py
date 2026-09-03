@@ -165,12 +165,22 @@ class Install:
         self.rows = [(k, False) for k in local]
         if pooled:
             self.rows += [(k, True) for k in pooled if k not in local]
+        # The counts behind each pair, which is what the engine anchors on. The
+        # harness kept only the keys, so it was measuring an estimator the
+        # engine no longer uses.
+        self.counts = dict(local)
+        if pooled:
+            for k, v in pooled.items():
+                self.counts.setdefault(k, v)
         self.record = {}
 
     def strength(self, key, borrowed: bool) -> float:
         house = _h._house_rate(self.record.values())
         k = _h.BIRTH_K / POOLED_DISCOUNT if borrowed else _h.BIRTH_K
-        return _h._birth_strength(self.record.get(key, (0.0, 0.0)), (0, 0), house, k)
+        c = self.counts.get(key)
+        anchor = _h._prior_anchor(c[0], c[1], house) if c else house
+        return _h._birth_strength(self.record.get(key, (0.0, 0.0)), (0, 0),
+                                  anchor, k)
 
     def guess(self, held: set, silent: set):
         """Every hypothesis about one stranger. Fires only into a silence."""
