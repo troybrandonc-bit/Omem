@@ -46,7 +46,7 @@ from __future__ import annotations
 # including one running a different version; drift is caught by
 # tests_calibration_benchmark.py, which asserts the two agree.
 STRENGTH_FLOOR = 0.05
-STRENGTH_CEILING = 0.6
+STRENGTH_CEILING = 0.85
 
 BANDS = ((0.0, 0.2), (0.2, 0.35), (0.35, 0.5), (0.5, 1.01))
 

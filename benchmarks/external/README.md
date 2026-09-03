@@ -139,4 +139,124 @@ landing 65% of the time. That is not caution, it is a twenty point error that
 no amount of evidence could correct. Borrowing now raises the bar instead:
 a borrowed prior needs more of its own record before it moves off the house
 rate, and once it has proved itself on this install's people it is not really
-borrowed any more. The ceiling stays as the only hard cap.
+borrowed any more.
+
+## The third thing, and it settles the question the second one left open
+
+The block above ends at a Brier skill of -0.003, which is parity with predicting
+the base rate every time, and the paper written from it said establishing
+positive skill remained outstanding. It no longer does.
+
+Two defects, and the measurement only moves when both are fixed. The numbers
+below are on identical seeds and identical cases, aggregated over the pooled
+run rather than averaged per trial, so they are internally comparable and are
+NOT comparable to the table above, which averages per-trial skill.
+
+```
+                                    brier     skill    pred / obs   sd(pred)
+shipped                            0.2372   -0.0895   0.544 / 0.680   0.0607
+prior anchors on its own rate      0.2224   -0.0219   0.593 / 0.680   0.0208
+ceiling raised, old anchor         0.2359   -0.0836   0.548 / 0.680   0.0653
+both                               0.1998   +0.0819   0.704 / 0.680   0.1011
+```
+
+**A firing prior was ignoring its own measurement.** Birth strength anchored
+every hunch on the house rate, which is how often this install's guesses land in
+general. For a leap from a look-alike that is the only thing available. For a
+prior it is the wrong anchor: the prior arrives carrying a direct measurement of
+how often Q follows P across a population, and that number was computed, used to
+write the explanation string, and then discarded. It now anchors the forecast,
+as the lower bound of the rate rather than the rate, shrunk toward the house rate
+by support so a pair seen in twelve people barely moves and one seen in three
+hundred nearly speaks for itself.
+
+**The ceiling was stating a falsehood.** STRENGTH_CEILING was 0.6 while hunches
+land 68% of the time here, so the engine was forbidden from stating the correct
+forecast. The scorer already knew, and printed a note saying the Brier figure
+was a floor imposed by the cap rather than a calibration failure. That is the
+same fault as the borrowed-hunch cap in the paragraph above, applied to every
+hunch rather than only borrowed ones: a cap below the rate a thing actually
+achieves is not caution, it is a fixed error. Raised to 0.85, which is above the
+observed rate; 0.85 and 1.0 score within 0.0005 of each other, so the finding is
+that the cap must not bind below the observed rate, not that 0.85 is optimal.
+
+The separation between a hunch and a belief is untouched, because that ceiling
+was never what enforced it. `expects()` and `believes()` are different verbs
+over different tables, the engine's UNKNOWN stays UNKNOWN for everything the
+intuition layer holds, and nothing in the codebase compares a hunch's strength
+against an evidenced confidence. `server/tests_prior_anchor.py` asserts that,
+along with the interaction: revert either half and the skill goes with it.
+
+**And a third defect, found while measuring the headroom.** Only one prior may
+fire into a silence, and it used to be whichever came first out of the tables,
+which is arbitrary among priors of equal standing. Ranking them best-evidenced
+first takes Brier from 0.2006 to 0.1950 on identical cases.
+
+```
+                                    brier     skill    pred / obs
+anchor and ceiling                 0.2006   +0.0786   0.703 / 0.680
+...best-evidenced prior speaks     0.1950   +0.1044   0.724 / 0.680
+```
+
+The ranking is within tier, so a local prior still outranks a pooled one
+however thin it is. That guarantee is now redundant here and kept anyway: at
+six local subjects this harness forms NO local priors at all, so every
+reordering measured was among pooled rows and none was displaced. Sorting
+globally scored identically. A real installation does have local priors, and a
+property that holds only because the other case is empty is not a property.
+
+## What the ceiling on all of this actually is
+
+Chasing the number without knowing the ceiling is how you either stop early or
+grind at noise. So the same cases were given to a naive Bayes model over all 49
+other items, trained on the peer pool. It is not something this system could
+ship -- it reads a whole profile to decide what is true, cannot refuse, and
+explains nothing -- but it estimates the information available.
+
+```
+                                        n    brier     skill   obs
+OMEM, best-evidenced prior            762   0.1950   +0.1044  0.680
+naive Bayes, the same 762 cases       762   0.2038   +0.0637  0.680
+naive Bayes, all 2000 cases          2000   0.1641   +0.3276  0.577
+```
+
+**On the questions it answers, OMEM beats the all-features reference**, at 1.6
+times its skill. Per-case there is no large pool of signal left to extract, and
+an earlier guess here that the system was capturing under a third of it was
+wrong.
+
+The headroom is in COVERAGE. OMEM answers 762 of 2000 cases, and the reference
+does better on the ones it refuses. The base rates say why: the questions OMEM
+answers run at 0.680 against 0.577 across all of them, so the refusal rule is
+selecting the claims where the base rate already supplies most of the answer
+and declining the balanced ones where a forecast would be worth most.
+
+Relaxing the filters does not buy it back. Dropping PRIOR_MIN_RATE, an absolute
+rate floor sitting on top of the lift test, was measured across its whole range:
+
+```
+min_rate     n    brier    skill     obs     lift
+0.60       762   0.2002   0.0804   0.680   +0.128
+0.50       795   0.2013   0.1007   0.662   +0.125
+0.00       829   0.2015   0.1211   0.644   +0.121
+```
+
+Skill rises 50% and it means nothing. Brier gets slightly WORSE and lift falls.
+The apparent gain is an artefact: admitting more balanced questions drops the
+observed rate from 0.680 to 0.644, which grows the base-rate reference the
+score is divided by. **Brier skill is not comparable across different answered
+sets**, and any change that moves coverage moves the yardstick with it. The
+floor stays.
+
+Combining agreeing priors was also tried and is worse: 0.1044 to 0.0886, with
+the forecast drifting to 0.763 against 0.680. Priors that agree are mostly
+measuring the same underlying factor, so summing them, even discounted,
+manufactures confidence out of redundancy. It is recorded here so it is not
+retried.
+
+**What this does not show.** +0.10 is modest positive skill, not strong. It
+establishes that birth strength now carries information about the outcome, which
+it previously did not, on one population whose hit rate happens to be 68%. On a
+population where hunches land at 45% the ceiling would not bind and only the
+anchor would matter. And the anchor's shrink weight of 60 was chosen on this
+data, which is the same in-sample exposure disclosed for the lift margin.

@@ -165,12 +165,31 @@ class Install:
         self.rows = [(k, False) for k in local]
         if pooled:
             self.rows += [(k, True) for k in pooled if k not in local]
+        # The counts behind each pair, which is what the engine anchors on. The
+        # harness kept only the keys, so it was measuring an estimator the
+        # engine no longer uses.
+        self.counts = dict(local)
+        if pooled:
+            for k, v in pooled.items():
+                self.counts.setdefault(k, v)
         self.record = {}
+        # Which prior speaks when several fire into one silence. The engine
+        # sorts its prior rows within tier, best-evidenced first; this harness
+        # walked them in dict order, so without this it measures a selection
+        # rule the engine does not use. Local still outranks pooled: the tier
+        # is the primary key, exactly as in leap().
+        self.rows.sort(key=lambda t: (
+            t[1],
+            -_h._prior_anchor(self.counts[t[0]][0], self.counts[t[0]][1],
+                              _h.BASE_STRENGTH) if t[0] in self.counts else 0.0))
 
     def strength(self, key, borrowed: bool) -> float:
         house = _h._house_rate(self.record.values())
         k = _h.BIRTH_K / POOLED_DISCOUNT if borrowed else _h.BIRTH_K
-        return _h._birth_strength(self.record.get(key, (0.0, 0.0)), (0, 0), house, k)
+        c = self.counts.get(key)
+        anchor = _h._prior_anchor(c[0], c[1], house) if c else house
+        return _h._birth_strength(self.record.get(key, (0.0, 0.0)), (0, 0),
+                                  anchor, k)
 
     def guess(self, held: set, silent: set):
         """Every hypothesis about one stranger. Fires only into a silence."""
