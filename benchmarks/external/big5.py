@@ -173,6 +173,15 @@ class Install:
             for k, v in pooled.items():
                 self.counts.setdefault(k, v)
         self.record = {}
+        # Which prior speaks when several fire into one silence. The engine
+        # sorts its prior rows within tier, best-evidenced first; this harness
+        # walked them in dict order, so without this it measures a selection
+        # rule the engine does not use. Local still outranks pooled: the tier
+        # is the primary key, exactly as in leap().
+        self.rows.sort(key=lambda t: (
+            t[1],
+            -_h._prior_anchor(self.counts[t[0]][0], self.counts[t[0]][1],
+                              _h.BASE_STRENGTH) if t[0] in self.counts else 0.0))
 
     def strength(self, key, borrowed: bool) -> float:
         house = _h._house_rate(self.record.values())
