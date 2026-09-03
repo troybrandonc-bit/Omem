@@ -33,13 +33,12 @@ def _m(xs):
 
 
 def study(trials: int = 5) -> dict:
+    """Both arms. The shipped rule, and the same rule with the lift test
+    switched off, because the case for the test is the difference between
+    them and stating only one arm would be an assertion."""
     big5.fetch()
     rows, items = big5.load()
-    scored = [big5.score_trial(big5.trial(s, rows)) for s in range(1, trials + 1)]
 
-    # The lift sweep: keep only priors whose rate among antecedent-holders
-    # beats the consequent's own base rate by a margin.
-    import random
     yes = {i: 0 for i in items}
     tot = {i: 0 for i in items}
     for held, opp in rows:
@@ -49,66 +48,94 @@ def study(trials: int = 5) -> dict:
         for i in opp:
             tot[i] += 1
     base = {i: yes[i] / tot[i] for i in items if tot[i]}
-    rng = random.Random(1)
-    sample = list(rows)
-    rng.shuffle(sample)
-    mined = big5.mine(sample[:250])
-    sweep = []
-    for margin in (0.0, 0.05, 0.10, 0.15):
-        kept = {k: v for k, v in mined.items()
-                if v[0] / (v[0] + v[1]) >= base[k[1]] + margin}
-        sweep.append({"margin": margin, "kept": len(kept),
-                      "within_factor": round(big5.within_factor(kept), 3)})
 
-    return {
-        "respondents": len(rows), "items": len(items), "trials": trials,
-        "chance_within_factor": round(CHANCE, 3),
-        "bank_within_factor": round(_m(x["bank_within_factor"] for x in scored), 3),
-        "mean_base_rate": round(statistics.fmean(base.values()), 3),
-        "mean_base_rate_of_consequents":
-            round(statistics.fmean(base[c] for (_a, c) in mined), 3),
-        "prediction": {lab: {k: (round(_m(x[lab][k] for x in scored), 3)
-                                 if _m(x[lab][k] for x in scored) is not None else None)
-                             for k in ("n", "precision", "lift")}
-                       for lab in ("local", "pooled", "marginal")},
-        "lift_sweep": sweep,
-    }
+    import random
+    arms = {}
+    for label, lift in (("shipped", None), ("no_lift_test", "off")):
+        _orig = big5.mine
+        if lift == "off":
+            big5.mine = lambda s, _o=_orig: _mine_nolift(_o, s)
+        scored = [big5.score_trial(big5.trial(s, rows)) for s in range(1, trials + 1)]
+        rng = random.Random(1)
+        sample = list(rows)
+        rng.shuffle(sample)
+        mined = big5.mine(sample[:250])
+        big5.mine = _orig
+        arms[label] = {
+            "within_factor": round(big5.within_factor(mined), 3),
+            "priors": len(mined),
+            "consequent_base_rate":
+                round(statistics.fmean(base[c] for (_a, c) in mined), 3) if mined else None,
+            "prediction": {lab: {k: (round(_m(x[lab][k] for x in scored), 3)
+                                     if _m(x[lab][k] for x in scored) is not None else None)
+                                 for k in ("n", "precision", "lift")}
+                           for lab in ("local", "pooled", "marginal")},
+        }
+
+    return {"respondents": len(rows), "items": len(items), "trials": trials,
+            "chance_within_factor": round(CHANCE, 3),
+            "mean_base_rate": round(statistics.fmean(base.values()), 3),
+            "shipped_margin": big5.PRIOR_MIN_LIFT, "arms": arms}
+
+
+def _mine_nolift(orig, subjects):
+    """The rule as it stood before the lift test, for the comparison arm."""
+    import big5 as _b
+    holders, opposers = {}, {}
+    for i, (h, o) in enumerate(subjects):
+        for p in h:
+            holders.setdefault(p, set()).add(i)
+        for p in o:
+            opposers.setdefault(p, set()).add(i)
+    out = {}
+    for a, base in holders.items():
+        if len(base) < _b.PRIOR_FLOOR_N:
+            continue
+        for c in holders:
+            if c == a:
+                continue
+            s = len(base & holders.get(c, set()))
+            r = len(base & opposers.get(c, set()))
+            if s < _b.PRIOR_FLOOR_N or not (s + r):
+                continue
+            if s / (s + r) < _b.PRIOR_MIN_RATE:
+                continue
+            out[(a, c)] = (s, r, len(base))
+    return out
 
 
 def render(r: dict) -> str:
     o = ["", "The prior rule, over %d real respondents and %d items."
-         % (r["respondents"], r["items"]), ""]
-    o.append("DOES IT FIND REAL STRUCTURE")
-    o.append("  chance, a pair joining two items of one factor   %.3f"
-             % r["chance_within_factor"])
-    o.append("  the miner's priors                               %.3f"
-             % r["bank_within_factor"])
-    verdict = ("above chance" if r["bank_within_factor"] > r["chance_within_factor"] + 0.03
-               else "AT CHANCE: it is finding no structure at all")
-    o.append("  -> %s" % verdict)
+         % (r["respondents"], r["items"]),
+         "Chance, for a pair joining two items of one factor: %.3f"
+         % r["chance_within_factor"],
+         "Mean base rate across items: %.2f" % r["mean_base_rate"], ""]
+    o.append("%-16s %9s %9s %14s %11s %9s" % (
+        "", "priors", "within-f", "consequent BR", "marginal n", "marg lift"))
+    for label in ("no_lift_test", "shipped"):
+        a = r["arms"][label]
+        p = a["prediction"]["marginal"]
+        o.append("%-16s %9d %9.3f %14.2f %11.0f %+9.3f" % (
+            label.replace("_", " "), a["priors"], a["within_factor"],
+            a["consequent_base_rate"], p["n"], p["lift"]))
     o.append("")
-    o.append("WHY")
-    o.append("  mean base rate of all items                      %.2f" % r["mean_base_rate"])
-    o.append("  mean base rate of the consequents it picked      %.2f"
-             % r["mean_base_rate_of_consequents"])
-    o.append("  A rule asking whether 60% of P-holders hold Q is satisfied by Q")
-    o.append("  being popular. That is what it is selecting.")
+    ship, plain = r["arms"]["shipped"], r["arms"]["no_lift_test"]
+    if plain["within_factor"] <= r["chance_within_factor"] + 0.03:
+        o.append("Without the lift test the miner sits at chance: it recovers none of")
+        o.append("the known structure, and the consequents it picks are the popular")
+        o.append("items, which is the whole of the effect.")
+    if ship["within_factor"] > plain["within_factor"] + 0.1:
+        o.append("With it, structure recovery rises to %.3f and the marginal guesses"
+                 % ship["within_factor"])
+        o.append("carry %+.3f lift against %+.3f, on comparable coverage. Requiring a"
+                 % (ship["prediction"]["marginal"]["lift"],
+                    plain["prediction"]["marginal"]["lift"]))
+        o.append("prior to beat its consequent's own base rate is what turns the rule")
+        o.append("from a popularity contest into an association.")
     o.append("")
-    o.append("REQUIRING LIFT OVER THE CONSEQUENT'S OWN BASE RATE")
-    o.append("  %-8s %12s %16s" % ("margin", "priors kept", "within-factor"))
-    for s in r["lift_sweep"]:
-        o.append("  %+8.2f %12d %16.3f" % (s["margin"], s["kept"], s["within_factor"]))
+    o.append("Shipped margin: PRIOR_MIN_LIFT = %.2f" % r["shipped_margin"])
     o.append("")
-    o.append("PREDICTING A HELD-OUT ANSWER SOMEBODY REALLY GAVE")
-    o.append("  %-10s %9s %11s %8s" % ("", "coverage", "precision", "lift"))
-    for lab in ("local", "pooled", "marginal"):
-        p = r["prediction"][lab]
-        o.append("  %-10s %9.0f %11s %8s" % (
-            lab, p["n"],
-            "%.3f" % p["precision"] if p["precision"] is not None else "n/a",
-            "%+.3f" % p["lift"] if p["lift"] is not None else "n/a"))
-    o.append("")
-    return "\n".join(o)
+    return chr(10).join(o)
 
 
 def main() -> int:

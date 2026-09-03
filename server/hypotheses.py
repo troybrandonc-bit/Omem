@@ -77,9 +77,48 @@ STRENGTH_FLOOR = 0.05
 # and not below PRIOR_MIN_RATE (a pattern that barely holds is not a prior).
 PRIOR_FLOOR_N = 3
 PRIOR_MIN_RATE = 0.6
-# A prior borrowed from the commons is about other people's populations, so a
-# hunch it produces is born this much less bold than the same hunch from a
-# locally mined prior. It only ever lowers strength.
+# ...and it must beat the CONSEQUENT'S OWN BASE RATE by this much, which is a
+# different question and the one that matters. "Sixty percent of the people who
+# hold P also hold Q" is satisfied by Q being popular: if seventy six percent of
+# everyone holds Q, the rule has learned nothing about P. Measured over 19,719
+# real respondents in a dataset with a known latent structure, the rate test
+# alone recovered that structure at 0.185 against a chance line of 0.184, which
+# is to say not at all, while the consequents it selected had a mean base rate
+# of 0.76 against an item mean of 0.57. See benchmarks/external.
+#
+# 0.15 is deliberately below the margin that scored best in that sweep. The
+# sweep was run on the same data it was evaluated on, and a threshold tuned to
+# its own evaluation set is a number, not evidence.
+PRIOR_MIN_LIFT = 0.10
+PRIOR_LIFT_Z = 1.96      # the 95% one-sided bound, so "three of three" is not
+                         # mistaken for "three hundred of three hundred"
+# How much evidence it takes to move a hunch off the house rate, and how much
+# it takes before the house rate is believed at all. Both are pseudo-counts:
+# BIRTH_K is the weight of the prior on one generator's record, ANCHOR_K the
+# weight of BASE_STRENGTH on the install's overall record.
+BIRTH_K = 8.0            # one verdict nudges a generator, thirty move it a
+                         # long way. A smaller number scored better on Brier
+                         # here, but only because birth strength is capped
+                         # below the rate these hunches actually achieve, so
+                         # that measurement rewards whatever reaches the cap
+                         # fastest. Choosing on a confounded number would be
+                         # choosing on nothing.
+ANCHOR_K = 20.0          # an install needs a couple of dozen verdicts before
+                         # its own hit rate is worth more than the default. At
+                         # four verdicts the learned rate still sits within a
+                         # few points of BASE_STRENGTH, which is the intent:
+                         # an install that has been right twice does not yet
+                         # know that it is good at this.
+# A prior borrowed from the commons is about other people's populations, so it
+# has to earn its confidence here before it gets it. This is the ratio by which
+# borrowing RAISES the evidence bar: a borrowed prior is shrunk toward the
+# house rate by BIRTH_K / POOLED_DISCOUNT pseudo-counts rather than BIRTH_K, so
+# it needs a third again as much of its own record to say the same thing.
+#
+# It used to multiply the finished strength instead, which stacked on the
+# ceiling and capped a borrowed hunch at 0.45 forever, while borrowed hunches
+# were measured landing 65% of the time. Caution about other people's
+# populations is right; a permanent twenty point error is not.
 POOLED_DISCOUNT = 0.75
 PRIOR_MAX = 500          # a bound on how many priors one mining pass may hold
 
@@ -162,29 +201,72 @@ def _profiles(db, p, T) -> dict:
     return profs
 
 
+_CLUSTER_CACHE: dict = {}
+_CLUSTER_CACHE_MAX = 8
+
+
 def _prop_clusters(props: list) -> dict:
     """prop -> cluster representative, via the same embeddings semantic
     recall uses. "wants_yearly_invoicing" and "prefers_annual_billing" are
     one experience to a person; with a real embedder configured they become
     one feature here too. The dependency-free hashing embedding clusters
     only near-identical spellings, which is the honest offline floor.
-    Deterministic: sorted greedy assignment, first-seen token is the rep."""
+    Deterministic: sorted greedy assignment, first-seen token is the rep.
+
+    Three things make it affordable at a large vocabulary, none of which
+    change which clusters come out.
+
+    It is cached on the vocabulary, because a consolidation pass asks for the
+    same clustering twice, once from leap and once from learn_priors, and asks
+    again on the next pass with a vocabulary that has usually not moved.
+
+    A candidate is only compared with representatives that share a non-zero
+    dimension with it. The embedding is 256 numbers of which about twenty are
+    non-zero, so most pairs share nothing, and a pair sharing nothing has a
+    cosine of exactly zero, which can never beat a best-so-far that starts at
+    zero.
+
+    And each representative's norm is computed once when it is created rather
+    than recomputed on every comparison against it."""
+    key = tuple(sorted(props))
+    hit = _CLUSTER_CACHE.get(key)
+    if hit is not None:
+        return dict(hit)
+
+    import math
     import semantic_recall as _sr
-    reps: list = []
-    mapping: dict = {}
-    ordered = sorted(props)
+    ordered = list(key)
     vecs = _sr.embed([x.replace("_", " ") for x in ordered])
+    reps: list = []                 # (prop, {dim: value}, norm)
+    dim_index: dict = {}            # dim -> positions in reps
+    mapping: dict = {}
     for prop, vec in zip(ordered, vecs):
+        sparse = {i: v for i, v in enumerate(vec) if v}
+        norm = math.sqrt(sum(v * v for v in sparse.values())) or 1.0
+        seen = set()
+        for i in sparse:
+            seen.update(dim_index.get(i, ()))
         best, best_sim = None, 0.0
-        for rep_prop, rep_vec in reps:
-            sim = _sr._cosine(vec, rep_vec)
+        for j in sorted(seen):
+            rep_prop, rep_sparse, rep_norm = reps[j]
+            if len(rep_sparse) < len(sparse):
+                dot = sum(v * sparse[i] for i, v in rep_sparse.items() if i in sparse)
+            else:
+                dot = sum(v * rep_sparse[i] for i, v in sparse.items() if i in rep_sparse)
+            sim = dot / (norm * rep_norm)
             if sim > best_sim:
                 best, best_sim = rep_prop, sim
         if best is not None and best_sim >= 0.75:
             mapping[prop] = best
         else:
-            reps.append((prop, vec))
+            for i in sparse:
+                dim_index.setdefault(i, []).append(len(reps))
+            reps.append((prop, sparse, norm))
             mapping[prop] = prop
+
+    if len(_CLUSTER_CACHE) >= _CLUSTER_CACHE_MAX:
+        _CLUSTER_CACHE.pop(next(iter(_CLUSTER_CACHE)))
+    _CLUSTER_CACHE[key] = dict(mapping)
     return mapping
 
 
@@ -203,6 +285,33 @@ def _feature_weights(profs: dict, rep_of: dict) -> dict:
         for f in pa[1]:
             df[("r", f)] = df.get(("r", f), 0) + 1
     return {k: 1.0 + math.log(n / v) for k, v in df.items()}
+
+
+def _reps_map(props, rep_of: dict) -> dict:
+    """Cluster representative -> the spelling this entity used for it.
+
+    Built once per entity rather than twice per comparison. `setdefault` keeps
+    the first spelling seen, exactly as the inline version did, so the evidence
+    line reads the same."""
+    out: dict = {}
+    for x in props:
+        out.setdefault(rep_of.get(x, x), x)
+    return out
+
+
+def _sim_score(a_reps: dict, a_rels, b_reps: dict, b_rels, weights: dict) -> float:
+    """The score alone, for the comparison every entity gets.
+
+    Scoring is a sum, so it needs no sorting, and it needs no prose. The
+    explanation is built afterwards for the few neighbours that survive, which
+    is the difference between formatting a string for three comparisons and
+    formatting one for every pair of entities in the project."""
+    score = 0.0
+    for rep in a_reps.keys() & b_reps.keys():
+        score += weights.get(("p", rep), 1.0)
+    for rel_cp in a_rels & b_rels:
+        score += weights.get(("r", rel_cp), 1.0)
+    return score
 
 
 def _similarity(pa, pb, rep_of: dict, weights: dict) -> tuple[float, list]:
@@ -319,6 +428,29 @@ def _score_generator(db, project_id: str, generator: str, won: bool,
     db.commit()
 
 
+def _wilson_lower(k: int, n: int, z: float = PRIOR_LIFT_Z) -> float:
+    """The lower end of a Wilson interval on k successes in n trials.
+
+    A raw rate treats three of three as certainty and three hundred of three
+    hundred as the same certainty. The lower bound does not: it is what the
+    rate could be if this sample happened to flatter it, so a pair supported by
+    a handful of people has to be much cleaner than one supported by hundreds
+    to clear the same line. That is the whole reason the floor on support can
+    stay small without the bank filling with coincidences.
+
+    Measured on 19,719 real respondents against a known latent structure,
+    swapping the raw rate for this bound took structure recovery from 0.534 to
+    0.803 and lift from +0.083 to +0.125, while examining MORE claims rather
+    than fewer. See benchmarks/external."""
+    if n <= 0:
+        return 0.0
+    p = k / n
+    d = 1 + z * z / n
+    centre = p + z * z / (2 * n)
+    margin = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5)
+    return (centre - margin) / d
+
+
 def _family(prop: str) -> str:
     """The KIND of claim, for calibration: prefers_*, wants_*, uses_*.
     Crude on purpose -- the first token names the speech family well enough
@@ -348,23 +480,58 @@ def _family_records(db, project_id: str, weighted: bool = False) -> dict:
     return out
 
 
-def _birth_strength(gen_rec: tuple, fam_rec: tuple) -> float:
-    """The learning loop's other half, now with self-knowledge: a generator
-    whose projections keep getting refuted produces weaker hunches, and so
-    does a FAMILY of claim OMEM has learned it guesses badly. Metacognition
-    as arithmetic: the system knows what it is good at guessing, and its
-    boldness follows its record.
+def _house_rate(records) -> float:
+    """How often this install's hunches turn out right, at all.
 
-    Both records arrive WEIGHTED by prediction error, so the arithmetic below
-    is over how much each verdict taught rather than how many there were. The
-    consequence worth stating out loud: a generator that only ever guesses
-    weakly and is usually refuted is barely punished, because it told the
-    truth about how little it knew. That is not leniency, it is calibration --
-    the same quantity brier_skill scores in the benchmark."""
+    BASE_STRENGTH is a guess about a population nobody had seen. Measured
+    against 19,719 real respondents, hunches landed 68% of the time while
+    birth strength was anchored at 35%, and that single gap accounted for most
+    of the miscalibration: moving the anchor to the observed rate took Brier
+    skill from -0.49 to -0.10, while changing the estimator's shape barely
+    moved it at all.
+
+    So the anchor is learned. It is itself shrunk toward BASE_STRENGTH by
+    ANCHOR_K pseudo-counts, because an install with four verdicts does not know
+    its own hit rate either, and the number would swing wildly if it were
+    trusted immediately."""
+    wins = sum(w for w, _l in records)
+    losses = sum(l for _w, l in records)
+    return ((wins + BASE_STRENGTH * ANCHOR_K)
+            / (wins + losses + ANCHOR_K))
+
+
+def _birth_strength(gen_rec: tuple, fam_rec: tuple,
+                    house: float = BASE_STRENGTH, k: float = None) -> float:
+    """How bold a hunch is born: the posterior mean of this generator's hit
+    rate, shrunk toward what this install's hunches do in general.
+
+    It used to be BASE_STRENGTH plus and minus fixed steps per verdict, which
+    is not a probability of anything, and the calibration benchmark was then
+    scoring it as though it were. A generator with one confirmed leap came out
+    at 0.40 and one with ten at the ceiling, with no notion that one
+    observation is thin.
+
+    Now: one win moves a generator a little off the house rate, thirty move it
+    a long way, and the FAMILY record counts for half, because what OMEM
+    guesses badly in general is weaker evidence about this generator than its
+    own record is.
+
+    `k` is how much evidence it takes to move off the house rate, and it is
+    raised for borrowed knowledge rather than the answer being cut down
+    afterwards. See the pooled branch in leap for why.
+
+    The clamp survives untouched. A hunch may never be born stronger than
+    STRENGTH_CEILING however good its record, because a hunch that can dress
+    as evidence is the failure this whole layer exists to avoid."""
     gw, gl = gen_rec
     fw, fl = fam_rec
-    s = BASE_STRENGTH + 0.05 * gw - 0.08 * gl + 0.03 * fw - 0.05 * fl
-    return round(max(STRENGTH_FLOOR, min(STRENGTH_CEILING, s)), 2)
+    wins = gw + 0.5 * fw
+    losses = gl + 0.5 * fl
+    k = BIRTH_K if k is None else k
+    a = house * k
+    b = (1.0 - house) * k
+    p = (wins + a) / (wins + losses + a + b)
+    return round(max(STRENGTH_FLOOR, min(STRENGTH_CEILING, p)), 2)
 
 
 def calibration(db, project_id: str) -> dict:
@@ -401,10 +568,22 @@ def learn_priors(p, db) -> dict:
     For every pair of positive property-clusters (P, Q), count the subjects
     who hold P and also hold Q (support) versus those who hold P and OPPOSE Q
     (refute -- they hold not:Q, or a positive claim declared contradictory to
-    Q). A pair that clears PRIOR_FLOOR_N support and PRIOR_MIN_RATE becomes a
-    prior P -> Q. The prior stores COUNTS, never a subject or a sentence: it
-    is knowledge about people in general, not a record of any person, which is
-    what makes it inspectable and portable without leaking anyone.
+    Q). A pair that clears PRIOR_FLOOR_N support, PRIOR_MIN_RATE, and
+    PRIOR_MIN_LIFT over the consequent's own base rate becomes a prior P -> Q.
+    The prior stores COUNTS, never a subject or a sentence: it is knowledge
+    about people in general, not a record of any person, which is what makes it
+    inspectable and portable without leaking anyone.
+
+    THE LIFT TEST IS THE ONE THAT MAKES THIS A REGULARITY. Without it the rule
+    asks only whether most P-holders hold Q, which any popular Q satisfies on
+    its own, and the result is a bank full of things most people think rather
+    than things that follow from anything. Q's base rate here is measured over
+    the same population the pair was mined from, so a prior has to say more
+    about P-holders than the room already says about everyone.
+
+    It is the LOWER BOUND of the rate that must clear that line, not the rate
+    itself, so a pair resting on three people has to be far cleaner than one
+    resting on three hundred to earn the same standing.
 
     Absence is not counted against a prior. A subject who holds P but has no
     stated position on Q is neither support nor refute -- they are precisely
@@ -435,22 +614,61 @@ def learn_priors(p, db) -> dict:
 
     context = "default"                     # per-context rates are phase 3
     reps = sorted(pos_holders)
+    # Who opposes each consequent, computed once. This used to be called from
+    # inside the pair loop, twice per surviving pair after the lift test
+    # arrived, and each call walked every negated proposition and asked the
+    # engine for declared opposites. That made a loop which is quadratic in
+    # vocabulary by design into one that is cubic, and the cost per pair grew
+    # with the population, which is the shape of that mistake. One pass here,
+    # constant lookups below.
+    opp_of = {q: opposers(q) for q in reps}
+
+    # Subject sets become bitmasks before the loop. Intersecting two Python
+    # sets is linear in the population and this loop does it twice per pair, so
+    # the cost per pair grew with the number of people even after the
+    # vocabulary walk was hoisted out. A bitmask intersection is one machine
+    # word per sixty four subjects: measured thirty times faster at a thousand
+    # people, ninety at fifty thousand, and the gap widens as the population
+    # does, which is the direction that matters.
+    _bit = {s: i for i, s in enumerate(profs)}
+
+    def _mask(subs) -> int:
+        m = 0
+        for s in subs:
+            m |= 1 << _bit[s]
+        return m
+
+    _popcount = ((lambda x: x.bit_count()) if hasattr(int, "bit_count")
+                 else (lambda x: bin(x).count("1")))   # bit_count is 3.10+
+
+    pos_mask = {q: _mask(pos_holders[q]) for q in reps}
+    opp_mask = {q: _mask(opp_of[q]) for q in reps}
+    q_base = {}
+    for q in reps:
+        yes, no = _popcount(pos_mask[q]), _popcount(opp_mask[q])
+        q_base[q] = (yes / (yes + no)) if (yes + no) else None
     result = {"examined_pairs": 0, "learned": 0, "kept": 0}
     kept = 0
     for P in reps:
         base = pos_holders[P]
         if len(base) < PRIOR_FLOOR_N:
             continue
+        base_mask = pos_mask[P]
         for Q in reps:
             if Q == P:
                 continue
             result["examined_pairs"] += 1
-            support = len(base & pos_holders.get(Q, set()))
+            support = _popcount(base_mask & pos_mask[Q])
             if support < PRIOR_FLOOR_N:
                 continue
-            refute = len(base & opposers(Q))
+            refute = _popcount(base_mask & opp_mask[Q])
             total = support + refute
             if total == 0 or support / total < PRIOR_MIN_RATE:
+                continue
+            # ...and it has to beat what the whole population already says
+            # about Q, or it is Q's popularity wearing P as a hat.
+            base_q = q_base[Q]
+            if base_q is not None and                     _wilson_lower(support, total) < base_q + PRIOR_MIN_LIFT:
                 continue
             if kept >= PRIOR_MAX:
                 break
@@ -527,13 +745,46 @@ def leap(p, db, about: str | None = None) -> dict:
     it ended -- the fingerprint is spent forever."""
     T = p.now()
     profs = _profiles(db, p, T)
+    # The open beliefs, read ONCE and indexed by the subject they are about.
+    # Both loops below want the beliefs about one person, and both used to get
+    # them by walking every assertion in the store and discarding the rest,
+    # from inside a loop over entities and again from inside a loop over
+    # priors. In steady state, when reality already speaks and nothing is
+    # leapable, four hundred entities did twelve hundred full store scans and
+    # two point eight million assertion reads, taking five seconds to produce
+    # nothing. None of those scans depended on the loop they sat inside.
+    _open = _open_beliefs(p, T)
+    by_subject: dict = {}
+    for _a in _open:
+        if len(_a.subjects) == 1:
+            by_subject.setdefault(list(_a.subjects)[0], []).append(_a)
     all_props = sorted({x for pa in profs.values() for x in pa[0]})
     rep_of = _prop_clusters(all_props)
     weights = _feature_weights(profs, rep_of)
+    # One representative map per entity, not two per comparison. The scan is
+    # quadratic in entities by nature, so anything rebuilt inside it is paid
+    # for a quadratic number of times.
+    ent_reps = {e: _reps_map(pa[0], rep_of) for e, pa in profs.items()}
+    # Who holds each feature, so a target is only compared with entities it
+    # could possibly resemble. An entity sharing no proposition and no relation
+    # with the target scores exactly zero, and MIN_SIMILARITY is 2.0, so
+    # skipping it changes no result: the neighbours list is identical, it is
+    # just built without asking four thousand strangers whether they have
+    # anything in common when the answer is written down already.
+    feature_owners: dict = {}
+    for _e, _reps in ent_reps.items():
+        for _rep in _reps:
+            feature_owners.setdefault(("p", _rep), []).append(_e)
+    for _e, _pa in profs.items():
+        for _rc in _pa[1]:
+            feature_owners.setdefault(("r", _rc), []).append(_e)
     # WEIGHTED records here rather than counts: how bold to be about the next
     # guess is a function of how much each past verdict actually taught.
     fam_recs = _family_records(db, p.id, weighted=True)
     gen_recs = _gen_records(db, p.id)
+    # What this install's hunches do in general, learned rather than assumed.
+    # Every new generator starts here instead of at a constant nobody measured.
+    house = _house_rate(gen_recs.values())
     result = {"examined": 0, "leapt": [], "skipped_spent": 0, "refused": []}
     spent = {r["fp"] for r in db.execute(
         "SELECT fp FROM hypotheses WHERE project_id=?", (p.id,))}
@@ -552,19 +803,27 @@ def leap(p, db, about: str | None = None) -> dict:
         result["examined"] += 1
         tgt_reps = {rep_of.get(x, x) for x in profs[tgt][0]}
         neighbors = []
-        for other in sorted(profs):
-            if other == tgt or _kind(other) != _kind(tgt):
+        candidates = set()
+        for _rep in ent_reps[tgt]:
+            candidates.update(feature_owners.get(("p", _rep), ()))
+        for _rc in profs[tgt][1]:
+            candidates.update(feature_owners.get(("r", _rc), ()))
+        candidates.discard(tgt)
+        for other in sorted(candidates):
+            if _kind(other) != _kind(tgt):
                 continue
-            score, why = _similarity(profs[tgt], profs[other], rep_of, weights)
+            score = _sim_score(ent_reps[tgt], profs[tgt][1],
+                               ent_reps[other], profs[other][1], weights)
             if score >= MIN_SIMILARITY:
-                neighbors.append((-score, other, why))
+                neighbors.append((-score, other))
         neighbors.sort()
-        for negscore, nb, why in neighbors[:MAX_NEIGHBORS]:
-            for a in _open_beliefs(p, T):
+        # The evidence is built only for the neighbours actually used. It was
+        # being written for every entity in the project and thrown away.
+        for negscore, nb in neighbors[:MAX_NEIGHBORS]:
+            why = _similarity(profs[tgt], profs[nb], rep_of, weights)[1]
+            for a in by_subject.get(nb, ()):
                 if len(result["leapt"]) >= MAX_NEW_PER_RUN:
                     return result
-                if list(a.subjects) != [nb]:
-                    continue
                 prop = a.proposition
                 if prop.startswith("rel_") or prop in profs[tgt][0]:
                     continue
@@ -581,7 +840,8 @@ def leap(p, db, about: str | None = None) -> dict:
                     continue
                 generator = nb
                 strength = _birth_strength(gen_recs.get(generator, (0, 0)),
-                                           fam_recs.get(_family(prop), (0, 0)))
+                                           fam_recs.get(_family(prop), (0, 0)),
+                                           house)
                 because = (f"{nb} holds {prop}; {tgt} resembles {nb} "
                            f"({'; '.join(why[:4])})")
                 docket = {"supports": [{"kind": "leapt_from", "assertion": a.id,
@@ -650,8 +910,8 @@ def leap(p, db, about: str | None = None) -> dict:
             if p.engine.proposition_state([tgt], cons, T) != "UNKNOWN":
                 continue                      # DEFEASIBLE: only ever fill a silence
             born = None
-            for a in _open_beliefs(p, T):
-                if list(a.subjects) == [tgt] and not a.proposition.startswith("not:") \
+            for a in by_subject.get(tgt, ()):
+                if not a.proposition.startswith("not:") \
                         and prep.get(a.proposition, a.proposition) == ant:
                     born = a
                     break
@@ -662,14 +922,21 @@ def leap(p, db, about: str | None = None) -> dict:
                 result["skipped_spent"] += 1
                 continue
             generator = "prior:" + pr["id"]
-            strength = _birth_strength(gen_recs.get(generator, (0, 0)),
-                                       fam_recs.get(_family(cons), (0, 0)))
+            # Borrowed knowledge raises the BAR rather than capping the
+            # answer. It used to multiply the finished strength by
+            # POOLED_DISCOUNT, which stacked on the ceiling: a borrowed hunch
+            # could never be born above 0.45 however well it did, while
+            # borrowed hunches were measured landing 65% of the time. That is
+            # not caution, it is a fixed error. Needing more of its own record
+            # before it moves off the house rate says the same thing honestly,
+            # and once a borrowed prior has proved itself on THIS install's
+            # people it is not really borrowed any more.
+            strength = _birth_strength(
+                gen_recs.get(generator, (0, 0)),
+                fam_recs.get(_family(cons), (0, 0)), house,
+                BIRTH_K / POOLED_DISCOUNT if pr.get("pooled") else BIRTH_K)
             rate = pr["support"] / total
             if pr.get("pooled"):
-                # Borrowed from populations this install has never seen, so it
-                # is born less bold. Floored, never raised: the discount can
-                # only ever make a hunch more cautious.
-                strength = round(max(STRENGTH_FLOOR, strength * POOLED_DISCOUNT), 2)
                 because = (f"across {pr.get('sources', 0)} other installs, people who "
                            f"hold {ant} tend to hold {cons} "
                            f"(held in {pr['support']} of {total}); {tgt} holds {ant}")
@@ -729,6 +996,22 @@ def interrogate(p, db) -> dict:
     result = {"supported": [], "refuted": [], "lapsed": [], "asking": [],
               "updated": 0}
     profs = _profiles(db, p, T)
+    # Who holds each proposition, and what each proposition's declared
+    # opposites are, both built once for the pass. The corroboration scan below
+    # used to walk every entity for every open hypothesis and ask the engine
+    # for declared opposites inside that walk, which is one engine query per
+    # hypothesis per entity. Neither depends on the entity being examined.
+    holders_of: dict = {}
+    for _e, _pa in profs.items():
+        for _x in _pa[0]:
+            holders_of.setdefault(_x, set()).add(_e)
+    _opp_cache: dict = {}
+
+    def _opposites(prop_: str) -> set:
+        if prop_ not in _opp_cache:
+            _opp_cache[prop_] = set(_declared_opposites(p, prop_))
+        return _opp_cache[prop_]
+
     for row in db.execute("SELECT * FROM hypotheses WHERE project_id=? AND "
                           "status IN ('open','asking') ORDER BY id", (p.id,)):
         docket = json.loads(row["docket"])
@@ -742,7 +1025,7 @@ def interrogate(p, db) -> dict:
             docket["undermines"].append(
                 {"kind": "reality", "detail": f"{subject}: {prop} is {state}"})
         else:
-            for opp in sorted(_declared_opposites(p, prop)):
+            for opp in sorted(_opposites(prop)):
                 if p.engine.proposition_state([subject], opp, T) == "BELIEVED_TRUE":
                     verdict = "refuted"
                     docket["undermines"].append(
@@ -764,8 +1047,15 @@ def interrogate(p, db) -> dict:
                                "is no longer believed"})
         strength = row["strength"]
         if verdict is None:
-            # circumstantial: other look-alikes holding, or opposing, the claim
-            for other in sorted(profs):
+            # circumstantial: other look-alikes holding, or opposing, the claim.
+            # Only entities holding the claim or one of its declared opposites
+            # can do anything in this loop, so the rest are skipped. Sorted, so
+            # the docket reads in the same order it always did.
+            opps = _opposites(prop)
+            relevant = set(holders_of.get(prop, ()))
+            for _o in opps:
+                relevant |= holders_of.get(_o, set())
+            for other in sorted(relevant):
                 if other in (subject, row["generator"]) or _kind(other) != _kind(subject):
                     continue
                 if prop in profs[other][0] and not any(
@@ -773,7 +1063,7 @@ def interrogate(p, db) -> dict:
                     docket["supports"].append({"kind": "corroborating_case",
                                                "entity": other})
                     strength = min(STRENGTH_CEILING, strength + 0.05)
-                for opp in _declared_opposites(p, prop):
+                for opp in opps:
                     if opp in profs[other][0] and not any(
                             u.get("entity") == other for u in docket["undermines"]):
                         docket["undermines"].append({"kind": "counter_case",

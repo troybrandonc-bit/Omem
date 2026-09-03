@@ -62,8 +62,19 @@ print("== the miner refuses what learn_priors refuses ==")
 A, C = sim.ANTECEDENTS[0], sim.CONSEQUENTS[0]
 two = [({A}, {C}), ({A}, {C})]
 check("two subjects are not a law of humanity", sim.mine(two) == {}, sim.mine(two))
-three = [({A}, {C})] * 3
-check("three clear the floor", (A, C) in sim.mine(three), sim.mine(three))
+# Three who hold both, and three who hold neither. Without the second half
+# every subject holds C, so its base rate is 1.0 and the pair carries no lift:
+# the fixture would be the very thing PRIOR_MIN_LIFT exists to refuse.
+# Twelve who hold both and twelve who hold neither. Three of three used to be
+# enough; the Wilson bound will not call three people a regularity, and that
+# is the point of it, so the fixture states a sample the rule can believe.
+enough = [({A}, {C})] * 12 + [(set(), set())] * 12
+check("a clean pair on twelve people, with the consequent not universal, "
+      "is kept", (A, C) in sim.mine(enough), sim.mine(enough))
+check("the same pair on three people is not: a bound is not a rate",
+      sim.mine([({A}, {C})] * 3 + [(set(), set())] * 3) == {})
+check("and not when everyone holds the consequent anyway, at any size",
+      sim.mine([({A}, {C})] * 12) == {}, sim.mine([({A}, {C})] * 12))
 weak = [({A}, {C})] * 3 + [({A}, set())] * 3
 check("a pattern that holds half the time is not a prior",
       sim.mine(weak) == {}, sim.mine(weak))

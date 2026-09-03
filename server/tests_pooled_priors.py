@@ -87,17 +87,39 @@ bare.row_factory = sqlite3.Row
 check("no pooled table reads as no pooled priors", _h._pooled_rows(bare) == [])
 check("and commons.pooled agrees", commons.pooled(bare) == [])
 
-print("== the discount only ever makes a hunch more cautious ==")
+print("== borrowing raises the bar rather than capping the answer ==")
+# This section used to recompute the old formula inline, which meant it kept
+# passing after the engine stopped doing that. It now asks the engine.
 check("POOLED_DISCOUNT is below 1", 0 < _h.POOLED_DISCOUNT < 1, _h.POOLED_DISCOUNT)
-base = _h._birth_strength((0, 0), (0, 0))
-disc = round(max(_h.STRENGTH_FLOOR, base * _h.POOLED_DISCOUNT), 2)
-check("a borrowed prior is born weaker than the same prior mined here",
-      disc < base, (base, disc))
-bold = _h._birth_strength((10, 0), (10, 0))
-check("even a well-recorded generator cannot push a pooled hunch above local",
-      round(max(_h.STRENGTH_FLOOR, bold * _h.POOLED_DISCOUNT), 2) < bold)
-check("the discount cannot fall through the floor",
-      round(max(_h.STRENGTH_FLOOR, 0.05 * _h.POOLED_DISCOUNT), 2) >= _h.STRENGTH_FLOOR)
+K_LOCAL = _h.BIRTH_K
+K_BORROWED = _h.BIRTH_K / _h.POOLED_DISCOUNT
+check("borrowing takes more evidence, not a smaller answer",
+      K_BORROWED > K_LOCAL, (K_LOCAL, K_BORROWED))
+
+HOUSE = 0.4
+def local(rec):
+    return _h._birth_strength(rec, (0, 0), HOUSE, K_LOCAL)
+def borrowed(rec):
+    return _h._birth_strength(rec, (0, 0), HOUSE, K_BORROWED)
+
+check("with no record at all the two agree: there is nothing yet to be "
+      "cautious about", local((0.0, 0.0)) == borrowed((0.0, 0.0)) == 0.4)
+check("on the same winning record a borrowed prior is born weaker",
+      borrowed((3.0, 0.0)) < local((3.0, 0.0)),
+      (local((3.0, 0.0)), borrowed((3.0, 0.0))))
+check("and on the same losing record it is born stronger, because caution "
+      "cuts both ways: it is slower to condemn as well as slower to trust",
+      borrowed((0.0, 3.0)) > local((0.0, 3.0)),
+      (local((0.0, 3.0)), borrowed((0.0, 3.0))))
+check("a borrowed prior that keeps being right here can eventually reach the "
+      "ceiling, because by then it has a record on THIS install's people and "
+      "is not really borrowed any more",
+      borrowed((60.0, 0.0)) == _h.STRENGTH_CEILING, borrowed((60.0, 0.0)))
+check("it still cannot pass the ceiling, which is the cap that stays",
+      borrowed((10000.0, 0.0)) == _h.STRENGTH_CEILING)
+check("nor fall through the floor", borrowed((0.0, 10000.0)) == _h.STRENGTH_FLOOR)
+check("and the engine takes this path rather than multiplying afterwards",
+      "BIRTH_K / POOLED_DISCOUNT" in open("hypotheses.py", encoding="utf-8").read())
 
 print("== local knowledge is never displaced by borrowed knowledge ==")
 # The rule leap() applies: a pair a local prior already covers is dropped

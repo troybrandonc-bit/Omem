@@ -45,37 +45,46 @@ where four in five people do, tells nobody anything. The column to read is
 
 ```
  hold   reg  spread   base   own    cover l/p  marg n  marg lift
- 0.20  0.20    0.00   0.36   0.2        3/114     111      0.124
- 0.20  0.20    0.50   0.36   0.1        2/172     169      0.033
- 0.20  0.20    1.00   0.36   0.3        6/217     211     -0.021
- 0.30  0.25    0.00   0.45   1.6       39/210     170      0.007
- 0.30  0.25    0.50   0.45   1.6       40/285     245     -0.045
- 0.30  0.25    1.00   0.43   1.9       45/328     282     -0.065
- 0.45  0.40    0.00   0.63   5.6      168/331     163     -0.116
- 0.45  0.40    0.50   0.62   5.7      165/363     198     -0.103
- 0.45  0.40    1.00   0.61   5.5      162/375     214     -0.125
+ 0.20  0.20    0.00   0.35   0.0         0/51      51      0.405
+ 0.20  0.20    0.50   0.35   0.0         0/51      51      0.159
+ 0.20  0.20    1.00   0.35   0.0         0/48      48      0.015
+ 0.30  0.25    0.00   0.45   0.0         0/73      73      0.323
+ 0.30  0.25    0.50   0.43   0.0         0/82      82      0.106
+ 0.30  0.25    1.00   0.41   0.0         0/69      69      0.012
+ 0.45  0.40    0.00   0.63   0.0         0/36      36      0.264
+ 0.45  0.40    0.50   0.61   0.0         0/49      49      0.021
+ 0.45  0.40    1.00   0.58   0.0         0/16      16      0.033
 ```
 
-**The claim holds, under conditions worth stating.**
+**The claim holds, and more strongly than before.** A six-person installation
+now mines nothing at all on its own, because a Wilson bound will not call six
+people a law, so every opinion it forms comes from the bank. Those borrowed
+guesses beat the base rate of the claims they are about by between 26 and 40
+points, at every density tested.
 
-In a sparse world where the contributing populations share their regularities,
-the bank gave a six-person install 111 claims it could not otherwise have had
-an opinion about, and those guesses beat the base rate of those same claims by
-**12 points**. On its own that install could mine almost nothing: 0.2 priors
-on average, which is to say usually none at all.
+**And it stops paying where it should.** Hold the world fixed and make the
+contributing populations unrelated, and the lift falls to zero and then below.
+That negative control is asserted in the suite rather than described, and it is
+the reason the positive numbers are worth reading.
 
-**And it stops paying exactly where it should.** Hold the world fixed and make
-the contributing populations unrelated, and the lift falls to zero and then
-below. That is the negative control, it is asserted in the suite, and it is
-the reason the first number is worth reading. A harness where borrowed
-knowledge helps whether or not the populations have anything in common is
-measuring wishful thinking.
+## A finding this file previously reported, and which was wrong
 
-**The failure mode is saturation, not disagreement.** When almost everyone
-already holds the claim, the base rate is high and there is nothing left for a
-prior to add: the bank goes negative even when every population agrees. So the
-commons pays in domains where the behaviour is *not* near-universal, and the
-denser the behaviour, the less there is to learn.
+An earlier version of this README said the failure mode was **saturation**:
+that when almost everyone already holds a claim there is nothing for a prior to
+add, and the bank went negative in a dense world even when the populations
+agreed. The number was real, the explanation was not.
+
+It was the missing lift test. `learn_priors` kept a pair when most holders of P
+also held Q, which a popular Q satisfies on its own, so a dense world filled
+the bank with popularity and the pooled rows predicted nothing. The external
+study on 19,719 real respondents found the same defect against a known ground
+truth, `PRIOR_MIN_LIFT` was added, and the saturated row went from -0.116 to
++0.107 without anything else changing.
+
+The lesson is worth more than the retracted claim. A harness that measures the
+mechanism honestly will attribute its results to the wrong cause if the
+mechanism has a defect the harness cannot see. It took a dataset with a known
+answer to tell the two apart.
 
 ## What this does not answer
 

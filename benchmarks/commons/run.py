@@ -109,13 +109,6 @@ def render(rows: list) -> str:
                        f"paying, which is")
             out.append("what makes the first number believable rather than an "
                        "artefact.")
-    dense = [r for r in rows if (r["hold"], r["signal_frac"]) == DENSITY[-1]]
-    if dense and dense[0]["marginal"]["lift"] is not None:
-        out.append("")
-        out.append(f"Saturated world: lift {dense[0]['marginal']['lift']:+.3f} "
-                   f"even when populations agree. When almost")
-        out.append("everyone already holds the claim, there is nothing a prior "
-                   "can add.")
     out.append("")
     return "\n".join(out)
 

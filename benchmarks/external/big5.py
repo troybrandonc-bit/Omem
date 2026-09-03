@@ -48,6 +48,7 @@ import commons as _c  # noqa: E402
 
 PRIOR_FLOOR_N = _h.PRIOR_FLOOR_N
 PRIOR_MIN_RATE = _h.PRIOR_MIN_RATE
+PRIOR_MIN_LIFT = _h.PRIOR_MIN_LIFT
 STRENGTH_FLOOR = _h.STRENGTH_FLOOR
 POOLED_DISCOUNT = _h.POOLED_DISCOUNT
 POOLED_MIN_SOURCES = _c.POOLED_MIN_SOURCES
@@ -96,10 +97,12 @@ def load(path: str = CACHE, limit: int | None = None) -> list:
     return rows, items
 
 
-def mine(subjects: list) -> dict:
-    """learn_priors' rule, unchanged: at least PRIOR_FLOOR_N subjects hold
-    both, and the rate among those holding the antecedent clears
-    PRIOR_MIN_RATE."""
+def mine(subjects: list, lift: float | None = None) -> dict:
+    """learn_priors' rule: at least PRIOR_FLOOR_N subjects hold both, the rate
+    among those holding the antecedent clears PRIOR_MIN_RATE, and it beats the
+    consequent's own base rate by PRIOR_MIN_LIFT. Pass `lift` to sweep the
+    margin; the default is whatever the engine ships."""
+    margin = _h.PRIOR_MIN_LIFT if lift is None else lift
     holders, opposers = {}, {}
     for i, (h, o) in enumerate(subjects):
         for p in h:
@@ -119,6 +122,12 @@ def mine(subjects: list) -> dict:
                 continue
             if support / (support + refute) < PRIOR_MIN_RATE:
                 continue
+            q_yes = len(holders.get(c, set()))
+            q_no = len(opposers.get(c, set()))
+            if q_yes + q_no and margin is not None:
+                bound = _h._wilson_lower(support, support + refute)
+                if bound < (q_yes / (q_yes + q_no)) + margin:
+                    continue
             out[(a, c)] = (support, refute, len(base))
     return out
 
@@ -159,8 +168,9 @@ class Install:
         self.record = {}
 
     def strength(self, key, borrowed: bool) -> float:
-        s = _h._birth_strength(self.record.get(key, (0.0, 0.0)), (0, 0))
-        return round(max(STRENGTH_FLOOR, s * POOLED_DISCOUNT), 2) if borrowed else s
+        house = _h._house_rate(self.record.values())
+        k = _h.BIRTH_K / POOLED_DISCOUNT if borrowed else _h.BIRTH_K
+        return _h._birth_strength(self.record.get(key, (0.0, 0.0)), (0, 0), house, k)
 
     def guess(self, held: set, silent: set):
         """Every hypothesis about one stranger. Fires only into a silence."""
@@ -179,10 +189,20 @@ class Install:
 
 
 def trial(seed: int, rows: list, n_installs: int = 12, peers_each: int = 250,
-          local_subjects: int = 6, strangers: int = 400) -> dict:
+          local_subjects: int = 6, strangers: int = 400,
+          burn_in: int = 0) -> dict:
     """One run. Peers fill the bank, a young installation meets strangers it
     has never seen, and one answer each of them really gave is hidden and asked
-    for back."""
+    for back.
+
+    `burn_in` is the number of strangers whose verdicts teach the installation
+    but are not scored. With none, this measures what a brand new install
+    experiences, which is a real thing that happens exactly once. With a
+    burn-in it measures the state an install is in for the rest of its life,
+    which is a different question and the one that matters more.
+
+    The burn-in people are held out of the scored set entirely, so nothing an
+    installation is graded on is something it has already been told."""
     rng = random.Random(seed)
     pool_rows = list(rows)
     rng.shuffle(pool_rows)
@@ -196,7 +216,7 @@ def trial(seed: int, rows: list, n_installs: int = 12, peers_each: int = 250,
 
     local = mine(pool_rows[cut:cut + local_subjects])
     cut += local_subjects
-    people = pool_rows[cut:cut + strangers]
+    people = pool_rows[cut:cut + strangers + burn_in]
 
     # Hide one answer each person actually gave: that is the silence.
     cases = []
@@ -212,6 +232,11 @@ def trial(seed: int, rows: list, n_installs: int = 12, peers_each: int = 250,
             "item": hidden,
         })
 
+    # The burn-in cases teach and are then set aside; only the rest are scored,
+    # and the base rate is computed over the scored set alone so the yardstick
+    # measures the same claims as the guesses.
+    warmup, cases = cases[:burn_in], cases[burn_in:]
+
     base = {}
     for c in cases:
         yes, no = base.get(c["item"], (0, 0))
@@ -225,6 +250,9 @@ def trial(seed: int, rows: list, n_installs: int = 12, peers_each: int = 250,
     asked = {}
     for label, pooled in (("local", None), ("pooled", bank)):
         inst = Install(local, pooled)
+        for c in warmup:
+            for key, item, st, _b in inst.guess(c["held"], c["silent"]):
+                inst.learn(key, st, c["truth"])
         recs = []
         for i, c in enumerate(cases):
             for key, item, st, borrowed in inst.guess(c["held"], c["silent"]):

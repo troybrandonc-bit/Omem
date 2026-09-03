@@ -51,48 +51,92 @@ of **0.76** against an overall item mean of **0.57**. `PRIOR_MIN_RATE` asks
 whether 60% of the people holding P also hold Q. If 76% of *everyone* holds Q,
 that condition is met by Q being popular, and says nothing about P.
 
-**Requiring lift recovers the structure, monotonically.** Keep only priors
-whose rate among antecedent-holders beats the consequent's own base rate:
+**Requiring lift recovers the structure**, and requiring it of the rate's
+*lower bound* rather than the rate itself recovers far more of it. A raw rate
+treats three of three as certainty; a Wilson bound does not, so a pair resting
+on a handful of people must be much cleaner than one resting on hundreds to
+earn the same standing.
 
 ```
-margin   priors kept   within-factor
-+0.00        964          0.213
-+0.05        522          0.310
-+0.10        252          0.472
-+0.15        160          0.619
+                    priors  within-f  consequent BR  marginal n  marg lift
+no lift test          1269     0.199           0.76         120     +0.040
+shipped                 72     0.875           0.48         152     +0.128
 ```
 
-At +0.15 the miner finds same-factor pairs at 3.4 times chance. It recovers
-the Big Five without being told the Big Five exists.
+Chance is 0.184. The shipped rule recovers same-factor pairs at **4.8 times
+chance**, triples the lift, and does it while forming opinions about MORE
+claims than the unfiltered rule, not fewer. Ninety-four per cent of the priors
+are gone and the coverage went up, which is what it looks like when the
+discarded ones were firing constantly and saying nothing.
 
-**The prediction results, for completeness**, on 400 held-out answers per
-trial. Lift is precision minus the base rate of the very items guessed at:
+The bound was chosen at a margin of 0.10 rather than the 0.15 that scored best
+in the sweep, for the same reason as before: the sweep was run on the data it
+was evaluated against, and 0.10 already beats the incumbent on every axis
+including coverage.
 
-```
-              coverage   precision     lift
-local            207       0.737      +0.003
-pooled           325       0.676      +0.015
-marginal         118       0.578      +0.039
-```
+## What followed
 
-Borrowed priors beat the base rate, and barely. That is what a rule selecting
-for popularity would produce: it guesses the popular answer, is often right,
-and has told you almost nothing.
+The change shipped. `learn_priors` now requires the Wilson lower bound of a
+pair's rate to clear the consequent's own base rate by `PRIOR_MIN_LIFT`, on
+top of the support floor and the reliability rate that were already there.
+Both were kept: the bound says whether a pair is informative, the rate says
+whether it is reliable enough to act on, and dropping the rate test scored
+worse on every measure here.
 
-## What follows
+It altered what every installation learns and what the commons is filled with,
+which is why it was worth doing before installations arrived rather than
+after. A bank filled under the old rule would have held popularity, and
+pooling does not improve a corpus whose entries were never associations.
 
-`learn_priors` keeps a pair when the rate among antecedent-holders clears
-`PRIOR_MIN_RATE`. On this evidence that is the wrong test, and the right one
-compares the rate to the consequent's own base rate. The change is small and
-its consequences are not: it alters what every installation learns and what
-the commons is filled with.
-
-That is worth doing before installations arrive rather than after. A bank
-filled under the current rule would be full of popularity, and no amount of
-pooling improves a corpus whose entries were never associations.
+It also corrected a finding published the same day. The commons benchmark had
+reported that the pooled bank fails in a saturated world, where almost
+everyone already holds the claim. The number was real and the explanation was
+wrong: it was this defect. With the rule fixed, that case went from -0.116 to
++0.264, and the harness's negative control still behaves.
 
 ## What this does not show
 
 It says nothing about whether personality items resemble the working
 behaviours the commons vocabulary describes. It tests the *rule*, on a
 population with real structure, and the rule is what was found wanting.
+
+## The second thing this dataset found
+
+Once the prior rule was fixed, the same harness could be pointed at the other
+half of the intuition layer: how bold a hunch is born.
+
+Birth strength was `BASE_STRENGTH` plus fixed steps per verdict, clamped. That
+is not a probability of anything, and the calibration benchmark was scoring it
+as though it were. Measured here it carried no information at all.
+
+```
+                                              brier    skill   pred / obs
+linear steps, constant anchor                0.3687   -0.689
+posterior mean, anchor learned               0.2674   -0.176   0.45 / 0.65
+...with borrowing raising the bar            0.2281   -0.003   0.58 / 0.66
+```
+
+Three findings, in the order they appeared.
+
+**The anchor was the problem, not the estimator.** `BASE_STRENGTH` is 0.35, a
+guess about a population nobody had seen; hunches here land 68% of the time.
+Moving the anchor to the install's own observed rate improved skill five-fold,
+while changing the estimator's shape barely moved it. The house rate is now
+learned, and itself shrunk toward 0.35 until there is enough of a record to
+believe it.
+
+**A measurement can be confounded by a design choice.** The first sweep said a
+small pseudo-count scored best. It scored best because birth strength is
+capped below the rate these hunches achieve, so the sweep rewarded whatever
+reached the cap fastest. The guard caught the consequence: at that value, one
+win took a generator straight to the ceiling. The constant was set on the
+principle instead.
+
+**Two refusals were stacking into a fixed error.** Every guess a young install
+makes is borrowed, because six people cannot mine a prior. A borrowed hunch was
+capped at the ceiling times the discount, 0.45, while borrowed hunches were
+landing 65% of the time. That is not caution, it is a twenty point error that
+no amount of evidence could correct. Borrowing now raises the bar instead:
+a borrowed prior needs more of its own record before it moves off the house
+rate, and once it has proved itself on this install's people it is not really
+borrowed any more. The ceiling stays as the only hard cap.

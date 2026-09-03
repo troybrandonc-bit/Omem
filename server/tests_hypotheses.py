@@ -136,12 +136,15 @@ mem.remember(A, ["customer:epsilon", "product:crm"], "rel_uses_crm")
 r3 = mem.leap()
 eps = [x for x in r3.get("leapt", []) if x["subject"] == "customer:epsilon"
        and x["proposition"] == "wants_pdf_invoices"]
-# The record moves by what the verdict TAUGHT, not by one. The gamma hunch
-# was born at 0.35 and reality confirmed it, so being right was a surprise of
-# 0.65, and that is what both records are credited with.
+# Birth strength is now the posterior mean of this generator's hit rate,
+# shrunk toward what this install's hunches do in general, so the number is a
+# probability rather than a running total of fixed steps. The gamma hunch was
+# born at 0.35 and confirmed, so the win taught 0.65; alpha and the wants
+# family each carry it, the family at half weight, and the house rate is still
+# near BASE_STRENGTH because one verdict barely moves it.
 check("a confirmed generator leaps STRONGER next time, and so does a "
-      "confirmed claim-family (0.35 + 0.05x0.65 gen + 0.03x0.65 family)",
-      eps and eps[0]["strength"] == 0.4, eps)
+      "confirmed claim-family",
+      eps and eps[0]["strength"] == 0.44, eps)
 mem.remember(A, "customer:epsilon", "not:wants_pdf_invoices")
 verdicts2 = mem.interrogate()
 check("reality refuted the leap: REFUTED",
@@ -160,14 +163,15 @@ r5 = mem.leap()
 th = [x for x in r5.get("leapt", []) if x["subject"] == "customer:theta"
       and x["proposition"] == "wants_pdf_invoices"]
 # One win and one loss, each weighted by its own prediction error: the win
-# was a 0.65 surprise, the refutation at 0.4 was a 0.4 one. Losses still cost
-# more per unit than wins pay, and here the two cancel exactly. Under flat
-# counting the same two verdicts scored 0.30 -- the gap is what weighting
-# changed, and it is the tentative loss no longer being charged as if it had
-# been a confident one.
-check("verdicts teach twice over, and by how much each one taught: a win at "
-      "0.35 and a near-even loss at 0.4 leave boldness back at baseline",
-      th and th[0]["strength"] == 0.35, th)
+# was a 0.65 surprise, the refutation at 0.4 was a 0.4 one. A record of roughly
+# one and a half wins to six tenths of a loss, against a house rate that has
+# barely moved, lands above the house and below the ceiling. Two rewrites ago
+# this number was 0.30 under flat counts and 0.35 under weighted ones; it is a
+# probability now, and it says a generator with more wins than losses should be
+# trusted more than the average hunch and nothing like as much as evidence.
+check("verdicts teach twice over, and by how much each one taught: a win "
+      "and a near-even loss leave it barely above the house rate",
+      th and th[0]["strength"] == 0.4, th)
 
 print("== the source dying lapses the leap ==")
 webinars = mem.remember(A, "customer:beta", "likes_webinars")
