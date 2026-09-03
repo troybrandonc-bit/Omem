@@ -288,13 +288,22 @@ init = rpc({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
 check("MCP initialize", init["result"]["serverInfo"]["name"] == "omem")
 tl = rpc({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
 names = [t["name"] for t in tl["result"]["tools"]]
-# Four now, not three. omem_remember was added because observe() runs a fixed
-# extraction vocabulary and silently dropped anything outside it, which left MCP
-# clients with no way to record a fact they already knew. The list is still
-# asserted exactly, because "no dangerous primitives" is a property of this
-# surface and a new tool appearing unnoticed is what that check exists to catch.
-check("MCP exposes exactly recall/observe/remember/why/believes",
-      sorted(names) == ["omem_believes", "omem_observe", "omem_recall",
+# Eight now. omem_remember was added because observe() runs a fixed extraction
+# vocabulary and silently dropped anything outside it, which left MCP clients
+# with no way to record a fact they already knew. expects, priors and brief were
+# added because the intuition layer was reachable from the SDK and the HTTP API
+# but not from MCP, which is how most agents connect: everything that layer
+# learned was invisible to the caller who needed it.
+#
+# All three additions are reads. There is deliberately no tool to promote a
+# hypothesis, answer its open question, or run a leap: a hunch gets its verdict
+# from reality during interrogation, and no model gets a lever that marks one
+# true by saying so. The list is still asserted exactly, because "no dangerous
+# primitives" is a property of this surface and a new tool appearing unnoticed
+# is what that check exists to catch.
+check("MCP exposes exactly the eight read/observe tools and no promotion lever",
+      sorted(names) == ["omem_believes", "omem_brief", "omem_expects",
+                        "omem_observe", "omem_priors", "omem_recall",
                         "omem_remember", "omem_why"],
       str(names))
 rc = rpc({"jsonrpc": "2.0", "id": 3, "method": "tools/call",
