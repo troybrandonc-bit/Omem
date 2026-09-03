@@ -113,6 +113,10 @@ PRIOR_LIFT_Z = 1.96      # the 95% one-sided bound, so "three of three" is not
 # it takes before the house rate is believed at all. Both are pseudo-counts:
 # BIRTH_K is the weight of the prior on one generator's record, ANCHOR_K the
 # weight of BASE_STRENGTH on the install's overall record.
+# Below this a generator's record is reported with a note rather than as a
+# rate, because a rate on two verdicts is not a rate about anything.
+MIN_VERDICTS_FOR_RATE = 5
+
 BIRTH_K = 8.0            # one verdict nudges a generator, thirty move it a
                          # long way. A smaller number scored better on Brier
                          # here, but only because birth strength is capped
@@ -163,6 +167,7 @@ CREATE TABLE IF NOT EXISTS leap_generators(
   project_id TEXT NOT NULL, generator TEXT NOT NULL,
   wins INTEGER NOT NULL, losses INTEGER NOT NULL,
   w_wins REAL, w_losses REAL,
+  base_sum REAL, verdicts INTEGER,
   PRIMARY KEY(project_id, generator));
 CREATE TABLE IF NOT EXISTS priors(
   id TEXT NOT NULL, project_id TEXT NOT NULL,
@@ -179,7 +184,7 @@ def ensure_schema(db):
     a table that already exists, and every install that has ever scored a
     generator already has this one."""
     db.executescript(HYPOTHESES_SCHEMA)
-    for col in ("w_wins", "w_losses"):
+    for col in ("w_wins", "w_losses", "base_sum", "verdicts"):
         try:
             db.execute("ALTER TABLE leap_generators ADD COLUMN %s REAL" % col)
         except Exception:
@@ -444,16 +449,68 @@ def _gen_counts(db, project_id: str, generator: str) -> tuple[int, int]:
 
 
 def _score_generator(db, project_id: str, generator: str, won: bool,
-                     strength: float):
+                     strength: float, base: float | None = None):
+    """Record a verdict, and what chance would have been on the same claim.
+
+    A win rate on its own is the defect the mining rule was repaired for, one
+    level up. `rate = wins / (wins + losses)` says nothing about whether the
+    guesses were worth making: a generator that only ever predicts claims most
+    people hold accumulates an excellent record and carries no information, in
+    exactly the way a prior selected on popularity did. PRIOR_MIN_LIFT stopped
+    that happening in the miner; nothing stopped it here, and this number feeds
+    birth strength, so the confounded quantity propagated into every forecast.
+
+    `base` is the claim's own rate in the population at the moment the verdict
+    landed. Accumulated, it makes the record's lift readable: how much better
+    than chance this generator has been, rather than merely how often it was
+    right about things that were usually true anyway. It is recorded rather
+    than acted on: correcting birth strength by it is a change that should be
+    measured before it is made, not assumed."""
     wins, losses = _gen_counts(db, project_id, generator)
     w_wins, w_losses = _gen_record(db, project_id, generator)
+    bs, vd = _gen_base(db, project_id, generator)
     s = surprise(strength, won)
     db.execute("INSERT OR REPLACE INTO leap_generators(project_id, generator, "
-               "wins, losses, w_wins, w_losses) VALUES(?,?,?,?,?,?)",
+               "wins, losses, w_wins, w_losses, base_sum, verdicts) "
+               "VALUES(?,?,?,?,?,?,?,?)",
                (project_id, generator, wins + (1 if won else 0),
                 losses + (0 if won else 1),
-                w_wins + (s if won else 0.0), w_losses + (0.0 if won else s)))
+                w_wins + (s if won else 0.0), w_losses + (0.0 if won else s),
+                bs + (base if base is not None else 0.0),
+                vd + (1 if base is not None else 0)))
     db.commit()
+
+
+def _gen_base(db, project_id: str, generator: str) -> tuple:
+    """The accumulated chance level behind one generator's verdicts."""
+    try:
+        r = db.execute("SELECT base_sum, verdicts FROM leap_generators "
+                       "WHERE project_id=? AND generator=?",
+                       (project_id, generator)).fetchone()
+    except Exception:
+        return (0.0, 0)          # database predating these columns
+    if not r:
+        return (0.0, 0)
+    return (r["base_sum"] or 0.0, int(r["verdicts"] or 0))
+
+
+def base_rate_of(profs: dict, prop: str) -> float | None:
+    """How often a claim is held in this population, counting only those who
+    took a position. A negated claim's rate is the rate of denying it.
+
+    This is the yardstick a verdict has to beat to have meant anything, and it
+    is the number the record was missing."""
+    bare = prop[4:] if prop.startswith("not:") else prop
+    yes = no = 0
+    for pa in profs.values():
+        held = pa[0]
+        if bare in held:
+            yes += 1
+        elif ("not:" + bare) in held:
+            no += 1
+    if not (yes + no):
+        return None
+    return (no / (yes + no)) if prop.startswith("not:") else yes / (yes + no)
 
 
 def _wilson_lower(k: int, n: int, z: float = PRIOR_LIFT_Z) -> float:
@@ -602,11 +659,42 @@ def calibration(db, project_id: str) -> dict:
                   "rate": round(w / (w + l), 2) if (w + l) else None}
             for fam, (w, l) in sorted(_family_records(db, project_id).items())}
     gens = {}
-    for r in db.execute("SELECT generator, wins, losses FROM leap_generators "
-                        "WHERE project_id=? ORDER BY generator", (project_id,)):
+    try:
+        rows = list(db.execute(
+            "SELECT generator, wins, losses, base_sum, verdicts FROM "
+            "leap_generators WHERE project_id=? ORDER BY generator",
+            (project_id,)))
+    except Exception:      # database predating the base-rate columns
+        rows = [dict(r, base_sum=None, verdicts=None) for r in db.execute(
+            "SELECT generator, wins, losses FROM leap_generators "
+            "WHERE project_id=? ORDER BY generator", (project_id,))]
+    for r in rows:
         t = r["wins"] + r["losses"]
-        gens[r["generator"]] = {"supported": r["wins"], "refuted": r["losses"],
-                                "rate": round(r["wins"] / t, 2) if t else None}
+        rate = round(r["wins"] / t, 2) if t else None
+        e = {"supported": r["wins"], "refuted": r["losses"], "rate": rate,
+             "n": t}
+        vd = int(r["verdicts"] or 0) if r["verdicts"] is not None else 0
+        if vd and rate is not None:
+            exp = (r["base_sum"] or 0.0) / vd
+            e["expected"] = round(exp, 3)
+            e["lift"] = round(rate - exp, 3)
+        # The condition travels with the number. A rate whose lift is unknown,
+        # or which rests on too few verdicts to be a rate about anything, says
+        # so here rather than leaving the reader to assume otherwise -- the one
+        # place this was already done, the calibration scorer's note about the
+        # strength cap, is what identified the largest defect this layer had.
+        if t < MIN_VERDICTS_FOR_RATE:
+            e["note"] = ("%d verdict(s): too few to be a rate about anything"
+                         % t)
+        elif "lift" not in e:
+            e["note"] = ("rate only, no lift: these verdicts predate the "
+                         "base rate being recorded, so how much better than "
+                         "chance this was is unknown")
+        elif e["lift"] <= 0:
+            e["note"] = ("no better than the claim's own base rate: this "
+                         "generator has been right about things that were "
+                         "usually true anyway")
+        gens[r["generator"]] = e
     return {"families": fams, "generators": gens,
             "priors": priors(db, project_id)}
 
@@ -892,6 +980,44 @@ def leap(p, db, about: str | None = None) -> dict:
     # Every new generator starts here instead of at a constant nobody measured.
     house = _house_rate(gen_recs.values())
     result = {"examined": 0, "leapt": [], "skipped_spent": 0, "refused": []}
+    # The system could not see its own selection. It answers only where a
+    # prior fires, and that is not a random subset: measured against an
+    # external reference it turned out to answer the claims whose base rate
+    # already supplies most of the answer, and to decline the balanced ones
+    # where a forecast is worth most. That was invisible from in here.
+    #
+    # So a pass now reports the mean base rate of the claims it spoke about
+    # beside the mean over every claim in the population. If the first is much
+    # the higher, the pass was picking the easy questions, and it says so.
+    _base_cache: dict = {}
+
+    def _base_of(prop):
+        if prop not in _base_cache:
+            _base_cache[prop] = base_rate_of(profs, prop)
+        return _base_cache[prop]
+
+    _spoken: list = []
+    _all_props = {x for pa in profs.values() for x in pa[0]}
+    _pop_bases = [b for b in (_base_of(x) for x in sorted(_all_props))
+                  if b is not None]
+    if _pop_bases:
+        result["population_base_mean"] = round(
+            sum(_pop_bases) / len(_pop_bases), 3)
+
+    def _note_spoken(prop):
+        """Recorded as it happens, not totalled at the end. leap returns from
+        inside its loops when MAX_NEW_PER_RUN fills, so anything computed at
+        the bottom is missing precisely on the pass where the cap fired -- and
+        that is the state a mature installation is in every time."""
+        b = _base_of(prop)
+        if b is None:
+            return
+        _spoken.append(b)
+        result["spoken_base_mean"] = round(sum(_spoken) / len(_spoken), 3)
+        if _pop_bases:
+            result["selection_bias"] = round(
+                result["spoken_base_mean"]
+                - result["population_base_mean"], 3)
     spent = {r["fp"] for r in db.execute(
         "SELECT fp FROM hypotheses WHERE project_id=?", (p.id,))}
     # ONE hypothesis per claim: a second look-alike holding the same belief
@@ -962,6 +1088,7 @@ def leap(p, db, about: str | None = None) -> dict:
                             strength, "open", json.dumps(docket), 0, fp, time.time()))
                 spent.add(fp)
                 claimed.add((tgt, prop))
+                _note_spoken(prop)
                 result["leapt"].append({"hypothesis": hid, "subject": tgt,
                                         "proposition": prop, "strength": strength,
                                         "because": because})
@@ -1099,9 +1226,14 @@ def leap(p, db, about: str | None = None) -> dict:
                         strength, "open", json.dumps(docket), 0, fp, time.time()))
             spent.add(fp)
             claimed.add((tgt, bare_cons))
+            _note_spoken(cons)
             result["leapt"].append({"hypothesis": hid, "subject": tgt,
                                     "proposition": cons, "strength": strength,
                                     "because": because, "from_prior": pr["id"]})
+    # What this pass chose to speak about, against what was available to speak
+    # about. Reported rather than acted on: a pass that answers only the easy
+    # claims is not necessarily wrong, but it should not be able to look the
+    # same as one that answers the hard ones.
     db.commit()
     return result
 
@@ -1233,8 +1365,12 @@ def interrogate(p, db) -> dict:
                    "WHERE project_id=? AND id=?",
                    (verdict, json.dumps(docket), time.time(), p.id, row["id"]))
         if verdict in ("supported", "refuted"):
+            # What chance was on this claim, in this population, right now.
+            # Without it the record cannot say whether the guess was worth
+            # making -- only whether it happened to be right.
             _score_generator(db, p.id, row["generator"],
-                             verdict == "supported", row["strength"])
+                             verdict == "supported", row["strength"],
+                             base_rate_of(profs, prop))
         result[verdict].append({"hypothesis": row["id"], "subject": subject,
                                 "proposition": prop})
     db.commit()
