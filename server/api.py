@@ -2943,6 +2943,30 @@ class Handler(BaseHTTPRequestHandler):
         # ── the priors tier: regularities that transfer across people, each
         # with the population it was mined from and its record when applied.
         # Knowledge about people in general, holding no fact about any person.
+        # ── the intuition layer, asked a question at the moment it matters.
+        # priors() hands over everything this install has learned; this answers
+        # one question from it, and from the commons snapshot already on disk,
+        # with each answer labelled by which. No network call: the commons is a
+        # gift in both directions and never a dependency, so asking works with
+        # it unreachable or never contacted.
+        if parts == ["v1", "memory", "ask"]:
+            pid = qs.get("project", [None])[0]
+            p = PROJECTS.get(pid)
+            if not p:
+                return self._send(404, {"error": "project not found"})
+            given = (qs.get("given", [""])[0] or "").strip()
+            expect = (qs.get("expect", [""])[0] or "").strip()
+            for tok in (given, expect):
+                if tok and len(tok) > 64:
+                    return self._err(422, "invalid_request", "token too long",
+                                     param="given")
+            try:
+                limit = _clamp_limit(qs.get("limit", [None])[0], 20)
+            except (TypeError, ValueError):
+                limit = 20
+            return self._send(200, _hypo.ask(STORE.db, p.id, given=given,
+                                             expect=expect, limit=limit))
+
         if parts == ["v1", "memory", "priors"]:
             pid = qs.get("project", [None])[0]
             p = PROJECTS.get(pid)
@@ -4966,6 +4990,34 @@ class Handler(BaseHTTPRequestHandler):
         # target as hypotheses) and interrogate (work every open case against
         # everything held). Hypotheses never enter the engine; expects() is
         # the only surface they speak through, and believes() never sees one.
+        # ── weigh a belief against the population, without ruling on it.
+        # `ask` answers what to expect; this answers whether a belief already
+        # formed was defensible on what was known, which is the question a
+        # record of what an agent believed actually raises. It returns the
+        # evidence pointing each way and never a verdict of true or false:
+        # deciding what is true about a person from statistics about other
+        # people is the one thing this refuses to do.
+        if parts == ["v1", "memory", "weigh"]:
+            p = self._proj(qs)
+            if p is None:
+                return self._err(404, "not_found", "project not found")
+            claim = (body.get("claim") or "").strip()
+            if not claim or len(claim) > 64:
+                return self._err(422, "invalid_request",
+                                 "claim must be a short token", param="claim")
+            holds = body.get("holds") or []
+            if not isinstance(holds, list) or len(holds) > 64:
+                return self._err(422, "invalid_request",
+                                 "holds must be a list of at most 64 claims",
+                                 param="holds")
+            holds = [h for h in holds if isinstance(h, str) and 0 < len(h) <= 64]
+            try:
+                limit = _clamp_limit(body.get("limit"), 20)
+            except (TypeError, ValueError):
+                limit = 20
+            return self._send(200, _hypo.weigh(STORE.db, p.id, claim,
+                                               holds=holds, limit=limit))
+
         if parts == ["v1", "memory", "leap"]:
             p = self._proj(qs)
             if p is None:

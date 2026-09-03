@@ -732,12 +732,21 @@ No key, no URL, no separate server to start. On first run it starts the bundled
 server itself, creates a project, and remembers it in `~/.omem`. Restarting the
 client reuses the same memory.
 
-Eight tools. Five are the record: `omem_recall`, `omem_observe`,
-`omem_remember`, `omem_why` and `omem_believes`. Three are the intuition layer,
+Ten tools. Five are the record: `omem_recall`, `omem_observe`,
+`omem_remember`, `omem_why` and `omem_believes`. Five are the intuition layer,
 all reads: `omem_expects` (what OMEM suspects and does not believe, with its
 case file), `omem_priors` (the regularities it has learned about people in
-general) and `omem_brief` (one call at the start of a task, instead of
-assembling the same picture from four others).
+general), `omem_brief` (one call at the start of a task, instead of assembling
+the same picture from four others), `omem_ask` (one question, answered from what this install has seen itself
+first and the commons second, each labelled with the people and installations
+it rests on), and `omem_weigh` (weigh a belief you already hold against the
+population).
+
+`omem_ask` refuses rather than returning nothing when too few people support an
+answer, because "no such pattern" and "too few people to say" are different
+answers and an agent acts differently on each. It reads from disk: the commons
+snapshot is already here, so asking works with the commons unreachable or never
+contacted at all.
 
 There is no tool that promotes a hypothesis, answers its open question, or
 triggers a leap. A hunch takes its verdict from reality during interrogation,

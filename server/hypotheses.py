@@ -651,6 +651,173 @@ def _birth_strength(gen_rec: tuple, fam_rec: tuple,
     return round(max(STRENGTH_FLOOR, min(STRENGTH_CEILING, p)), 2)
 
 
+# What a query has to clear before it is answered rather than refused. A
+# published bank states what it holds; answering a QUESTION is a different act,
+# because the caller is about to do something to a person with the answer.
+ASK_MIN_SUBJECTS = 12
+
+
+def ask(db, project_id: str, given: str = "", expect: str = "",
+        limit: int = 20) -> dict:
+    """What is known about someone who holds `given`, asked at the moment it
+    matters rather than downloaded in advance.
+
+    Answers from this installation's own priors FIRST and the commons snapshot
+    second, each labelled, because knowledge about the people this install has
+    actually seen outranks knowledge borrowed from populations it has not --
+    the same order `leap` applies when it chooses which prior may speak.
+
+    Answered entirely from disk. The pooled rows are the snapshot this machine
+    already holds, so asking costs no network call and works with the commons
+    unreachable or never contacted at all. The commons is a gift in both
+    directions and never a dependency.
+
+    Refuses with a reason rather than returning an empty list. An empty answer
+    reads as `no such regularity exists`, when the truth is nearly always `too
+    few people here for this to be worth saying`, and a caller acts differently
+    on each.
+    """
+    g = (given or "").strip().lower()
+    e = (expect or "").strip().lower()
+    if not g and not e:
+        return {"answered": False, "answers": [],
+                "refused": "ask what? give `given`, a claim the person holds, "
+                           "or `expect`, a claim you want anticipated"}
+
+    def matches(a, c):
+        return (not g or a == g) and (not e or c == e)
+
+    seen, out, thin = set(), [], 0
+    tiers = [("this install", [dict(r) for r in db.execute(
+        "SELECT * FROM priors WHERE project_id=?", (project_id,))]),
+        ("the commons", _pooled_rows(db))]
+    for label, rows in tiers:
+        for r in rows:
+            a, c = r["antecedent"], r["consequent"]
+            if not matches(a, c) or (a, c) in seen:
+                continue
+            total = r["support"] + r["refute"]
+            if total <= 0:
+                continue
+            if r["subjects"] < ASK_MIN_SUBJECTS:
+                thin += 1
+                continue
+            seen.add((a, c))
+            gen = db.execute(
+                "SELECT wins, losses FROM leap_generators WHERE project_id=? "
+                "AND generator=?", (project_id, "prior:" + r["id"])).fetchone()                 if r.get("id") else None
+            out.append({
+                "given": a, "expect": c, "source": label,
+                "rate": round(r["support"] / total, 3),
+                "confident_rate": round(_wilson_lower(r["support"], total), 3),
+                "people": r["subjects"],
+                "held_both": r["support"],
+                "held_first_denied_second": r["refute"],
+                "populations": r.get("frames") or None,
+                "installations": r.get("sources") or None,
+                # What happened when this was actually used here, which is a
+                # different question from how often it held in a population.
+                "when_applied": ({"supported": gen["wins"],
+                                  "refuted": gen["losses"]} if gen else None),
+                "says": "of %d people who hold %s, %d also hold %s"
+                        % (total, a, r["support"], c),
+            })
+    if not out:
+        if thin:
+            return {"answered": False, "answers": [],
+                    "refused": "%d regularity(ies) touch this and none rests on "
+                               "at least %d people. Too thin to answer with."
+                               % (thin, ASK_MIN_SUBJECTS)}
+        return {"answered": False, "answers": [],
+                "refused": "nothing here connects %s. That is not a finding "
+                           "that no connection exists: this install has not "
+                           "seen enough people, and the commons has not been "
+                           "contributed to enough, for it to be sayable."
+                           % (("holding " + g) if g else ("anything to " + e))}
+    out.sort(key=lambda x: (x["source"] != "this install", -x["people"]))
+    return {"answered": True, "answers": out[:limit],
+            "how_to_read": "Rates are over people who took a position, never "
+                           "over everyone. `confident_rate` is the lower bound "
+                           "of the rate, which is what a small sample is "
+                           "actually worth. None of this is a fact about the "
+                           "person in front of you, and anything they have "
+                           "actually said overrides all of it."}
+
+
+def weigh(db, project_id: str, claim: str, holds=None, limit: int = 20) -> dict:
+    """Weigh a belief against the population, without ruling on it.
+
+    `ask` answers what to expect. This answers a different question, and it is
+    the one the record needs: an agent believed something about a person; was
+    that belief defensible on what was known at the time? The Testimony Record
+    says what was believed and on what evidence. This says what the population
+    evidence says about it, which is the other half of being able to check a
+    claim made by a machine.
+
+    It does NOT rule on the claim. Nothing here concludes that a person holds
+    or does not hold anything: the bank holds counts over populations, and a
+    regularity is not a fact about anybody. What it returns is the evidence
+    pointing each way, with the counts behind each piece, so a person can
+    judge. A system that answered `true` or `false` here would be deciding what
+    is true about someone from statistics about other people, which is the one
+    thing this project exists to refuse.
+
+    `holds` is what is known about the person -- the same claims an agent would
+    have had in front of it. Each is looked up as an antecedent: a prior
+    pointing at the claim supports the belief, one pointing at its negation
+    undermines it.
+    """
+    c = (claim or "").strip().lower()
+    if not c:
+        return {"checked": False, "refused": "no claim to check"}
+    bare_c = c[4:] if c.startswith("not:") else c
+    neg_c = bare_c if c.startswith("not:") else ("not:" + bare_c)
+    known = [str(x).strip().lower() for x in (holds or []) if str(x).strip()]
+    if not known:
+        return {"checked": False, "claim": c,
+                "refused": "nothing known about this person to weigh the claim "
+                           "against. Give `holds`: what the agent had in front "
+                           "of it when it formed the belief."}
+
+    supports, undermines = [], []
+    for k in known:
+        for direction, target, bucket in (("for", c, supports),
+                                          ("against", neg_c, undermines)):
+            r = ask(db, project_id, given=k, expect=target, limit=limit)
+            for a in r.get("answers", []):
+                bucket.append({**a, "because_they_hold": k})
+
+    n_for = len(supports)
+    n_against = len(undermines)
+    if not n_for and not n_against:
+        verdict = ("The bank says nothing either way. That is not evidence the "
+                   "belief is wrong: no contributed population has shown a "
+                   "regularity connecting what is known about this person to "
+                   "this claim.")
+    elif n_for and not n_against:
+        verdict = ("The population evidence leans toward the belief. It remains "
+                   "a regularity about other people, not a fact about this one.")
+    elif n_against and not n_for:
+        verdict = ("The population evidence leans against the belief. That is a "
+                   "reason to look again at what it rested on, not a finding "
+                   "that it is false.")
+    else:
+        verdict = ("The evidence is divided, and both sides are below. A "
+                   "regularity pointing each way is exactly the case where a "
+                   "population should not settle anything about a person.")
+
+    return {
+        "checked": True, "claim": c, "given_that_they_hold": known,
+        "supported_by": sorted(supports, key=lambda x: -x["people"])[:limit],
+        "undermined_by": sorted(undermines, key=lambda x: -x["people"])[:limit],
+        "verdict": verdict,
+        "how_to_read": "This weighs a belief against counts over other people. "
+                       "It does not decide whether the belief is true, and "
+                       "nothing here outranks what the person has actually "
+                       "said. Where the two disagree, the person wins.",
+    }
+
+
 def calibration(db, project_id: str) -> dict:
     """What OMEM knows about its own guessing: per claim-family and per
     generator, how the verdicts have gone. Read-only self-knowledge; the
