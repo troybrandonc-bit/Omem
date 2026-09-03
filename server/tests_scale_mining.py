@@ -96,32 +96,50 @@ def mine_with(profs, count_opposites=False):
 
 def reference(profs):
     """The rule written the slow, obvious way with Python sets. If the shipped
-    loop and this disagree, the shipped loop is wrong however fast it is."""
+    loop and this disagree, the shipped loop is wrong however fast it is.
+
+    Both spaces admit negation, as the engine's do. Written out longhand rather
+    than by calling the engine's own helpers, because a reference that shares
+    code with the thing it checks verifies nothing -- the sort of vacuous pass
+    already found once in this repository.
+    """
     pos, neg = {}, {}
-    for s, pa in profs.items():
+    for s_, pa in profs.items():
         for x in pa[0]:
             (neg.setdefault(x[4:], set()) if x.startswith("not:")
-             else pos.setdefault(x, set())).add(s)
+             else pos.setdefault(x, set())).add(s_)
     reps = sorted(pos)
+
+    # `_declared_opposites` is stubbed to nothing in this harness, so the
+    # engine's opposer set for a claim is exactly who holds its negation.
+    ants = [(q, pos[q]) for q in reps]
+    ants += [("not:" + q, neg[q]) for q in reps if neg.get(q)]
+    cons = []
+    for q in reps:
+        y, n = pos.get(q, set()), neg.get(q, set())
+        cons.append((q, y, n))
+        cons.append(("not:" + q, n, y))
+
     out = {}
-    for P in reps:
-        base = pos[P]
+    for A, base in ants:
         if len(base) < _h.PRIOR_FLOOR_N:
             continue
-        for Q in reps:
-            if Q == P:
+        bare_a = A[4:] if A.startswith("not:") else A
+        for C, yes, no in cons:
+            bare_c = C[4:] if C.startswith("not:") else C
+            if bare_c == bare_a:
                 continue
-            support = len(base & pos.get(Q, set()))
+            support = len(base & yes)
             if support < _h.PRIOR_FLOOR_N:
                 continue
-            refute = len(base & neg.get(Q, set()))
+            refute = len(base & no)
             total = support + refute
             if not total or support / total < _h.PRIOR_MIN_RATE:
                 continue
-            qy, qn = len(pos.get(Q, ())), len(neg.get(Q, ()))
+            qy, qn = len(yes), len(no)
             if qy + qn and _h._wilson_lower(support, total) <                     (qy / (qy + qn)) + _h.PRIOR_MIN_LIFT:
                 continue
-            out[(P, Q)] = (support, refute, len(base))
+            out[(A, C)] = (support, refute, len(base))
     return out
 
 

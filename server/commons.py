@@ -115,10 +115,12 @@ TERMS = {
                    "under CC BY 4.0, together with the coarse shape of the "
                    "population they came from: a working domain, a "
                    "macro-region and a size band, all declared by the operator "
-                   "and none of them a fact about a person. They are not "
-                   "licensed for any commercial dataset; that would need a "
-                   "separate question, asked before it applies and never "
-                   "backdated.",
+                   "and none of them a fact about a person. A count may record "
+                   "what people who do one thing tend NOT to do, as well as "
+                   "what they tend to do; it is still a count over a "
+                   "population and still names nobody. They are not licensed "
+                   "for any commercial dataset; that would need a separate "
+                   "question, asked before it applies and never backdated.",
     },
     "2026-09-02": {
         "granted": ["public_commons"],
@@ -277,7 +279,14 @@ upgrade cancel churn retain renew expand contract downgrade
 
 
 def _foreign_word(token: str) -> str | None:
-    """First word of a token that is outside the commons lexicon, or None."""
+    """First word of a token that is outside the commons lexicon, or None.
+
+    A leading `not:` is the negation marker, not a word to look up. Without
+    stripping it the whole negated half of the vocabulary reads as foreign and
+    can never reach the bank -- which would leave the miner able to learn what
+    people tend not to do and unable to contribute any of it."""
+    if token.startswith("not:"):
+        token = token[4:]
     for w in token.split("_"):
         if w and w not in COMMONS_LEXICON:
             return w

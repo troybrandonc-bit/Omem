@@ -707,27 +707,57 @@ def learn_priors(p, db) -> dict:
     for q in reps:
         yes, no = _popcount(pos_mask[q]), _popcount(opp_mask[q])
         q_base[q] = (yes / (yes + no)) if (yes + no) else None
+    # Both spaces admit negation. Until now `reps` was positive-only and both
+    # loops walked it, so two whole classes of regularity could never be
+    # learned: what people who DENY P tend to hold, and what people who hold P
+    # tend to DENY. The second is the expensive omission -- a system that can
+    # only ever guess "holds" is structurally unable to be right about a denial,
+    # and it either stays silent or is wrong.
+    #
+    # Measured over 19,668 real respondents on three independent seed groups,
+    # admitting both takes coverage from 762/721/740 hunches to 1249/1194/1226
+    # and marginal lift from +0.128/+0.104/+0.130 to +0.197/+0.180/+0.183:
+    # roughly two and a half times the correct answers above chance. Negated
+    # ANTECEDENTS alone are worse than positive-only in all three groups, and
+    # better than positive-only in all three once negated consequents exist
+    # alongside them, because `not:P -> not:Q` is then expressible and "people
+    # who deny P tend to deny Q" is the strongest pattern this data holds.
+    # The interaction is why both ship together or neither does.
+    #
+    # Brier skill is NOT the measure here and falls while this improves, for a
+    # reason worth stating: admitting denials raises the observed rate, which
+    # grows the base-rate reference the score divides by. Coverage and lift are
+    # the comparable pair. See benchmarks/external/README.md.
+    ant_space = [(q, pos_mask[q], pos_holders[q]) for q in reps]
+    ant_space += [("not:" + q, opp_mask[q], opp_of[q])
+                  for q in reps if opp_of[q]]
+    cons_space = []
+    for q in reps:
+        cons_space.append((q, pos_mask[q], opp_mask[q], q_base[q]))
+        _b = q_base[q]
+        cons_space.append(("not:" + q, opp_mask[q], pos_mask[q],
+                           None if _b is None else 1.0 - _b))
+
     result = {"examined_pairs": 0, "learned": 0, "kept": 0}
     kept = 0
-    for P in reps:
-        base = pos_holders[P]
+    for P, base_mask, base in ant_space:
         if len(base) < PRIOR_FLOOR_N:
             continue
-        base_mask = pos_mask[P]
-        for Q in reps:
-            if Q == P:
-                continue
+        bare_p = P[4:] if P.startswith("not:") else P
+        for Q, q_yes, q_no, base_q in cons_space:
+            bare_q = Q[4:] if Q.startswith("not:") else Q
+            if bare_q == bare_p:
+                continue        # a claim never predicts itself or its negation
             result["examined_pairs"] += 1
-            support = _popcount(base_mask & pos_mask[Q])
+            support = _popcount(base_mask & q_yes)
             if support < PRIOR_FLOOR_N:
                 continue
-            refute = _popcount(base_mask & opp_mask[Q])
+            refute = _popcount(base_mask & q_no)
             total = support + refute
             if total == 0 or support / total < PRIOR_MIN_RATE:
                 continue
             # ...and it has to beat what the whole population already says
             # about Q, or it is Q's popularity wearing P as a hat.
-            base_q = q_base[Q]
             if base_q is not None and                     _wilson_lower(support, total) < base_q + PRIOR_MIN_LIFT:
                 continue
             if kept >= PRIOR_MAX:
@@ -985,6 +1015,12 @@ def leap(p, db, about: str | None = None) -> dict:
             continue
         held_reps = {prep.get(x, x) for x in profs[tgt][0]
                      if not x.startswith("not:")}
+        # What this person has DENIED, by cluster rep. A prior may now carry a
+        # negated antecedent, and "does not hold P" is a fact about them in
+        # exactly the way "holds P" is: it is in their profile because they
+        # said it.
+        denied_reps = {prep.get(x[4:], x[4:]) for x in profs[tgt][0]
+                       if x.startswith("not:")}
         for pr in prior_rows:
             if len(result["leapt"]) >= MAX_NEW_PER_RUN:
                 break
@@ -993,18 +1029,30 @@ def leap(p, db, about: str | None = None) -> dict:
                     or pr["support"] / total < PRIOR_MIN_RATE:
                 continue
             ant, cons = pr["antecedent"], pr["consequent"]
-            if ant not in held_reps:
+            ant_neg = ant.startswith("not:")
+            bare_ant = ant[4:] if ant_neg else ant
+            cons_neg = cons.startswith("not:")
+            bare_cons = cons[4:] if cons_neg else cons
+            if bare_ant not in (denied_reps if ant_neg else held_reps):
                 continue                      # target doesn't hold the antecedent
-            if prep.get(cons, cons) in held_reps:
-                continue                      # already holds the consequent (or kin)
-            if (tgt, cons) in claimed:
+            _cons_rep = prep.get(bare_cons, bare_cons)
+            if _cons_rep in held_reps or _cons_rep in denied_reps:
+                continue                      # already spoken, either way
+            # Keyed on the BARE claim, so the engine can never hand one person
+            # both "holds Q" and "does not hold Q" about the same silence. A
+            # record whose purpose is to keep contradictions visible must not
+            # manufacture them, and with negation in the space it otherwise
+            # could. The best-evidenced prior now decides the DIRECTION of the
+            # guess, not merely which of two ways to say the same thing.
+            if (tgt, bare_cons) in claimed:
                 continue
             if p.engine.proposition_state([tgt], cons, T) != "UNKNOWN":
                 continue                      # DEFEASIBLE: only ever fill a silence
             born = None
             for a in by_subject.get(tgt, ()):
-                if not a.proposition.startswith("not:") \
-                        and prep.get(a.proposition, a.proposition) == ant:
+                a_neg = a.proposition.startswith("not:")
+                a_bare = a.proposition[4:] if a_neg else a.proposition
+                if a_neg == ant_neg and prep.get(a_bare, a_bare) == bare_ant:
                     born = a
                     break
             if born is None:
@@ -1050,7 +1098,7 @@ def leap(p, db, about: str | None = None) -> dict:
                        (hid, p.id, tgt, cons, born.id, generator, because,
                         strength, "open", json.dumps(docket), 0, fp, time.time()))
             spent.add(fp)
-            claimed.add((tgt, cons))
+            claimed.add((tgt, bare_cons))
             result["leapt"].append({"hypothesis": hid, "subject": tgt,
                                     "proposition": cons, "strength": strength,
                                     "because": because, "from_prior": pr["id"]})
@@ -1271,7 +1319,14 @@ def _identifying(token: str) -> bool:
     uppercase letter, or any other character is refused at the door. (A token
     engineered to look like a plain lowercase word is the one thing this cannot
     tell from a real one; closing that needs a fixed vocabulary, tracked
-    separately.)"""
+    separately.)
+
+    A single leading `not:` is the negation marker and is stripped before any
+    of that. It is not an entity id: what follows it is checked exactly as a
+    positive token would be, so `not:prefers_pdf` passes and `not:person:sam`
+    still does not, because the second colon survives the strip."""
+    if token.startswith("not:"):
+        token = token[4:]
     if token.startswith("rel_") or ":" in token or bool(re.search(r"\d", token)):
         return True
     return re.fullmatch(r"[a-z_]+", token) is None
