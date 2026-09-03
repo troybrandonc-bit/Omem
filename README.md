@@ -11,10 +11,11 @@ and a named human behind every risky action. So when an agent acts and someone
 asks "why did it do that", you answer with a record instead of an
 investigation.
 
-OMEM is a memory layer for AI agents. Instead of dumping text into a vector
-store and hoping for the best, it tracks what each agent believes over time and
-handles contradictions explicitly, so an agent can reason about what it knows,
-when it learned it, and why.
+OMEM sits where a memory layer sits and does a different job. Instead of
+dumping text into a vector store and hoping for the best, it tracks what each
+agent believes over time, keeps the evidence under every belief, and handles
+contradictions explicitly, so an agent can reason about what it knows, when it
+learned it, and why it holds.
 
 It runs locally with no external services and no dependencies to install.
 
@@ -377,16 +378,33 @@ boldness follows its record.
 ## Priors: what it learns about people in general
 
 A leap projects from one look-alike person. A prior projects from a
-regularity learned across many: "people who hold P tend to hold Q." OMEM
-mines these from what it already knows and uses them to interpret someone new
-from very little.
+regularity learned across many: "people who hold P tend to hold Q." OMEM mines
+these from what it already knows and uses them to interpret someone new from
+very little.
+
+A pair is kept only where holding P measurably moves the odds of Q beyond how
+common Q is on its own, and that test is applied to the lower bound of the
+rate rather than the rate itself, so a pattern resting on a handful of people
+must be far cleaner than one resting on hundreds.
 
 ```python
 mem.learn_priors()                      # mine regularities across everyone
 mem.priors()
 # -> holds likes_dashboards -> holds wants_pdf_invoices
-#    in_population: 4 of 5 held it   |   when_applied: supported 3, refuted 0
+#    in_population: 41 of 52     wants_pdf_invoices on its own: 0.29
+#    kept because the lower bound of that rate clears 0.29, not
+#    because wants_pdf_invoices happens to be common
+#    when_applied: supported 3, refuted 0
 ```
+
+That rule replaced one that asked only whether sixty per cent of the holders
+of P also held Q. Measured against 19,668 real respondents with a known latent
+structure, the old rule recovered that structure at 0.185 where chance is
+0.184: it was selecting consequents by how common they were. The current rule
+recovers it at 0.875, using 94% fewer priors that cover more claims than
+before. The study is
+[Working Paper No. 1](https://machinetestimony.org/papers/wp1/) and the harness
+is in [`benchmarks/external/`](benchmarks/external/).
 
 The point is that a prior never overrides a person. It fires only into a
 silence: if someone holds P but has said nothing about Q, OMEM leaps Q onto
@@ -698,7 +716,18 @@ No key, no URL, no separate server to start. On first run it starts the bundled
 server itself, creates a project, and remembers it in `~/.omem`. Restarting the
 client reuses the same memory.
 
-Five tools: `omem_recall`, `omem_observe`, `omem_remember`, `omem_why` and `omem_believes`.
+Eight tools. Five are the record: `omem_recall`, `omem_observe`,
+`omem_remember`, `omem_why` and `omem_believes`. Three are the intuition layer,
+all reads: `omem_expects` (what OMEM suspects and does not believe, with its
+case file), `omem_priors` (the regularities it has learned about people in
+general) and `omem_brief` (one call at the start of a task, instead of
+assembling the same picture from four others).
+
+There is no tool that promotes a hypothesis, answers its open question, or
+triggers a leap. A hunch takes its verdict from reality during interrogation,
+and a model does not get a lever that marks one true by saying so. Anything
+`omem_expects` lists still reads `UNKNOWN` through `omem_believes`, and a test
+asserts exactly that.
 
 `observe` hands OMEM raw conversation and lets it decide what is durable, which
 is what you want over a transcript. `remember` records a fact you have already
