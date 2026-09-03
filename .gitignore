@@ -62,4 +62,9 @@ web/tsconfig.tsbuildinfo
 # of it once reached a public pull request, and "remember not to add it" is not
 # a control.
 distribution/
-benchmarks/external/_big5.tsv
+# Third-party survey responses, fetched by the benchmark at run time and
+# never redistributed here. The pattern rather than the filenames, because the
+# next dataset added is otherwise committed by default -- which has now
+# happened twice, at 151 MB, and both times the push is what caught it rather
+# than the rule that was supposed to.
+benchmarks/external/_*
