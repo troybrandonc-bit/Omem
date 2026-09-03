@@ -394,6 +394,11 @@ Pooling priors across installations earns its keep where the populations share t
 A prior has to beat its consequent's own base rate, and it is the lower bound of its rate that must clear the line, so a pair resting on three people cannot outrank one resting on three hundred; measured against a known latent structure in 19,668 real respondents- benchmarks/external/
 - server/tests_prior_lift.py
 
+Agreement across installs is not agreement across populations: a pooled pattern backed by one declared kind of population raises the evidence bar rather than being treated like one backed by several, and the spread it held across them travels with it- server/tests_population_frame.py
+
+What a contribution says about where it came from is a working domain, a macro-region and a size band, chosen from closed lists and holding no fact about any person; an operator who declares nothing still contributes and cannot be counted as many populations- server/tests_population_frame.py
+- server/tests_commons_guards.py
+
 Mining stays quadratic in vocabulary rather than cubic, and the work per pair does not grow with the population: the engine consults declared opposites once per proposition, never once per pair- benchmarks/scale/
 - server/tests_scale_mining.py
 
@@ -428,7 +433,7 @@ pip install omem-infrastructure is the whole install: server, dashboard and cred
 The same log means the same state under SQLite and PostgreSQL alike- server/tests_postgres.py
 - server/db_adapter.py
 
-24 claims. If one of these ever goes red and the sentence is still on the site, that is a bug worth reporting, and the fastest way to report it is the failing run.
+26 claims. If one of these ever goes red and the sentence is still on the site, that is a bug worth reporting, and the fastest way to report it is the failing run.
 
 ---
 

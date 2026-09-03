@@ -120,6 +120,17 @@ ANCHOR_K = 20.0          # an install needs a couple of dozen verdicts before
 # were measured landing 65% of the time. Caution about other people's
 # populations is right; a permanent twenty point error is not.
 POOLED_DISCOUNT = 0.75
+
+# A pooled pair that replicated across installs but only inside ONE kind of
+# population is a weaker claim than one that held in several, and the two are
+# indistinguishable in the counts: both say "many people, and they agreed".
+# The collector reports how many distinct population frames back a row, and a
+# row backed by one raises the bar again, on the same principle as borrowing
+# itself -- more of its own record on THIS install's people before it moves off
+# the house rate. It is not refused, because a regularity found in one kind of
+# workplace may well hold in another; it is just not yet evidence that it does.
+MONOCULTURE_DISCOUNT = 0.6
+POOLED_MIN_FRAMES = 2
 PRIOR_MAX = 500          # a bound on how many priors one mining pass may hold
 
 HYPOTHESES_SCHEMA = """
@@ -718,6 +729,16 @@ def priors(db, project_id: str) -> list[dict]:
     return out
 
 
+def _pooled_k(pr) -> float:
+    """Pseudo-counts a borrowed prior must overcome before its own record
+    speaks. Larger means a higher bar, never a lower answer."""
+    k = BIRTH_K / POOLED_DISCOUNT
+    frames = pr.get("frames")
+    if isinstance(frames, int) and 0 < frames < POOLED_MIN_FRAMES:
+        k /= MONOCULTURE_DISCOUNT
+    return k
+
+
 def _pooled_rows(db) -> list[dict]:
     """The commons bank as prior-shaped rows.
 
@@ -725,6 +746,12 @@ def _pooled_rows(db) -> list[dict]:
     the table is the contract between them. A database that has never synced,
     or predates the table, contributes nothing and raises nothing -- the
     commons is a gift in both directions and never a dependency."""
+    try:
+        return [dict(r) for r in db.execute(
+            "SELECT antecedent, consequent, support, refute, subjects, sources, "
+            "frames FROM commons_pooled")]
+    except Exception:
+        pass            # older table, no frame columns: fall back, do not go dark
     try:
         return [dict(r) for r in db.execute(
             "SELECT antecedent, consequent, support, refute, subjects, sources "
@@ -934,11 +961,13 @@ def leap(p, db, about: str | None = None) -> dict:
             strength = _birth_strength(
                 gen_recs.get(generator, (0, 0)),
                 fam_recs.get(_family(cons), (0, 0)), house,
-                BIRTH_K / POOLED_DISCOUNT if pr.get("pooled") else BIRTH_K)
+                _pooled_k(pr) if pr.get("pooled") else BIRTH_K)
             rate = pr["support"] / total
             if pr.get("pooled"):
-                because = (f"across {pr.get('sources', 0)} other installs, people who "
-                           f"hold {ant} tend to hold {cons} "
+                frames = pr.get("frames") or 0
+                where = (f"across {pr.get('sources', 0)} other installs"
+                         + (f" in {frames} kinds of population" if frames else ""))
+                because = (f"{where}, people who hold {ant} tend to hold {cons} "
                            f"(held in {pr['support']} of {total}); {tgt} holds {ant}")
             else:
                 because = (f"people who hold {ant} tend to hold {cons} "

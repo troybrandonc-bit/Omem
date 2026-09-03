@@ -49,6 +49,9 @@ CREATE TABLE IF NOT EXISTS commons_pooled(
   refute INTEGER NOT NULL,
   subjects INTEGER NOT NULL,
   sources INTEGER NOT NULL,
+  frames INTEGER NOT NULL DEFAULT 0,
+  rate_min REAL,
+  rate_max REAL,
   received REAL NOT NULL,
   PRIMARY KEY(antecedent, consequent));
 """
@@ -61,6 +64,29 @@ CREATE TABLE IF NOT EXISTS commons_pooled(
 # a project -- agreement is cheap, independent agreement is not -- applied at
 # the door where other people's knowledge enters this machine.
 POOLED_MIN_SOURCES = 2
+
+# Agreement across installs was the only independence signal at this layer, and
+# it is a weak one: two installs that serve the same kind of people in the same
+# place are close to one install, and they satisfy POOLED_MIN_SOURCES between
+# them. A pattern can therefore replicate perfectly and still be a fact about a
+# monoculture rather than about people.
+#
+# So a contribution may declare the SHAPE of the population its counts came
+# from, and a pooled row records how many distinct shapes back it. The bar is
+# separate from POOLED_MIN_SOURCES because they answer different questions:
+# sources asks whether more than one machine saw it, frames asks whether more
+# than one kind of population did.
+POOLED_MIN_FRAMES = 2
+
+# Coarse on purpose, in all three axes. A frame describes a deployment, not a
+# person, but a precise one would still fingerprint a small operator -- an exact
+# subject count plus a country plus a niche domain can identify a single
+# company. Macro-region rather than country, a band rather than a count, and a
+# closed list of domains, refused at both doors like the pattern vocabulary.
+FRAME_DOMAINS = ("customer_support", "sales", "recruiting", "healthcare",
+                 "education", "software", "operations", "personal", "other")
+FRAME_REGIONS = ("africa", "americas", "asia", "europe", "oceania")
+FRAME_BANDS = ("10-49", "50-199", "200-999", "1000+")
 
 # ── the terms a contribution was made under ─────────────────────────────────
 #
@@ -76,13 +102,24 @@ POOLED_MIN_SOURCES = 2
 # permitted, which is the failure this is here to prevent. The table below is
 # used only to MINT a record; nothing ever reads a grant out of it for a
 # contribution already stored.
-TERMS_VERSION = "2026-09-02"
+TERMS_VERSION = "2026-09-03"
 
 # Every use a contribution can grant. A grant absent from a record is a grant
 # that was never given.
 GRANTS = ("public_commons", "commercial")
 
 TERMS = {
+    "2026-09-03": {
+        "granted": ["public_commons"],
+        "summary": "Counts join the public commons and are published there "
+                   "under CC BY 4.0, together with the coarse shape of the "
+                   "population they came from: a working domain, a "
+                   "macro-region and a size band, all declared by the operator "
+                   "and none of them a fact about a person. They are not "
+                   "licensed for any commercial dataset; that would need a "
+                   "separate question, asked before it applies and never "
+                   "backdated.",
+    },
     "2026-09-02": {
         "granted": ["public_commons"],
         "summary": "Counts join the public commons and are published there "
@@ -288,6 +325,46 @@ def set_choice(db, contribute: bool):
     db.commit()
 
 
+def set_frame_declaration(db, domain: str = "", region: str = ""):
+    """Record the operator's declaration of what kind of population this
+    install serves. Free text is not stored: a value outside the closed list
+    clears the declaration rather than being kept and refused later, so what
+    is on disk is always something that can actually travel."""
+    d = (domain or "").strip().lower()
+    r = (region or "").strip().lower()
+    if d in FRAME_DOMAINS and r in FRAME_REGIONS:
+        db.execute("INSERT OR REPLACE INTO commons_meta(k,v) VALUES('frame',?)",
+                   (json.dumps({"domain": d, "region": r}),))
+    else:
+        db.execute("DELETE FROM commons_meta WHERE k='frame'")
+    db.commit()
+
+
+def frame_declaration(db) -> dict:
+    """What the operator declared, without the size band, which is measured
+    rather than declared."""
+    r = db.execute("SELECT v FROM commons_meta WHERE k='frame'").fetchone()
+    if not r:
+        return {}
+    try:
+        v = json.loads(r["v"])
+    except (TypeError, ValueError):
+        return {}
+    return v if isinstance(v, dict) else {}
+
+
+def declared_frame(db, subjects: int) -> dict | None:
+    """The frame to send with a contribution: the operator's declared domain
+    and region, plus the band this install's actual population falls in.
+
+    The size is not taken on trust because it does not have to be -- the
+    counts being contributed already say how many subjects there were, and a
+    declared size that disagreed with them would be the one part of the frame
+    an operator could get wrong without noticing."""
+    d = frame_declaration(db)
+    return frame_of(subjects, d.get("domain", ""), d.get("region", ""))
+
+
 def current_terms(db) -> dict:
     """The terms this install contributes under, to travel with the payload.
 
@@ -338,7 +415,18 @@ CONTRIBUTION_FIELDS = {
     "calibration": "how much a guess about a person was worth, by generator "
                    "CLASS and by lexicon-bound family",
     "terms": "which uses this operator granted, recorded when they granted them",
+    "frame": "the coarse shape of the population these counts came from, so "
+             "that agreement can be required across DIFFERENT populations "
+             "rather than across installs that happen to be alike. Declared by "
+             "the operator, optional, and holding no fact about any person",
 }
+
+# Which of those may be absent. Written down rather than inferred from whether
+# a payload happens to contain them, so that "this one is optional" stays a
+# decision somebody made and the guard can still require exact agreement in
+# both cases instead of falling back to a subset check, which would let a new
+# field travel unnoticed -- the precise failure that map exists to prevent.
+OPTIONAL_CONTRIBUTION_FIELDS = {"frame"}
 
 PATTERN_FIELDS = {
     "antecedent": "a behaviour token from the closed vocabulary",
@@ -346,6 +434,14 @@ PATTERN_FIELDS = {
     "support": "how many subjects held both",
     "refute": "how many held the first and opposed the second",
     "subjects": "how many held the first at all",
+}
+
+FRAME_FIELDS = {
+    "domain": "one of a closed list of coarse working domains, declared by the "
+              "operator and never inferred from their data",
+    "region": "a macro-region, never a country and never a city",
+    "subjects": "a band, never a count: an exact population size is one of the "
+                "three things that together would identify an operator",
 }
 
 CALIBRATION_FIELDS = {
@@ -367,12 +463,79 @@ CALIBRATION_FIELDS = {
 DERIVED_LOCAL_ONLY = {"pattern", "rate", "fires", "sources", "projects"}
 
 
+def band_of(subjects: int) -> str | None:
+    """The band a population size falls in, or None below the smallest one.
+
+    Under ten subjects there is no band rather than a band called `small`,
+    because a frame that narrow describes the operator more than it describes a
+    population, and a contribution that thin has nothing to say anyway."""
+    try:
+        n = int(subjects)
+    except (TypeError, ValueError):
+        return None
+    if n < 10:
+        return None
+    if n < 50:
+        return "10-49"
+    if n < 200:
+        return "50-199"
+    if n < 1000:
+        return "200-999"
+    return "1000+"
+
+
+def frame_of(subjects: int, domain: str = "", region: str = "") -> dict | None:
+    """The frame to attach to a contribution, or None if the operator declared
+    nothing usable. An undeclared frame is not an error: the counts still
+    contribute, they simply cannot help satisfy POOLED_MIN_FRAMES, which is the
+    honest consequence of declining to say where they came from."""
+    d = (domain or "").strip().lower()
+    r = (region or "").strip().lower()
+    band = band_of(subjects)
+    if d not in FRAME_DOMAINS or r not in FRAME_REGIONS or band is None:
+        return None
+    return {"domain": d, "region": r, "subjects": band}
+
+
+def validate_frame(frame) -> tuple[dict | None, str | None]:
+    """A frame at the door. Absent is fine; present and wrong is not, because a
+    value outside the closed list is either a bug or an attempt to smuggle a
+    free-text field into a payload that has none."""
+    if frame is None:
+        return None, None
+    if not isinstance(frame, dict):
+        return None, "frame must be an object"
+    unknown = sorted(set(frame) - set(FRAME_FIELDS))
+    if unknown:
+        return None, "frame field with no stated argument refused: %s" % unknown
+    d, r, b = frame.get("domain"), frame.get("region"), frame.get("subjects")
+    if d not in FRAME_DOMAINS:
+        return None, "frame domain outside the closed list: %r" % (d,)
+    if r not in FRAME_REGIONS:
+        return None, "frame region outside the closed list: %r" % (r,)
+    if b not in FRAME_BANDS:
+        return None, "frame subjects must be a band, not a count: %r" % (b,)
+    return {"domain": d, "region": r, "subjects": b}, None
+
+
+def frame_key(frame) -> str:
+    """How a collector counts distinct populations. Undeclared frames all
+    collapse to one key rather than counting as one each, so a thousand silent
+    installs cannot manufacture the appearance of a thousand populations."""
+    if not isinstance(frame, dict):
+        return ""
+    d, r, b = frame.get("domain"), frame.get("region"), frame.get("subjects")
+    if d not in FRAME_DOMAINS or r not in FRAME_REGIONS or b not in FRAME_BANDS:
+        return ""       # a partial frame is an undeclared one, not a new kind
+    return "%s/%s/%s" % (d, r, b)
+
+
 def _project(row: dict, fields: dict) -> dict:
     return {k: row[k] for k in fields if k in row}
 
 
 def contribution_payload(instance: str, patterns: list, calibration: list,
-                         terms: dict) -> dict:
+                         terms: dict, frame: dict | None = None) -> dict:
     """The only place a contribution is assembled.
 
     Rows are projected onto the approved fields rather than sent as they sit in
@@ -385,6 +548,8 @@ def contribution_payload(instance: str, patterns: list, calibration: list,
         "calibration": [_project(c, CALIBRATION_FIELDS) for c in calibration],
         "terms": terms,
     }
+    if frame:
+        body["frame"] = _project(frame, FRAME_FIELDS)
     unknown = sorted(set(body) - set(CONTRIBUTION_FIELDS))
     if unknown:
         raise ValueError("field with no stated argument refused: %s" % unknown)
@@ -478,6 +643,9 @@ def validate(payload) -> tuple[list, str | None]:
     if not isinstance(inst, str) or not (8 <= len(inst) <= MAX_INSTANCE_LEN) \
             or not inst.replace("-", "").isalnum():
         return [], "instance must be an opaque id (8..64 alphanumeric chars)"
+    _frame, ferr = validate_frame(payload.get("frame"))
+    if ferr:
+        return [], ferr
     pats = payload.get("patterns")
     if not isinstance(pats, list) or len(pats) > MAX_PATTERNS:
         return [], f"patterns must be a list of at most {MAX_PATTERNS}"
@@ -673,36 +841,77 @@ def accept_pooled(rows) -> tuple[list, str | None]:
             s, f = int(r.get("support", 0)), int(r.get("refute", 0))
             n = int(r.get("subjects", 0))
             src = int(r.get("sources", 0))
+            frm = int(r.get("frames", 0))
         except (TypeError, ValueError):
             return [], "counts must be integers"
         if s < 0 or f < 0 or s + f > 10_000_000:
             return [], "counts out of range"
         if s < PRIOR_FLOOR_N or src < POOLED_MIN_SOURCES:
             continue        # too thin, or one install talking to itself
+        if frm and frm < POOLED_MIN_FRAMES:
+            continue        # replicated, but only inside one kind of population
+        lo, hi = _rate_bounds(r)
         clean.append({"antecedent": a, "consequent": c, "support": s,
-                      "refute": f, "subjects": n, "sources": src})
+                      "refute": f, "subjects": n, "sources": src,
+                      "frames": frm, "rate_min": lo, "rate_max": hi})
     return clean, None
+
+
+def _rate_bounds(r):
+    """The lowest and highest rate this pair reached in any one population.
+
+    Pooling averages, and an average hides the case that matters: a pair
+    holding at 0.9 in three populations and 0.2 in a fourth arrives identical
+    to one holding at 0.72 everywhere. The spread is the reader's only warning
+    that a regularity is not general, so it travels with the row rather than
+    being reconstructable from it, which it is not."""
+    out = []
+    for k in ("rate_min", "rate_max"):
+        v = r.get(k)
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            out.append(None)
+            continue
+        out.append(v if 0.0 <= v <= 1.0 else None)
+    return out[0], out[1]
+
+
+def ensure_pooled_columns(db):
+    """Idempotent, because commons_pooled predates the frame columns and a
+    CREATE TABLE IF NOT EXISTS will not add them to a database that already
+    has the table."""
+    for col, decl in (("frames", "INTEGER NOT NULL DEFAULT 0"),
+                      ("rate_min", "REAL"), ("rate_max", "REAL")):
+        try:
+            db.execute("ALTER TABLE commons_pooled ADD COLUMN %s %s" % (col, decl))
+        except Exception:
+            pass        # already there
+    db.commit()
 
 
 def store_pooled(db, rows: list):
     """Replace, never accumulate. The bank is a snapshot of what the commons
     currently holds; merging successive snapshots would double-count the same
     populations every time a machine syncs."""
+    ensure_pooled_columns(db)
     db.execute("DELETE FROM commons_pooled")
     now = time.time()
     db.executemany(
         "INSERT INTO commons_pooled(antecedent, consequent, support, refute, "
-        "subjects, sources, received) VALUES(?,?,?,?,?,?,?)",
+        "subjects, sources, frames, rate_min, rate_max, received) "
+        "VALUES(?,?,?,?,?,?,?,?,?,?)",
         [(r["antecedent"], r["consequent"], r["support"], r["refute"],
-          r["subjects"], r["sources"], now) for r in rows])
+          r["subjects"], r["sources"], r.get("frames", 0),
+          r.get("rate_min"), r.get("rate_max"), now) for r in rows])
     db.commit()
 
 
 def pooled(db) -> list[dict]:
     try:
         return [dict(r) for r in db.execute(
-            "SELECT antecedent, consequent, support, refute, subjects, sources "
-            "FROM commons_pooled")]
+            "SELECT antecedent, consequent, support, refute, subjects, sources, "
+            "frames, rate_min, rate_max FROM commons_pooled")]
     except Exception:
         return []           # a database predating the pooled table has none
 

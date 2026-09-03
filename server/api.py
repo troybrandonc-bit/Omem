@@ -1554,7 +1554,10 @@ def _write_bank_export(dest_dir):
             # local bank cannot travel by accident.
             payload = json.dumps(_commons.contribution_payload(
                 _commons.instance_id(STORE.db), sendable, sendable_cal,
-                _commons.current_terms(STORE.db))).encode()
+                _commons.current_terms(STORE.db),
+                _commons.declared_frame(
+                    STORE.db, max((p.get("subjects", 0) for p in sendable),
+                                  default=0)))).encode()
             req = urllib.request.Request(
                 url.rstrip("/") + "/v1/commons", data=payload,
                 headers={"Content-Type": "application/json"}, method="POST")
@@ -3348,7 +3351,14 @@ class Handler(BaseHTTPRequestHandler):
                 "contribute": _commons.get_choice(STORE.db),
                 "env_override": bool(COMMONS_URL),
                 "url": COMMONS_URL or _commons.DEFAULT_COMMONS_URL,
-                "collector": BANK_COLLECTOR})
+                "collector": BANK_COLLECTOR,
+                # The closed lists travel with the question so the dashboard
+                # renders a picker rather than a text box. A frame has to be
+                # choosable from a fixed set or it is free text with extra
+                # steps, and free text about a deployment identifies it.
+                "frame": _commons.frame_declaration(STORE.db),
+                "frame_domains": list(_commons.FRAME_DOMAINS),
+                "frame_regions": list(_commons.FRAME_REGIONS)})
 
         # ── the commons bank: the creator's view. Not a user feature -- a
         # stock install answers 404 here (BANK_COLLECTOR off) and shows no
@@ -3965,7 +3975,23 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(c, bool):
                 return self._err(422, "invalid_request",
                                  "contribute must be true or false", param="contribute")
+            dom, reg = body.get("domain"), body.get("region")
+            if dom is not None and not isinstance(dom, str):
+                return self._err(422, "invalid_request", "domain must be a string",
+                                 param="domain")
+            if reg is not None and not isinstance(reg, str):
+                return self._err(422, "invalid_request", "region must be a string",
+                                 param="region")
             _commons.set_choice(STORE.db, c)
+            # Declared at the moment consent is given, which is the only moment
+            # the operator is being asked what they are agreeing to send. An
+            # install that declares nothing still contributes; its counts just
+            # cannot help satisfy the bank's requirement that a pattern hold in
+            # more than one kind of population.
+            if c:
+                _commons.set_frame_declaration(STORE.db, dom or "", reg or "")
+            else:
+                _commons.set_frame_declaration(STORE.db, "", "")
             # Revoking used to stop the NEXT contribution and leave every
             # earlier one published. It now asks the collector to withdraw
             # them, which is what "revocable" has claimed to mean all along.
