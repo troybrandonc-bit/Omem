@@ -150,20 +150,26 @@ export default function Home() {
       <Section className="hero-y">
         <div className="max-w-[68rem]">
           <HeroHeading>
-            Learn from every other install. Hand over <em>nobody&rsquo;s</em> data.
+            When someone asks what your agent did, and <em>why</em>, answer with
+            a record.
           </HeroHeading>
           <div className="mt-10 grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
             <p className="lede !max-w-none">
-              A new agent knows nothing about the people it is about to meet and
-              takes months to learn. OMEM installs pool what they work out about
-              people in general, as counts that name nobody and only when the
-              operator says so, and a young install borrows that intuition on
-              day one while giving its own back as it earns it. Nothing leaves
-              that holds a fact about a person, and a borrowed pattern still
-              yields the moment someone&rsquo;s own evidence disagrees.
-              <span className="mt-3 block text-body text-muted">
-                The bank is empty. No installation has contributed yet, so the
-                first ones decide what it learns.
+              Most memory overwrites the evidence the moment the facts change,
+              so when a client, an auditor or a regulator asks why an agent did
+              something, there is nothing to show them. OMEM keeps both sides of
+              every contradiction, tracks what was believed and when, puts a
+              named human in front of a risky action, and can weigh a belief
+              against what is actually known before you act on it.
+              <span className="mt-4 block text-body text-muted">
+                <b className="text-[color:var(--fg)]">And the reason it exists
+                is bigger than that.</b> AI learns what people are like from
+                text nobody agreed to hand over. OMEM learns the same kind of
+                thing from people who chose to contribute, as counts that name
+                nobody, with the consent recorded and the withdrawal real
+                &mdash; and installs that opt in pool what they learn, so a new
+                agent borrows that intuition on day one instead of spending
+                months earning it.
               </span>
             </p>
             <div className="lg:pt-1">
