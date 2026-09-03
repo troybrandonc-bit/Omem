@@ -66,7 +66,24 @@ MAX_NEIGHBORS = 3        # project from the closest few, not the whole world
 MAX_NEW_PER_RUN = 25     # bounded leaping, like every other learner here
 ASK_AFTER_PASSES = 2     # unresolved this many interrogations -> start asking
 BASE_STRENGTH = 0.35     # a newborn hunch; deliberately below any evidence
-STRENGTH_CEILING = 0.6   # corroboration can raise a hunch only this far
+# A hunch may not be born as certain as evidence. That separation is real, and
+# it is enforced structurally rather than by this number: expects() and
+# believes() are different verbs over different tables, and the engine's UNKNOWN
+# stays UNKNOWN for everything the intuition layer holds, whatever strength it
+# carries. Nothing in the codebase compares a hunch's strength against an
+# evidenced confidence.
+#
+# This was 0.6, which sits below the rate hunches actually achieve: 68% measured
+# against 19,668 real respondents. A cap under the observed rate is not caution,
+# it is a fixed error that no amount of evidence can correct, and it is the same
+# fault already found in the borrowed-hunch cap, which held borrowed hunches at
+# 0.45 while they landed 65% of the time. Clipping the statement does not make
+# the guess safer; it makes the statement false.
+#
+# Raised to sit above what hunches achieve rather than beneath it. 0.85 and 1.0
+# score within 0.0005 of each other, so this is not a tuned constant: the
+# finding is that the cap must not bind below the observed rate.
+STRENGTH_CEILING = 0.85
 STRENGTH_FLOOR = 0.05
 
 # The priors tier: regularities that hold ACROSS people, not facts about one.
@@ -509,6 +526,38 @@ def _house_rate(records) -> float:
     losses = sum(l for _w, l in records)
     return ((wins + BASE_STRENGTH * ANCHOR_K)
             / (wins + losses + ANCHOR_K))
+
+
+# How hard the house rate pulls a prior's own measured rate back toward this
+# install's general experience. A pair seen in three hundred people nearly
+# speaks for itself; one seen in twelve barely moves off the house rate.
+PRIOR_ANCHOR_K = 60.0
+
+
+def _prior_anchor(support: int, refute: int, house: float) -> float:
+    """What to expect of a hunch this prior produces, before its own record.
+
+    Birth strength anchored every hunch on the house rate: how often this
+    install's guesses land in general. That is the right anchor for a leap from
+    a look-alike, where there is nothing else to go on. It is the wrong one for
+    a prior, which arrives carrying a direct measurement of how often Q follows
+    P across a population, and which was then thrown away.
+
+    The lower bound rather than the rate, for the same reason the mining rule
+    uses it: three of three is not certainty. Shrunk toward the house rate by
+    support, so a measurement has to be worth something before it displaces the
+    install's own experience.
+
+    Measured against 19,668 real respondents this moved Brier skill from -0.09
+    to -0.02 on its own, and to +0.08 once the ceiling stopped clipping it.
+    Neither change reaches positive skill alone: this produces a correct
+    estimate that the old cap then truncated, and raising the cap without this
+    only un-clips a wrong one (-0.08)."""
+    n = support + refute
+    if n <= 0:
+        return house
+    rate = _wilson_lower(support, n)
+    return (rate * n + house * PRIOR_ANCHOR_K) / (n + PRIOR_ANCHOR_K)
 
 
 def _birth_strength(gen_rec: tuple, fam_rec: tuple,
@@ -960,7 +1009,8 @@ def leap(p, db, about: str | None = None) -> dict:
             # people it is not really borrowed any more.
             strength = _birth_strength(
                 gen_recs.get(generator, (0, 0)),
-                fam_recs.get(_family(cons), (0, 0)), house,
+                fam_recs.get(_family(cons), (0, 0)),
+                _prior_anchor(pr["support"], pr["refute"], house),
                 _pooled_k(pr) if pr.get("pooled") else BIRTH_K)
             rate = pr["support"] / total
             if pr.get("pooled"):
