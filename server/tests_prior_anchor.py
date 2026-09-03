@@ -136,5 +136,92 @@ check("a prior still fires only into a silence, which is what keeps a general "
 check("and the ceiling is still a hard cap rather than advisory",
       "min(STRENGTH_CEILING, p)" in src)
 
+print("== the best-evidenced prior speaks, and local still outranks pooled ==")
+# Only one prior may fire into a silence. It used to be whichever came first
+# out of the tables, which is arbitrary among priors of equal standing. Sorting
+# best-evidenced first is worth Brier 0.2006 -> 0.1950 on 19,668 respondents,
+# and it cost nothing: at six local subjects the harness forms no local priors,
+# so every reordering was among pooled rows and none was displaced. The tier
+# stays the primary key anyway, because a real install does have local priors
+# and a guarantee must not depend on their absence.
+import sqlite3  # noqa: E402
+
+ROOT = os.path.dirname(HERE)
+sys.path.insert(0, os.path.join(ROOT, "benchmarks", "scale"))
+try:
+    import leaping as _lp           # noqa: E402
+except ImportError:
+    _lp = None
+
+SRC = open(os.path.join(HERE, "hypotheses.py"), encoding="utf-8").read()
+check("the engine ranks prior rows by tier first, so a thin local prior still "
+      "outranks a strong pooled one",
+      'bool(r.get("pooled"))' in SRC and "prior_rows.sort(" in SRC)
+check("and by the evidence behind each one second",
+      "-_prior_anchor(r[" in SRC)
+
+if _lp is None:
+    check("leap harness available", False, "benchmarks/scale/leaping.py missing")
+else:
+    assertions, profs = _lp.world(40, 8, seed=3, hold=1.0)
+    # Everyone holds both antecedents and nobody holds the consequent, in the
+    # profiles AND in the store. A prior fires only into a silence, and if any
+    # assertion of p005 survives, the resemblance pass projects it from a
+    # look-alike first and `claimed` then locks the priors out entirely --
+    # which is what the first version of this test actually measured.
+    for _pa in profs.values():
+        _pa[0].discard("p005")
+    assertions = [a for a in assertions if a.proposition != "p005"]
+    db = sqlite3.connect(":memory:")
+    db.row_factory = sqlite3.Row
+    db.executescript(_h.HYPOTHESES_SCHEMA)
+    # Two priors race for one silence: one thin, one strong.
+    for i2, (ant, cons, sup, ref) in enumerate(
+            [("p000", "p005", 8, 6), ("p001", "p005", 400, 20)]):
+        db.execute("INSERT INTO priors VALUES(?,'proj',?,?,'default',?,?,?,0)",
+                   ("pr_%d" % i2, ant, cons, sup, ref, sup + ref))
+    db.commit()
+    op, pf = _h._declared_opposites, _h._profiles
+    _h._profiles = lambda d_, p_, T_: profs
+    _h._declared_opposites = lambda p_, prop_: set()
+    try:
+        _h.leap(_lp.FakeProject(assertions), db)
+    finally:
+        _h._profiles, _h._declared_opposites = pf, op
+    rows = [dict(r) for r in db.execute(
+        "SELECT subject, generator FROM hypotheses WHERE proposition='p005'")]
+    check("a hunch was formed for the contested claim", bool(rows), rows)
+    if rows:
+        check("the better-evidenced prior is the one that spoke",
+              all("pr_1" in r["generator"] for r in rows),
+              [r["generator"] for r in rows])
+        # One hunch per PERSON, not one overall: `claimed` is keyed on
+        # (target, claim), so forty people each get their own, capped by
+        # MAX_NEW_PER_RUN. What matters is that the second prior never adds a
+        # second hunch about the same person's silence.
+        per = {}
+        for r in rows:
+            per[r["subject"]] = per.get(r["subject"], 0) + 1
+        check("one hunch per person, so agreeing priors are not double-counted "
+              "into confidence they have not earned",
+              per and max(per.values()) == 1, sorted(per.items())[:4])
+
+print("== the external harness measures the engine, not a lookalike ==")
+# It has diverged twice. It kept pair keys without their counts, so it could
+# not anchor on them; and it walked priors in dict order while the engine
+# sorted them. Either way it publishes a number about an engine that does not
+# exist, which is worse than publishing nothing.
+BIG5 = os.path.join(ROOT, "benchmarks", "external", "big5.py")
+if os.path.exists(BIG5):
+    H = open(BIG5, encoding="utf-8").read()
+    check("the harness keeps the counts behind each pair, or it cannot anchor "
+          "on them at all", "self.counts" in H)
+    check("it anchors through the engine's own function rather than a copy",
+          "_h._prior_anchor(" in H)
+    check("and it applies the engine's selection rule rather than dict order",
+          "self.rows.sort(" in H)
+else:
+    check("external harness present", False, BIG5)
+
 print("\n%d passed, %d failed" % (PASS, FAIL))
 sys.exit(1 if FAIL else 0)

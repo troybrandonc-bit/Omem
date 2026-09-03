@@ -961,6 +961,22 @@ def leap(p, db, about: str | None = None) -> dict:
             continue
         prior_rows.append({**r, "pooled": True,
                            "id": "pooled:%s>%s" % (r["antecedent"], r["consequent"])})
+    # Which prior speaks when several fire into the same silence. Only one may
+    # -- `claimed` keeps a single hunch per claim -- and it used to be whichever
+    # came first out of the tables, which is arbitrary among priors of equal
+    # standing. Best-evidenced first instead.
+    #
+    # Sorted WITHIN tier, so local still outranks pooled however thin it is.
+    # Measured on 19,668 respondents this is worth Brier 0.2006 -> 0.1950 on
+    # identical cases, and it turned out to cost nothing: the harness produces
+    # no local priors at six subjects, so every one of those reorderings was
+    # among pooled rows and no local prior was ever displaced. Sorting globally
+    # scored the same. The tier is kept in the key anyway, because a real
+    # installation does have local priors and the guarantee should not depend on
+    # them being absent.
+    prior_rows.sort(key=lambda r: (
+        bool(r.get("pooled")),
+        -_prior_anchor(r["support"], r["refute"], house)))
     # Positives-only reps, the same vocabulary the miner used, so a stored
     # antecedent/consequent lines up with what a target actually holds.
     prep = _positive_clusters(profs) if prior_rows else {}
