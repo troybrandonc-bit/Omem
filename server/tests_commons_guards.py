@@ -57,15 +57,27 @@ def check(n, c, d=""):
 print("== every field that travels has a written argument ==")
 for name, fields in (("contribution", commons.CONTRIBUTION_FIELDS),
                      ("pattern", commons.PATTERN_FIELDS),
-                     ("calibration", commons.CALIBRATION_FIELDS)):
+                     ("calibration", commons.CALIBRATION_FIELDS),
+                     ("frame", commons.FRAME_FIELDS)):
     check(f"every {name} field carries a reason, not just a name",
           all(isinstance(v, str) and len(v) > 20 for v in fields.values()),
           {k: v for k, v in fields.items() if not (isinstance(v, str) and len(v) > 20)})
 
 TERMS = {"version": commons.TERMS_VERSION, "granted": ["public_commons"]}
 body = commons.contribution_payload("i" * 16, [], [], TERMS)
-check("the payload has exactly the approved top-level fields",
-      set(body) == set(commons.CONTRIBUTION_FIELDS), sorted(body))
+REQUIRED = set(commons.CONTRIBUTION_FIELDS) - commons.OPTIONAL_CONTRIBUTION_FIELDS
+check("the payload has exactly the approved required fields",
+      set(body) == REQUIRED, sorted(body))
+# Exact agreement in both cases rather than a subset check. A subset check
+# would pass for a payload carrying a field nobody approved, which is the leak
+# this section exists to catch.
+full = commons.contribution_payload(
+    "i" * 16, [], [], TERMS,
+    frame={"domain": "sales", "region": "europe", "subjects": "50-199"})
+check("and exactly all of them once the optional ones are declared",
+      set(full) == set(commons.CONTRIBUTION_FIELDS), sorted(full))
+check("every optional field is itself an approved field",
+      commons.OPTIONAL_CONTRIBUTION_FIELDS <= set(commons.CONTRIBUTION_FIELDS))
 
 print("== a column added upstream cannot travel by accident ==")
 # The shape of the leak that nearly shipped: a field appears on a local row
