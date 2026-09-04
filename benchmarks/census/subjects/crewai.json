@@ -1,0 +1,325 @@
+{
+  "subject": "crewai",
+  "name": "CrewAI",
+  "version": "main at 92eb5f9",
+  "url": "https://github.com/crewAIInc/crewAI",
+  "commit": "92eb5f91830cde5a7c4be921cb295c5523649d13",
+  "license": "MIT",
+  "claims": [
+    "stores",
+    "derives",
+    "acts"
+  ],
+  "assessed_on": "2026-09-04",
+  "assessed_by": "Michael Brandon Clifford",
+  "method": "Read of lib/crewai/src/crewai/memory/types.py, memory/encoding_flow.py, memory/analyze.py, memory/storage/lancedb_storage.py, hooks/decorators.py, hooks/tool_hooks.py, hooks/llm_hooks.py and agents/crew_agent_executor.py at 92eb5f9, cloned from the public repository. Line numbers are that commit's. The project versions from SCM and the clone carries no tag, so the commit is the identifier.",
+  "notes": "CrewAI has a real gate and a real consolidation step, and both are worth understanding before deploying it where a record matters. The gate is the before_tool_call hook: developer code, filtered by tool name, that can block a call, which satisfies the requirement that risk not be decided by the model. What it does with a block is the problem. HookAborted carries a reason, run_before_tool_call_hooks discards it, and the executor substitutes the fixed string 'Tool execution blocked by hook', which goes back to the model as an ordinary tool result. The refusal survives as narration in a transcript rather than as a decision anybody can query. On the memory side, an LLM emits a keep/update/delete plan over existing records and updates overwrite content in place while preserving the record id and created_at, with no history kept anywhere. Both behaviours are reasonable for a framework optimising for agents that work; neither leaves a record.",
+  "assessments": {
+    "R1.1": {
+      "verdict": "present",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/memory/types.py:46",
+          "note": "MemoryRecord.created_at is a required datetime on the record itself"
+        },
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/memory/storage/lancedb_storage.py:255",
+          "note": "created_at is serialised into the stored row, so it survives the process"
+        }
+      ]
+    },
+    "R1.2": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/memory/storage/lancedb_storage.py:320",
+          "note": "\"Update a record by ID. Preserves created_at, updates last_accessed.\" The content field is replaced and the prior value is not written anywhere"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'def history|version|previous_value|old_value|supersed' lib/crewai/src/crewai/memory/ --include=*.py",
+          "note": "the only matches concern LanceDB table versions and optimistic concurrency retries; there is no memory history table, no version column and no revision chain"
+        }
+      ],
+      "note": "Once a record is updated, what it previously said is gone. Preserving created_at while replacing content is worse than either alternative for a reader: the record looks as old as the original claim while carrying the new one."
+    },
+    "R1.3": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/memory/encoding_flow.py:457-473",
+          "note": "the encoding flow builds a replacement MemoryRecord reusing the existing id and created_at, and calls self._storage.update(updated). This is the ordinary write path, not an administrative one"
+        },
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/memory/encoding_flow.py:455",
+          "note": "dedup_deletes are applied and counted in records_deleted, so the same path also destroys records outright"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'def history|previous_value|old_value|supersed' lib/crewai/src/crewai/memory/ --include=*.py",
+          "note": "no match; nothing retains what was overwritten or deleted"
+        }
+      ]
+    },
+    "R1.4": {
+      "verdict": "partial",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/memory/types.py:20 MemoryRecord",
+          "note": "one record class carrying content, scope, categories, an arbitrary metadata dict, importance and source"
+        },
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/memory/storage/kickoff_task_outputs_storage.py",
+          "note": "task outputs are a separate store, so not everything is one shape"
+        }
+      ],
+      "note": "There is more than one kind of record in the system, but within memory a claim and whatever produced it are the same shape, distinguished only by whatever a caller happened to put in the metadata dict."
+    },
+    "R1.5": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/memory/storage/lancedb_storage.py:440-456",
+          "note": "deletion is expressed as SQL-style conditions such as created_at < timestamp, applied directly to the table"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'tombstone|deleted_at|erasure|audit' lib/crewai/src/crewai/memory/ --include=*.py",
+          "note": "no match; nothing survives a deletion to record that one occurred"
+        }
+      ]
+    },
+    "R2.1": {
+      "verdict": "partial",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/memory/types.py:60-66",
+          "note": "source is \"Origin of this memory (e.g. user ID, session ID). Used for provenance tracking and privacy filtering\""
+        }
+      ],
+      "note": "A user id or a session id narrows the origin to a person or a conversation. It does not identify the message, document or event the claim came from, so recovering that means searching the session by hand if it still exists."
+    },
+    "R2.2": {
+      "verdict": "partial",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/memory/analyze.py:18-19",
+          "note": "ExtractedMetadata is documented as \"Fixed schema for LLM-extracted metadata\", so metadata the model produced is labelled as such"
+        },
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/memory/types.py:20-46",
+          "note": "MemoryRecord.content carries no marker distinguishing text the system was given from text it wrote"
+        },
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/memory/encoding_flow.py:457-473",
+          "note": "a consolidated record's content is new_content written by the LLM, stored under the original record's id and created_at with nothing recording that it was rewritten"
+        }
+      ],
+      "note": "The metadata is labelled and the content is not, which is the wrong way round for this purpose. After consolidation a record can hold model-written text while presenting as the original observation."
+    },
+    "R2.3": {
+      "verdict": "partial",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/memory/analyze.py:124-136 ConsolidationPlan",
+          "note": "\"LLM output for consolidating new content with existing memories\", carrying actions over existing records described as keep/update/delete"
+        },
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/memory/encoding_flow.py:122-139 intra_batch_dedup",
+          "note": "near-exact duplicates are dropped before anything is stored, counted as items_dropped_dedup"
+        }
+      ],
+      "note": "Two disagreeing memories both persist until the consolidation step runs over them, at which point the plan may delete one or overwrite it. This is the textbook case for a partial: survival is real but conditional on a step that runs automatically."
+    },
+    "R2.4": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'class Conflict|contradict|conflict' lib/crewai/src/crewai/memory/ --include=*.py",
+          "note": "every match refers to LanceDB optimistic-concurrency commit conflicts, not to disagreement between memories. There is no conflict record, id or query surface"
+        }
+      ]
+    },
+    "R2.5": {
+      "verdict": "partial",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/memory/analyze.py:137-139",
+          "note": "insert_reason exists on the plan, so a reason is modelled at the point the decision is made"
+        },
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/memory/encoding_flow.py:457-473",
+          "note": "the record written back carries content, scope, categories, metadata, importance, created_at, last_accessed and embedding. No reason, no deciding model and no reference to what it replaced are among them"
+        }
+      ],
+      "note": "The reason is computed and then not stored. That is a narrower gap than not having one, and closing it would mean carrying insert_reason onto the updated record rather than discarding it after the branch."
+    },
+    "R3.1": {
+      "verdict": "partial",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/agents/crew_agent_executor.py:984-989",
+          "note": "hook_blocked = run_before_tool_call_hooks(...); when true the executor sets result to \"Tool execution blocked by hook. Tool: {func_name}\" and that string becomes the tool result"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'ToolUsageBlocked|blocked' lib/crewai/src/crewai/events/ --include=*.py",
+          "note": "no match; no event type distinguishes a blocked call, so a blocked attempt is not emitted as its own thing"
+        }
+      ],
+      "note": "A stopped attempt does leave a mark, which is why this is not absent. What it leaves is a sentence in the model's context, structurally identical to a tool that ran and returned that text. Nothing an auditor could query separates the two."
+    },
+    "R3.2": {
+      "verdict": "present",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/hooks/decorators.py:208-249 before_tool_call",
+          "note": "hooks are registered in developer code and filtered by tool name and agent, for example @before_tool_call(tools=[\"delete_file\", \"execute_code\"])"
+        },
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/hooks/tool_hooks.py:171-189 run_before_tool_call_hooks",
+          "note": "the hook decides, and the model has no way to register, remove or satisfy one from its output"
+        }
+      ],
+      "note": "Coarser than a graded risk class, but the substance holds: which tools are gated is fixed in code the model cannot write."
+    },
+    "R3.3": {
+      "verdict": "partial",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/agents/crew_agent_executor.py:986-989",
+          "note": "the blocked branch produces a result string handled identically to a successful tool result"
+        }
+      ],
+      "note": "A refusal is recorded in the same channel as a permission, which is the letter of this requirement, but with no marker that it was a refusal rather than an output."
+    },
+    "R3.4": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/hooks/tool_hooks.py:140-149 before_tool_call_reducer",
+          "note": "a False return raises HookAborted(reason=\"before_tool_call hook returned False\"), so a reason exists at the point of refusal"
+        },
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/hooks/tool_hooks.py:181-189",
+          "note": "the HookAborted is caught and converted to a bare True; the reason on the exception is discarded and never returned to the caller"
+        },
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/agents/crew_agent_executor.py:987",
+          "note": "the executor substitutes the fixed string \"Tool execution blocked by hook. Tool: {func_name}\", which names the tool and not the reason"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rn 'reason' lib/crewai/src/crewai/hooks/tool_hooks.py lib/crewai/src/crewai/agents/crew_agent_executor.py | grep -i 'block\\|abort\\|hook'",
+          "note": "exactly one hit, the HookAborted construction at tool_hooks.py:149. Nothing downstream reads it, so no reason reaches the record or the model"
+        }
+      ],
+      "note": "This is the most fixable finding in this file. The reason is constructed and then thrown away two frames later. Returning it instead of a boolean would give every refusal a machine-readable cause at no design cost."
+    },
+    "R3.5": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/hooks/llm_hooks.py:117-129 request_human_input",
+          "note": "the signature is request_human_input(prompt, default_message) -> str, documented as pausing console updates, displaying a prompt and waiting for input, and useful for \"approval gates\""
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'approver|approved_by|principal' lib/crewai/src/crewai/hooks/ --include=*.py",
+          "note": "no match; the return value is the typed text and nothing identifies who typed it"
+        }
+      ],
+      "note": "The approval is a line entered at a terminal. Whoever is sitting at that terminal is the approver, and the system records neither the fact nor the identity."
+    },
+    "R3.6": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/hooks/llm_hooks.py:117-121",
+          "note": "input is read from the console with no authentication step of any kind in the path"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'approver|approved_by|principal' lib/crewai/src/crewai/hooks/ --include=*.py",
+          "note": "no identity is captured, so none can be sourced from an authentication layer"
+        }
+      ]
+    },
+    "R3.7": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/hooks/decorators.py:224-229",
+          "note": "a hook that returns None permits the call, so a hook of one line approves everything it is registered for without any human being involved"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'approver|approved_by|principal' lib/crewai/src/crewai/hooks/ --include=*.py",
+          "note": "with no principals modelled anywhere, a proposer and an approver cannot be distinguished even in principle"
+        }
+      ]
+    },
+    "R4.1": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'hash_chain|merkle|tamper|checksum|digest|signature' lib/crewai/src/crewai/memory/ --include=*.py",
+          "note": "no match anywhere in the memory subsystem"
+        }
+      ]
+    },
+    "R4.2": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'hash_chain|merkle|tamper|checksum|digest|signature' lib/crewai/src/crewai/memory/ --include=*.py",
+          "note": "no scheme exists, so there is nothing for an independent party to run"
+        }
+      ]
+    },
+    "R4.3": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "lib/crewai/src/crewai/memory/storage/lancedb_storage.py:320-332",
+          "note": "update replaces a row by id with no digest of the prior state, so an alteration made through the ordinary API is already indistinguishable from an original write, let alone one made against the table directly"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'hash_chain|merkle|tamper|checksum' lib/crewai/src/crewai/memory/ --include=*.py",
+          "note": "no match"
+        }
+      ]
+    }
+  }
+}

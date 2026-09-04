@@ -38,8 +38,8 @@ const IMPLEMENTATIONS: Row[] = [
     href: "https://github.com/troybrandonc-bit/Omem",
     what: "Belief revision memory and an approval gate for AI agents. MIT, self-hosted.",
     level: "TR-4",
-    checked: "1 September 2026",
-    how: "export_testimony.py against a running server. The export is validated in CI on every commit, so the level is checked continuously rather than once.",
+    checked: "4 September 2026",
+    how: "export_testimony.py against a running server. The export is validated in CI on every commit, so the level is checked continuously rather than once. Re-checked on 4 September after a defect was found and fixed: the export had been emitting no evidence entries at all, which passed TR-2 vacuously because an empty evidence array satisfies the check. Beliefs now cite the sources OMEM already held, and the suite fails if they stop.",
   },
 ];
 

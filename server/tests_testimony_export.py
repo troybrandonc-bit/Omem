@@ -129,6 +129,21 @@ call("POST", "/v1/healing/handle?project=" + PID, {
     "plan": {"diagnosis": "drop the cached rate table",
              "actions": [{"type": "clear_cache"}]}}, OWNER)
 
+print("== a belief that arrived through a connector ==")
+# Every belief above was asserted directly by an agent. Those are genuinely
+# ungrounded and export with an empty evidence array, which is correct. It is
+# also why this suite passed for months while the exporter emitted no evidence
+# at all: the fixture had nothing to cite, so the citation path was never run.
+conn = api.INGEST.add_connector(
+    PID, "support_inbox", "Support Inbox",
+    {"items": [{"customer": "acme", "subject": "channel preference",
+                "body": "please prefer email", "at": "now"}]},
+    agent_id="connector:inbox", authority=0.7)
+api.INGEST.poll_connector(conn["id"])
+ingested = api.INGEST.process_pending(PID)
+check("a belief arrived through a connector, with a source behind it",
+      ingested["assertions"] >= 1 and ingested["failed"] == 0, ingested)
+
 print("== the export ==")
 client = EX.Client("http://127.0.0.1:%d" % PORT, KEY, PID)
 entries = EX.build_record(client)
@@ -191,6 +206,42 @@ check("the name the caller supplied is kept, as a label rather than as proof",
 check("the approver is not the agent that proposed the action",
       approval and approval["approver"]["id"]
       != by_type["issue_refund"]["proposed_by"]["id"], approval)
+
+print("== evidence: what the record actually cites ==")
+ev = [e for e in entries if e["type"] == "evidence"]
+by_id = {e["id"]: e for e in entries}
+cited = [b for b in beliefs if b.get("evidence")]
+check("the export contains evidence entries", len(ev) >= 1, kinds)
+check("the ingested belief cites the source it came from", len(cited) >= 1,
+      [(b["proposition"], b["evidence"]) for b in beliefs])
+check("every cited id resolves to an evidence entry in the same record",
+      cited and all(by_id.get(x, {}).get("type") == "evidence"
+                    for b in cited for x in b["evidence"]),
+      [b.get("evidence") for b in cited])
+check("a cited source carries a digest, so it can be shown unchanged",
+      any(e.get("digest") for e in ev), ev)
+# The citation has to stand without the content. An export carrying the body
+# of somebody's support email is a disclosure wearing the costume of a proof,
+# and the default is what decides which one gets handed to an auditor.
+check("source content is redacted unless it was asked for",
+      ev and not any("excerpt" in e for e in ev), ev)
+check("and every redacted entry says so rather than looking sourceless",
+      all(e.get("redacted") is True for e in ev if "excerpt" not in e), ev)
+# Saying "ungrounded" is honest about a directly asserted belief. Saying it
+# about every belief, while the store knows the sources, is not.
+check("a directly asserted belief still exports as ungrounded",
+      any(b.get("evidence") == [] for b in beliefs),
+      [(b["proposition"], b.get("evidence")) for b in beliefs])
+ev_at = [i for i, e in enumerate(entries) if e["type"] == "evidence"]
+check("evidence is written before the belief that rests on it",
+      ev_at and all(min(ev_at) < i for i, b in enumerate(entries)
+                    if b["type"] == "belief" and b.get("evidence")),
+      [e["type"] for e in entries])
+
+quoted = [e for e in EX.build_record(client, excerpts=True)
+          if e["type"] == "evidence" and e.get("excerpt")]
+check("--excerpts includes the quoted source text when it is asked for",
+      len(quoted) >= 1, quoted)
 
 print("== the published validator's verdict on OMEM's own export ==")
 report = TV.validate(text)

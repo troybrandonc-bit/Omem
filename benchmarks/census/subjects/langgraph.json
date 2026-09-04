@@ -1,0 +1,303 @@
+{
+  "subject": "langgraph",
+  "name": "LangGraph",
+  "version": "1.2.11 (81bf17b)",
+  "url": "https://github.com/langchain-ai/langgraph",
+  "commit": "81bf17b23123e4ef8b9d5f49fa09a0122fc2edd1",
+  "license": "MIT",
+  "claims": [
+    "stores",
+    "acts"
+  ],
+  "assessed_on": "2026-09-04",
+  "assessed_by": "Michael Brandon Clifford",
+  "method": "Read of libs/checkpoint/langgraph/checkpoint/base/__init__.py, libs/checkpoint-sqlite/langgraph/checkpoint/sqlite/__init__.py and libs/langgraph/langgraph/types.py at 81bf17b, cloned from the public repository. Line numbers are that commit's.",
+  "notes": "LangGraph is assessed as storing and acting but not deriving. It persists state the graph computed and executes nodes with effects, but the framework itself makes no claims about the world beyond what its user's nodes put into a channel, so scoring it on the told-versus-inferred requirement would be scoring the user's code rather than the framework. Its checkpointer is the most append-only structure in this census: every checkpoint is a new row keyed by its own id, carrying parent_checkpoint_id, so the history of a thread is a chain nothing overwrites. The gap is the same one every other system here has, in the same place. interrupt() genuinely pauses before a consequential step, and the value that resumes it is an arbitrary payload with nobody's name on it.",
+  "assessments": {
+    "R1.1": {
+      "verdict": "present",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint/langgraph/checkpoint/base/__init__.py:103-104",
+          "note": "Checkpoint.ts is the checkpoint timestamp in ISO 8601, held inside the checkpoint rather than in a log beside it"
+        },
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint/langgraph/checkpoint/base/__init__.py:50",
+          "note": "CheckpointMetadata.step records the position in the run, so ordering survives even where clocks do not"
+        }
+      ]
+    },
+    "R1.2": {
+      "verdict": "present",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint-sqlite/langgraph/checkpoint/sqlite/__init__.py:142-151",
+          "note": "the checkpoints table's primary key is (thread_id, checkpoint_ns, checkpoint_id), so a new state is a new row and earlier checkpoints remain readable"
+        },
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint-sqlite/langgraph/checkpoint/sqlite/__init__.py:146",
+          "note": "parent_checkpoint_id links each checkpoint to the one it came from, making the history of a thread a walkable chain"
+        },
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint/langgraph/checkpoint/base/__init__.py:42-48",
+          "note": "CheckpointMetadata.source distinguishes input, loop, update and fork, so a state produced by a manual update is distinguishable from one the graph computed"
+        }
+      ]
+    },
+    "R1.3": {
+      "verdict": "present",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint-sqlite/langgraph/checkpoint/sqlite/__init__.py:142-162",
+          "note": "the ordinary write path inserts a checkpoint row and per-task rows into writes; neither is an update of an existing row"
+        },
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint/langgraph/checkpoint/base/__init__.py:42-48",
+          "note": "a correction is a checkpoint with source 'update', which is a new entry rather than an edit to an old one"
+        }
+      ],
+      "note": "This is what the requirement asks for, arrived at because time travel and resumption need it rather than because a specification asked. The design goal differs and the property is the same."
+    },
+    "R1.4": {
+      "verdict": "present",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint-sqlite/langgraph/checkpoint/sqlite/__init__.py:142-162",
+          "note": "checkpoints and writes are separate tables: a state snapshot and the individual channel writes that produced it are different record kinds"
+        },
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint/langgraph/checkpoint/base/__init__.py:39-58",
+          "note": "checkpoint metadata is a typed structure with a closed source enum rather than a free-form dict"
+        }
+      ]
+    },
+    "R1.5": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint-sqlite/langgraph/checkpoint/sqlite/__init__.py:484-496 delete_thread",
+          "note": "issues DELETE FROM checkpoints WHERE thread_id = ?, and the same for the writes table"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'tombstone|deleted_at|erasure|audit' libs/checkpoint/ libs/checkpoint-sqlite/ --include=*.py",
+          "note": "no match; after delete_thread the store is indistinguishable from one where the thread never ran"
+        }
+      ],
+      "note": "delete_thread is the obvious call to reach for on a subject-erasure request, and it is the one place the otherwise append-only design gives way completely. A row recording the thread id, the time and the requester, with no state in it, would close this without retaining anything that was erased."
+    },
+    "R2.1": {
+      "verdict": "partial",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint-sqlite/langgraph/checkpoint/sqlite/__init__.py:152-162",
+          "note": "the writes table records thread_id, checkpoint_id, task_id, idx and channel for every write, so a value in state can be traced to the task and step that produced it"
+        },
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint/langgraph/checkpoint/base/__init__.py:105-111",
+          "note": "channel_values holds the values themselves with no reference to any external document, message or event they may represent"
+        }
+      ],
+      "note": "Provenance within the run is genuinely good: which node wrote which channel at which step is recoverable. Provenance beyond the run is out of scope for the framework, so a value that came from a customer email is just a string in a channel."
+    },
+    "R2.3": {
+      "verdict": "partial",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint-sqlite/langgraph/checkpoint/sqlite/__init__.py:142-151",
+          "note": "an earlier checkpoint is never removed, so a value and a later value that disagrees with it both remain in the chain"
+        },
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint/langgraph/checkpoint/base/__init__.py:105-111",
+          "note": "channel_values is the state at that checkpoint; a channel holds one value, so the current state shows only the later of two disagreeing values"
+        }
+      ],
+      "note": "Both survive as history because nothing is deleted, which is more than most systems here manage. Neither survives as a live claim: reading the current state gives the winner, and finding the loser means walking back through checkpoints."
+    },
+    "R2.4": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'class Conflict|contradict|disagree' libs/langgraph/langgraph/ libs/checkpoint/ --include=*.py",
+          "note": "no conflict type, record or query surface. The framework has channels and reducers, not propositions, so there is nothing that could be in conflict"
+        }
+      ]
+    },
+    "R2.5": {
+      "verdict": "partial",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint/langgraph/checkpoint/base/__init__.py:42-48",
+          "note": "a checkpoint created by a manual state update is labelled source 'update', so the fact that a value was overridden by hand is on the record"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'approver|approved_by|principal|user_id' libs/langgraph/langgraph/types.py",
+          "note": "no match; the checkpoint records that an update happened and never who made it"
+        }
+      ],
+      "note": "A channel reducer resolving two writes is a resolution of sorts, decided by developer code, and that is a reasonable place for the decision to live. What is missing is attribution on the manual path: 'update' says a person intervened without saying which person."
+    },
+    "R3.1": {
+      "verdict": "present",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "libs/langgraph/langgraph/types.py:851 interrupt",
+          "note": "interrupt(value) pauses the graph before the step completes, and the pending interrupt is part of the checkpointed state"
+        },
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint-sqlite/langgraph/checkpoint/sqlite/__init__.py:152-162",
+          "note": "the writes table records per-task writes against a checkpoint, so a task that was prepared and then paused leaves a durable row"
+        },
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint/langgraph/checkpoint/base/__init__.py:103-104",
+          "note": "the checkpoint carrying that state is written through the checkpointer, so unlike a run-scoped ledger it survives the process by default"
+        }
+      ],
+      "note": "The strongest answer to this requirement in the census. An action that was prepared and never ran is in durable storage rather than in memory, because resumption depends on it being there."
+    },
+    "R3.2": {
+      "verdict": "present",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "libs/langgraph/langgraph/types.py:851-864 interrupt",
+          "note": "the interrupt is placed in graph code by the developer, and interrupt_before is set at compile time; a model's output cannot add, remove or satisfy one"
+        }
+      ],
+      "note": "Binary rather than graded, like the other frameworks here, and outside model control, which is the substance of the requirement."
+    },
+    "R3.3": {
+      "verdict": "partial",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "libs/langgraph/langgraph/types.py:799-823 Command",
+          "note": "Command.resume carries the value that resumes an interrupt, and a refusal is expressed as whatever value the application chooses to send"
+        },
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint/langgraph/checkpoint/base/__init__.py:42-48",
+          "note": "the resulting checkpoint is labelled source 'update' or 'loop' like any other, with nothing marking it as a refusal"
+        }
+      ],
+      "note": "A refusal is durably recorded, because everything is, but only as a state change. Nothing distinguishes 'the human said no' from any other value arriving in a channel."
+    },
+    "R3.4": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "libs/langgraph/langgraph/types.py:823",
+          "note": "resume is typed as dict[str, Any] | Any | None, so a reason can be passed but has no defined place and no defined shape"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'reason|rejection' libs/langgraph/langgraph/types.py",
+          "note": "no field named reason or rejection exists on Command or on the interrupt types; any reason an application supplies is an opaque value the framework does not model"
+        }
+      ]
+    },
+    "R3.5": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "libs/langgraph/langgraph/types.py:799-823 Command",
+          "note": "the resume payload identifies which interrupt it answers and carries a value; there is no field for who answered"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'approver|approved_by|principal|user_id' libs/langgraph/langgraph/types.py",
+          "note": "no match anywhere in the types module that defines the human-in-the-loop surface"
+        }
+      ]
+    },
+    "R3.6": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'approver|approved_by|principal|user_id' libs/langgraph/langgraph/types.py",
+          "note": "no identity is captured at the resume boundary, so none can come from an authentication layer"
+        },
+        {
+          "kind": "source",
+          "locator": "libs/langgraph/langgraph/types.py:823",
+          "note": "resume is an arbitrary value supplied by the caller, which is exactly the request-body-shaped input the specification warns against treating as identity"
+        }
+      ]
+    },
+    "R3.7": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "libs/langgraph/langgraph/types.py:799-823",
+          "note": "any code holding the thread can send a Command(resume=...), including the same process that raised the interrupt, so a graph can resume its own pause without a person"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'approver|approved_by|principal|user_id' libs/langgraph/langgraph/types.py",
+          "note": "with no principals modelled, a proposer and an approver cannot be told apart"
+        }
+      ]
+    },
+    "R4.1": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'hash_chain|merkle|tamper|checksum|signature' libs/checkpoint/ libs/langgraph/langgraph/ --include=*.py",
+          "note": "matches are Python introspection only (inspect.signature, function signature docs); no integrity scheme is defined or published"
+        }
+      ],
+      "note": "parent_checkpoint_id makes the history a chain in structure, which is most of the shape of a hash chain and none of its force: the links are ids rather than digests, so they order the record without binding it."
+    },
+    "R4.2": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'def verify|verification' libs/checkpoint/ --include=*.py",
+          "note": "no verification surface exists, so there is nothing for an independent party to run"
+        }
+      ]
+    },
+    "R4.3": {
+      "verdict": "absent",
+      "evidence": [
+        {
+          "kind": "source",
+          "locator": "libs/checkpoint-sqlite/langgraph/checkpoint/sqlite/__init__.py:142-151",
+          "note": "the checkpoint column is an opaque BLOB with no digest over it or over its parent, so editing a stored checkpoint leaves the chain looking intact"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'hash_chain|merkle|tamper|checksum' libs/checkpoint/ --include=*.py",
+          "note": "no match"
+        }
+      ],
+      "note": "This is the closest any assessed system comes to being one change away from TR-4 alone: a digest of each checkpoint that included its parent's digest would make the existing chain tamper-evident without altering the write path."
+    }
+  }
+}

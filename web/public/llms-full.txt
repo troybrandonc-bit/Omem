@@ -697,8 +697,8 @@ Testimony Record
 Systems that emit conforming records, the level each one reaches, and when its record was last checked. Nothing on this page is self reported. A listing follows a record that passed the validator, which anyone can run against the same file.
 ImplementationLevelChecked
 OMEMBelief revision memory and an approval gate for AI agents. MIT, self-hosted.
-export_testimony.py against a running server. The export is validated in CI on every commit, so the level is checked continuously rather than once.
-TR-41 September 2026
+export_testimony.py against a running server. The export is validated in CI on every commit, so the level is checked continuously rather than once. Re-checked on 4 September after a defect was found and fixed: the export had been emitting no evidence entries at all, which passed TR-2 vacuously because an empty evidence array satisfies the check. Beliefs now cite the sources OMEM already held, and the suite fails if they stop.
+TR-44 September 2026
 One implementation is not a standard, and the editor of a specification listing only his own software has written a manual. That is the honest state of this page today. It changes when other people emit records, which is the whole reason the format, the schema and the validator cost nothing to use and ask no permission.
 
 ## Getting listed
