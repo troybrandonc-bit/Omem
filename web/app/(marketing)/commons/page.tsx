@@ -1,5 +1,6 @@
 import { MarketingShell } from "@/components/marketing/chrome";
 import { Section, Eyebrow, HeroHeading, ButtonLink } from "@/components/marketing/ui";
+import { CommonsState } from "@/components/marketing/commons-state";
 import { CommonsLive } from "./live";
 
 export const metadata = {
@@ -56,6 +57,11 @@ export default function Commons() {
           </p>
         </div>
         <CommonsLive />
+      </Section>
+
+      <Section className="section-y">
+        <h2 className="text-title font-semibold">What is in it</h2>
+        <CommonsState />
       </Section>
 
       <Section className="section-y">
