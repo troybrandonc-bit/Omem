@@ -22,9 +22,10 @@ author:
     email: troy@machinetestimony.org
     uri: https://machinetestimony.org
 
+# RFC 2119 and RFC 8174 are deliberately absent here: the bcp14
+# boilerplate below declares them itself, and naming them in both places
+# makes kramdown warn that the reference is inline and in the header.
 normative:
-  RFC2119:
-  RFC8174:
   RFC8259:
   RFC7493:
   RFC3339:
