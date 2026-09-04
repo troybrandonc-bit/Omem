@@ -1,0 +1,169 @@
+name: Release testimony-langgraph
+
+# A separate workflow from release.yml on purpose. The adapter is a different
+# package with a different audience and no reason to move in lockstep with
+# omem-infrastructure: forcing them to share a version would mean either
+# republishing an unchanged adapter on every server release, or holding the
+# server back for the adapter. Neither is a thing anyone wants.
+#
+# Tag format is `testimony-langgraph-v0.1.0`, which cannot match release.yml's
+# `v*` pattern, so tagging one never fires the other.
+#
+# Auth is PyPI trusted publishing (OIDC), not a token. Configure it once at
+# https://pypi.org/manage/account/publishing/ before the first publish, since
+# the project does not exist yet and needs a pending publisher:
+#   PyPI project name: testimony-langgraph
+#   owner: troybrandonc-bit          repo: Omem
+#   workflow: release-adapter.yml    environment: pypi-testimony-langgraph
+
+on:
+  push:
+    tags: ["testimony-langgraph-v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and verify, but do not publish"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: adapters/langgraph
+
+jobs:
+  verify:
+    name: the tag matches the package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      # Derived from the tag being built rather than passed between jobs.
+      # release.yml learned this the hard way: a partial re-run does not
+      # re-execute the job that produced the output, and the empty string that
+      # arrived downstream tagged the repository `v`.
+      - name: pyproject version must equal the tag
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          REF: ${{ github.ref_name }}
+        run: |
+          V="${REF#testimony-langgraph-v}"
+          P=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          if [ "$V" != "$P" ]; then
+            echo "::error::tag says $V, pyproject says $P"; exit 1
+          fi
+          echo "releasing $P"
+      - name: the package must not already exist at this version
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          REF: ${{ github.ref_name }}
+        run: |
+          V="${REF#testimony-langgraph-v}"
+          if curl -sf "https://pypi.org/pypi/testimony-langgraph/$V/json" >/dev/null; then
+            echo "::error::testimony-langgraph $V is already on PyPI. Bump the version."
+            exit 1
+          fi
+
+  test:
+    name: the adapter suite on the tagged commit
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      - run: pip install langgraph
+        working-directory: .
+      # The refusals are the substance of this package, so a release that has
+      # not run them has verified nothing worth verifying.
+      - name: The refusals still bite
+        working-directory: server
+        run: |
+          out=$(python tests_langgraph_testimony.py)
+          echo "$out"
+          if echo "$out" | grep -qE '^[[:space:]]*SKIP:'; then
+            echo "::error::the adapter suite skipped on a release commit"; exit 1
+          fi
+
+  build:
+    name: build and prove a stranger can use it
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      - run: pip install build
+        working-directory: .
+      - run: python -m build
+      - name: The wheel must carry the validator
+        run: |
+          python - <<'PY'
+          import glob, zipfile
+          whl = glob.glob("dist/*.whl")[0]
+          names = zipfile.ZipFile(whl).namelist()
+          for need in ("testimony_langgraph.py", "testimony_validate.py"):
+              assert need in names, "%s missing from %s: %s" % (need, whl, names)
+          print("wheel carries both modules")
+          PY
+      # Installed, in a directory with no checkout in it, exactly as the package
+      # page promises. Testing from the source tree would test the source tree.
+      - name: pip install, emit, check
+        working-directory: .
+        run: |
+          pip install adapters/langgraph/dist/*.whl
+          mkdir -p /tmp/stranger && cd /tmp/stranger
+          cat > agent.py <<'PY'
+          from langgraph.graph import StateGraph, START, END
+          from langgraph.checkpoint.memory import InMemorySaver
+          from langgraph.types import interrupt
+          from typing_extensions import TypedDict
+          from testimony_langgraph import Recorder
+
+          class S(TypedDict, total=False):
+              order: str
+              ok: bool
+
+          def gate(s):
+              return {"ok": bool(interrupt({"action": "cancel_subscription",
+                                            "args": {"order": s["order"]}}))}
+          g = StateGraph(S); g.add_node("gate", gate)
+          g.add_edge(START, "gate"); g.add_edge("gate", END)
+          graph = g.compile(checkpointer=InMemorySaver())
+
+          cfg = {"configurable": {"thread_id": "t1"}}
+          rec = Recorder(agent={"id": "billing-agent", "kind": "agent"},
+                         risk={"cancel_subscription": "high"})
+          rec.believe("customer:zed", "requested_cancellation",
+                      evidence=[rec.cite("api", "crm://accounts/551")])
+          rec.invoke(graph, {"order": "A-551"}, cfg)
+          rec.approve(graph, cfg,
+                      approver={"id": "sam@example.com", "kind": "human"},
+                      identity_source="auth-session")
+          rec.write("out.jsonl")
+          PY
+          python agent.py
+          testimony-validate out.jsonl --require TR-4
+      - uses: actions/upload-artifact@v4
+        with: { name: adapter-dist, path: adapters/langgraph/dist/ }
+
+  publish:
+    name: publish to PyPI
+    needs: build
+    if: github.event_name == 'push' || inputs.dry_run == false
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi-testimony-langgraph
+      url: https://pypi.org/p/testimony-langgraph
+    permissions:
+      id-token: write        # OIDC for trusted publishing
+    steps:
+      - uses: actions/download-artifact@v8
+        with: { name: adapter-dist, path: dist/ }
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        # No `password:` on purpose. Trusted publishing uses the OIDC token, so
+        # there is no long-lived credential in this repository that could
+        # overwrite a package people pip-install.
