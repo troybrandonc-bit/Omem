@@ -114,6 +114,14 @@ export default function Implementations() {
           <CodeBlock single={CHECK} filename="terminal"
             label="Check your own record before sending it" />
 
+          <p>
+            Before sending anything,{" "}
+            <a href="/spec/testimony-record/view">read your own record back</a>.
+            The viewer runs the same checks in your browser and shows what your
+            record actually says, which is a faster way to find a mapping
+            mistake than a validator exit code.
+          </p>
+
           <h2>The conformance marks</h2>
           <p>
             An implementation may display the mark for the level its record
