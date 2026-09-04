@@ -215,6 +215,14 @@ export default function Spec() {
             gets wrong.
           </p>
 
+          <p>
+            To read one rather than produce one,{" "}
+            <a href="/spec/testimony-record/view">drop a record into the
+            viewer</a>. It shows what the agent believed, what each belief
+            rests on, and where it disagreed with itself, and checks the record
+            as it loads. Nothing is uploaded.
+          </p>
+
           <h2>Checking a claim</h2>
           <p>
             A conformance level that cannot be checked by the person hearing it

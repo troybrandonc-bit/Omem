@@ -362,15 +362,20 @@ def main() -> int:
     if a.json:
         print(json.dumps(r.as_dict(), indent=1))
     else:
-        current = None
-        for c in r.checks:
-            if c["level"] != current:
-                current = c["level"]
-                print(f"\n{current}")
-            mark = "ok  " if c["ok"] else "FAIL"
-            print(f"  {mark} {c['check']}")
-            if not c["ok"] and c["detail"]:
-                print(f"       {c['detail']}")
+        # Grouped by level rather than printed in the order the checks were
+        # added. The scope checks belong to TR-1 and are computed alongside the
+        # decisions at TR-3, so insertion order printed a second TR-1 heading
+        # halfway down the report.
+        for lvl in LEVELS:
+            here = [c for c in r.checks if c["level"] == lvl]
+            if not here:
+                continue
+            print(f"\n{lvl}")
+            for c in here:
+                mark = "ok  " if c["ok"] else "FAIL"
+                print(f"  {mark} {c['check']}")
+                if not c["ok"] and c["detail"]:
+                    print(f"       {c['detail']}")
         scope = "" if r.scope == "acts" else f", {r.scope}"
         print("\nConformance: " + (r.level or "none, TR-1 not met") + scope)
 

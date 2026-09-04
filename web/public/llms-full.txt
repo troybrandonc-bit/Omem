@@ -636,6 +636,7 @@ If you are not sure where your own agent sits, there are eleven questions that w
 ## Emitting one
 
 Most systems already store the facts a record is made of, so emitting one is a translation rather than a rewrite, and for a system that only records it is an afternoon. How to emit a record from a system you already have works through it against an ordinary two-table store, including the two things a first record usually gets wrong.
+To read one rather than produce one, drop a record into the viewer. It shows what the agent believed, what each belief rests on, and where it disagreed with itself, and checks the record as it loads. Nothing is uploaded.
 
 ## Checking a claim
 
@@ -697,6 +698,37 @@ Copy code
 That round trip runs in CI on every commit, against a real server: a contradiction is created, a high-risk action is refused, a named reviewer approves it, and the export is validated. If OMEM ever stops conforming to this document, the build goes red before anyone else finds out.
 If you implement this in another system, send a record and it gets checked and listed on the implementations page, along with the conformance mark for the level it reaches. Comparable records from systems that compete with each other are worth more than any one implementation, including this one.
 The JSON SchemaRun the reference implementation
+
+---
+
+# Read a Testimony Record
+Source: https://infrastructure.omem-cloud.com/spec/testimony-record/view
+
+Testimony Record
+
+# Read a record
+
+What the agent believed, where each belief came from, where it disagreed with itself, and what it was allowed to do. Checked against the specification as it loads.
+Everything happens in this tab. The file is read, parsed, validated and drawn here, and there is no endpoint to send it to. Records carry real material about real people, and a viewer that posted them somewhere would be asking you to hand over the thing the format exists to look after.
+Drop a .jsonl record here, or choose a file.
+Nothing is uploaded. The file is read, checked and drawn in this tab, and there is no endpoint to send it to.
+
+or paste oneDo not have one to hand? The emitting guide produces one from an ordinary two-table store in about forty lines, and the published example is a conforming record you can drop straight in.
+
+## What you are looking at
+
+The verdict at the top reports every level separately, not only the highest reached. The levels are cumulative, so a level can be satisfied and still not count because something below it is not met, and hiding that was a real defect in this validator until September 2026: a system with a genuine hash chain and no actuation gate was told it had reached TR-2 and never told its integrity had passed.
+Below the verdict, the record itself. Beliefs resolve to the evidence under them, so you can see what each one rests on rather than taking it on trust. A belief supported by nothing says so rather than being quietly dropped, because a system that cannot express “believed, and nothing supports it” will eventually invent support.
+Disagreements are drawn as pairs. Both sides of a contradiction are retained in a conforming record, and putting them side by side is the part an ordinary log cannot do for you: two rows that disagree look like two rows unless something says they are about the same claim.
+
+## If you do not have a record
+
+The emitting guide works through producing one from an ordinary two-table store in about forty lines, with no dependency on anything. The published example is a conforming record you can drop straight in to see what the viewer does with it.
+
+## The same checks, elsewhere
+
+This runs a TypeScript port of the reference validator. The two are held to agreement by a test that runs both over the same records, valid and invalid, and fails on any difference in the level, the scope, or any individual check. Two validators that disagree are worse than one, because a conformance claim then depends on which one you happened to run.
+If you would rather not trust a page, the reference validator is one standard library file with no network calls. Copy it into your own repository and run it there, which is the point of it being that small.
 
 ---
 
@@ -864,6 +896,8 @@ Copy code
 6# than depending on ours. A conformance claim nobody else can check is an
 7# adjective.
 
+Once you have one, the viewer will read it back to you: beliefs resolved to their evidence, contradictions drawn as pairs, and the conformance level computed in the browser. It is the fastest way to see whether your mapping did what you intended.
+
 ## Two things people get wrong
 
 Exporting an empty evidence array everywhere. An empty list is the correct export for a belief nothing supports, and the validator accepts it, which means a record citing nothing at all can pass TR-2 while meaning nothing. That is not a hypothetical: this specification’s own reference implementation did exactly that for a month. If your store knows where a fact came from, cite it.
@@ -907,6 +941,8 @@ Copy code
 7 with:
 8 record: record.jsonl
 9 require: TR-3
+
+Before sending anything, read your own record back. The viewer runs the same checks in your browser and shows what your record actually says, which is a faster way to find a mapping mistake than a validator exit code.
 
 ## The conformance marks
 
