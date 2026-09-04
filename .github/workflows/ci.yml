@@ -353,6 +353,52 @@ jobs:
         run: |
           python adapters/langgraph/example.py /tmp/record.jsonl
           python scripts/testimony_validate.py /tmp/record.jsonl --require TR-4
+      # The claim on the package page is "pip install, emit, check, no repo".
+      # This is that claim executed: build the wheel, install it somewhere with
+      # no checkout in sight, write a graph from scratch, and validate with the
+      # console script the wheel shipped. Testing it from the source tree would
+      # test the source tree.
+      - name: Build the package and prove a stranger can use it
+        run: |
+          pip install build
+          cd adapters/langgraph && python -m build && cd -
+          mkdir -p /tmp/stranger && cd /tmp/stranger
+          pip install "$GITHUB_WORKSPACE"/adapters/langgraph/dist/*.whl
+          cat > agent.py <<'PY'
+          from langgraph.graph import StateGraph, START, END
+          from langgraph.checkpoint.memory import InMemorySaver
+          from langgraph.types import interrupt
+          from typing_extensions import TypedDict
+          from testimony_langgraph import Recorder
+
+          class S(TypedDict, total=False):
+              order: str
+              ok: bool
+
+          def gate(s):
+              return {"ok": bool(interrupt({"action": "cancel_subscription",
+                                            "args": {"order": s["order"]}}))}
+          g = StateGraph(S); g.add_node("gate", gate)
+          g.add_edge(START, "gate"); g.add_edge("gate", END)
+          graph = g.compile(checkpointer=InMemorySaver())
+
+          cfg = {"configurable": {"thread_id": "t1"}}
+          rec = Recorder(agent={"id": "billing-agent", "kind": "agent"},
+                         risk={"cancel_subscription": "high"})
+          rec.believe("customer:zed", "requested_cancellation",
+                      evidence=[rec.cite("api", "crm://accounts/551")])
+          rec.invoke(graph, {"order": "A-551"}, cfg)
+          rec.approve(graph, cfg,
+                      approver={"id": "sam@example.com", "kind": "human"},
+                      identity_source="auth-session")
+          rec.write("out.jsonl")
+          PY
+          python agent.py
+          testimony-validate out.jsonl --require TR-4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: testimony-langgraph-dist
+          path: adapters/langgraph/dist/
 
   dashboard:
     name: dashboard / web
