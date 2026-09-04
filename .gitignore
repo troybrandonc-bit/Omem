@@ -68,4 +68,3 @@ distribution/
 # happened twice, at 151 MB, and both times the push is what caught it rather
 # than the rule that was supposed to.
 benchmarks/external/_*
-adapters/langgraph/testimony_validate.py
