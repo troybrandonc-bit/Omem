@@ -204,6 +204,17 @@ export default function Spec() {
             which matters given who tends to need the answer.
           </p>
 
+          <h2>Emitting one</h2>
+          <p>
+            Most systems already store the facts a record is made of, so
+            emitting one is a translation rather than a rewrite, and for a
+            system that only records it is an afternoon.{" "}
+            <a href="/spec/testimony-record/emitting">How to emit a record from
+            a system you already have</a> works through it against an ordinary
+            two-table store, including the two things a first record usually
+            gets wrong.
+          </p>
+
           <h2>Checking a claim</h2>
           <p>
             A conformance level that cannot be checked by the person hearing it
