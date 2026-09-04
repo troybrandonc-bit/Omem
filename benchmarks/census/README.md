@@ -132,11 +132,65 @@ yet.
 
 ## Status
 
-One subject. A census of one is not a census, and the honest description of
-this directory today is that the instrument exists and has been tested against
-the only system its author can assess without doing somebody else's reading
-first. The subject files that would make it a census are ordinary work: open
-the source, answer twenty questions, cite each answer.
+Six subjects, assessed on 4 September 2026: OMEM, mem0, Graphiti, LangGraph,
+CrewAI and the OpenAI Agents SDK. Each was read from a clone of its public
+repository at a pinned commit, and every verdict cites a file and line in that
+commit or a search that can be repeated against it.
+
+Three patterns hold across every system except the reference implementation,
+and they are the findings worth taking away:
+
+**Nobody records that data was destroyed.** R1.5 is absent for four of the five
+and partial for the fifth. Every one of these systems has a delete path
+somebody will reach for on a subject-erasure request, and afterwards the store
+is indistinguishable from one where the data never existed. mem0 comes closest
+by writing a history row, and in doing so keeps the deleted text in it, which
+is the opposite problem.
+
+**Nobody records who approved.** All three systems here that gate actions have
+a real human-in-the-loop mechanism, and none captures an approver. The OpenAI
+Agents SDK's `approve()` takes no approver argument, and the only thing called
+an identity in its approval path identifies the tool call. CrewAI's
+`request_human_input` reads a line from the console and returns the text.
+LangGraph resumes an interrupt with `Command(resume=...)`, an arbitrary value
+from whoever holds the thread. In every case the pause is real and the
+attribution is absent, which matters for anyone who has to evidence human
+oversight rather than merely perform it.
+
+**Nobody can show a record did not change.** R4.1 through R4.3 are absent for
+every assessed system. No integrity scheme, no verification surface, nothing
+binding one record to the next. Where history is preserved it is preserved by
+the code path behaving well, which is a different and weaker property than
+being able to show that nobody went around the code path.
+
+Setting aside OMEM, whose result is a tautology for the reasons given above, no
+system assessed so far reaches TR-1, and the reasons differ enough to matter:
+
+- **Graphiti** and **LangGraph** each meet four of the five TR-1 requirements
+  and fail only R1.5, so both are one change from a level neither was aiming
+  at. Graphiti got there by being bi-temporal: a contradicted fact is stamped
+  invalid rather than deleted, and facts point back at the episodes they came
+  from. LangGraph got there because time travel needs it: every checkpoint is a
+  new row carrying its parent's id, so a thread's history is a chain nothing
+  overwrites.
+- **mem0** consolidates on purpose: on contradiction its prompt instructs the
+  model to delete the older memory, and updates overwrite in place with the
+  previous value kept in a separate history database.
+- **CrewAI** overwrites too, through an LLM-authored keep/update/delete plan,
+  and keeps no history at all. Its most fixable finding is narrow: a blocked
+  tool call constructs a reason and discards it two frames later.
+- **The OpenAI Agents SDK** models what was proposed carefully, including a
+  ledger recording which calls executed, but leaves durability to the
+  application embedding it.
+
+None of this is an accusation of failure. Five of the six are not trying to
+produce a testimony record and have never said they were. What the census
+establishes is narrower and more useful: which facts each one already keeps, so
+anybody who needs those facts knows what they are starting from, and which
+single change would move each system the furthest. For two of them that change
+is the same one, and it is small.
+
+Still to assess: AutoGen and Letta.
 
 ## Files
 

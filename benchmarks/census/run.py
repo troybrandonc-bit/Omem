@@ -41,6 +41,25 @@ SUBJECTS = os.path.join(HERE, "subjects")
 MARK = {"present": "yes", "partial": "part", "absent": "no", "not_applicable": "-"}
 
 
+def tally(doc: dict, level: str) -> tuple[int, int]:
+    """Requirements met, out of those that apply to what the subject claims.
+
+    A level is reached only when nothing in it is missing, which means a system
+    meeting four of five requirements reads as "nothing at TR-1 yet". That is
+    the correct verdict and a misleading headline, so the tally is printed
+    beside it. It is per level and never summed: a total across levels would be
+    the score this census refuses to produce.
+    """
+    met = applicable = 0
+    for req in rubric.BY_LEVEL[level]:
+        if not rubric.applicable(req, doc["claims"]):
+            continue
+        applicable += 1
+        if (doc["assessments"].get(req.id) or {}).get("verdict") == "present":
+            met += 1
+    return met, applicable
+
+
 def gaps(doc: dict, level: str) -> list[tuple]:
     """What stands between a subject and `level`, with where that was checked."""
     out = []
@@ -83,6 +102,12 @@ def render(docs: list[dict]) -> str:
             w("  " + f"{req.level} {rubric.LEVELS[req.level][0]}".ljust(idw))
         cells = []
         for d, c in zip(docs, colw):
+            # A requirement outside what the subject claims reads as "-", not
+            # as a blank. An unanswered cell would say the assessor did not
+            # look, which is a different thing and one the validator forbids.
+            if not rubric.applicable(req, d["claims"]):
+                cells.append(MARK["not_applicable"].ljust(c))
+                continue
             v = (d["assessments"].get(req.id) or {}).get("verdict")
             cells.append(MARK.get(v, "?").ljust(c))
         w("  " + req.id.ljust(idw) + "  " + "  ".join(cells))
@@ -100,6 +125,11 @@ def render(docs: list[dict]) -> str:
         w(f"  claims to      {', '.join(d['claims'])}")
         w(f"  assessed       {d['assessed_on']} by {d['assessed_by']}")
         w(f"  already meets  {reached or 'nothing at TR-1 yet'}")
+        cells = []
+        for lvl in rubric.LEVEL_ORDER:
+            met, app = tally(d, lvl)
+            cells.append(f"{lvl} {met}/{app}" if app else f"{lvl} n/a")
+        w("  by level       " + "   ".join(cells))
 
         nxt = None
         if reached is None:
