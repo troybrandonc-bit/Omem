@@ -32,10 +32,32 @@ SPEC = "testimony-record/0.1"
 STATE = {"BELIEVED_TRUE": "believed_true", "BELIEVED_FALSE": "believed_false",
          "CONTRADICTED": "contradicted", "UNKNOWN": "unknown"}
 
+# Connector kinds mapped to the evidence kinds the specification allows.
+# Anything unrecognised becomes a document rather than a guess: the kind is
+# part of what an auditor reads, and a confidently wrong one is worse than a
+# vague one.
+EVIDENCE_KIND = {"gmail": "message", "slack": "message",
+                 "github": "document", "salesforce": "api"}
+
+# Entry order within one second. Evidence precedes the belief that cites it,
+# and an approval precedes the action it unlocked, so the file can never be
+# read as a human blessing something that had already run.
+RANK = {"evidence": 0, "approval": 1, "belief": 2, "conflict": 3, "decision": 4}
+
 
 def _rfc3339(epoch: float) -> str:
     return _dt.datetime.fromtimestamp(
         float(epoch), _dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _epoch(value, fallback: float) -> float:
+    """Source timestamps arrive as numbers or as strings depending on the
+    connector, and a citation dated by a crash is worse than one dated by its
+    belief."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return fallback
 
 
 class Client:
@@ -60,10 +82,84 @@ class Client:
     post = lambda self, p, b: self._call("POST", p, b)      # noqa: E731
 
 
-def build_record(c: Client) -> list[dict]:
+def build_record(c: Client, excerpts: bool = False) -> list[dict]:
     """The project's beliefs, conflicts, decisions and approvals, as entries."""
     entries: list[dict] = []
     seen_beliefs: dict[str, dict] = {}
+    evidence_pool: dict[str, dict] = {}
+
+    def cite(key: str, *, kind: str, source: str, ts: float, label=None,
+             digest=None, excerpt=None) -> str:
+        """One evidence entry per real source, however many beliefs rest on it.
+
+        Returns the entry id so the belief can point at it. A source cited by
+        forty beliefs is one thing that happened, not forty, and a record that
+        says otherwise misleads about how much independent support there was.
+        """
+        got = evidence_pool.get(key)
+        if got is not None:
+            if ts < got["_ts"]:
+                got["_ts"], got["at"] = ts, _rfc3339(ts)
+                got["retrieved_at"] = got["at"]
+            return got["id"]
+        e = {"spec": SPEC, "type": "evidence",
+             "id": f"evidence_{len(evidence_pool) + 1}", "_ts": ts,
+             "at": _rfc3339(ts), "kind": kind, "source": source,
+             "retrieved_at": _rfc3339(ts)}
+        if digest:
+            e["digest"] = digest
+        if label:
+            e["note"] = label
+        if excerpt:
+            e["excerpt"] = str(excerpt)[:4096]
+        else:
+            # The citation stands without the content. A record handed to an
+            # auditor should not carry the body of somebody's email, and the
+            # digest lets the cited source still be shown unchanged by whoever
+            # does hold it.
+            e["redacted"] = True
+        evidence_pool[key] = e
+        entries.append(e)
+        return e["id"]
+
+    def evidence_for_belief(why: dict, ts: float) -> list[str]:
+        """Every source OMEM already knows for a belief, as evidence entries.
+
+        `/why` answers this three separate ways: the source record a connector
+        delivered, the events in the provenance graph, and the antecedent
+        beliefs a derivation ran over. All three were being discarded, and an
+        empty evidence array passes the validator's TR-2 checks vacuously,
+        which is how a hollow record can look like a conforming one.
+        """
+        ids: list[str] = []
+        src = why.get("source")
+        if src:
+            view = src.get("view") or {}
+            canon = json.dumps(src.get("payload"), sort_keys=True, default=str)
+            quoted = (why.get("evidence") or {}).get("evidence")
+            ids.append(cite(
+                f"src:{src.get('id')}",
+                kind=EVIDENCE_KIND.get(view.get("kind"), "document"),
+                source=f"{view.get('connector') or src.get('connector_id')}"
+                       f":{src.get('external_id')}",
+                ts=min(_epoch(src.get("received"), ts), ts),
+                label=view.get("title"),
+                digest="sha256:" + hashlib.sha256(canon.encode()).hexdigest(),
+                excerpt=quoted if excerpts else None))
+        for node in ((why.get("provenance") or {}).get("nodes") or []):
+            nid, nkind = node.get("id"), node.get("kind")
+            if not nid:
+                continue
+            if nkind == "event":
+                ids.append(cite(f"event:{nid}", kind="event", source=nid,
+                                ts=ts, label=node.get("label")))
+            elif nkind == "assertion":
+                # A belief resting on another belief. The antecedent is already
+                # in the record as a belief entry; this is the citation of it,
+                # which is what an evidence array is able to point at.
+                ids.append(cite(f"derived:{nid}", kind="derived", source=nid,
+                                ts=ts, label=node.get("label")))
+        return ids
 
     # ── beliefs ─────────────────────────────────────────────────────────────
     ents = (c.get("/v1/entities?limit=500").get("data") or [])
@@ -88,10 +184,11 @@ def build_record(c: Client) -> list[dict]:
                 "polarity": "deny" if deny else "affirm",
                 "state": STATE.get(m.get("state"), "unknown"),
                 "asserted_by": {"id": a.get("agent") or "unknown", "kind": "agent"},
-                # OMEM records whether a claim is grounded in a source. An
-                # ungrounded belief exports as an empty list, which the
-                # specification requires to be sayable rather than hidden.
-                "evidence": [],
+                # A belief OMEM cannot ground still exports, with an empty
+                # list, which the specification requires to be sayable rather
+                # than hidden. What it must not do is export every belief that
+                # way while the store knows better.
+                "evidence": evidence_for_belief(why, ts),
             }
             if a.get("label"):
                 entry["note"] = a["label"]
@@ -211,14 +308,14 @@ def build_record(c: Client) -> list[dict]:
     # this only guarantees the file reads that way. Sorting on the real
     # timestamp rather than the printed one keeps events that share a second
     # in the order they actually happened.
-    entries.sort(key=lambda e: (e["_ts"], 0 if e["type"] == "approval" else 1))
+    entries.sort(key=lambda e: (e["_ts"], RANK.get(e["type"], 5)))
     for e in entries:
         del e["_ts"]
 
     # Numbering follows the order the file is read in, so decision_1 is the
     # first decision an auditor meets. Beliefs keep the assertion ids the
     # memory gave them, because that is how the rest of OMEM refers to them.
-    counters = {"decision": 0, "approval": 0, "conflict": 0}
+    counters = {"decision": 0, "approval": 0, "conflict": 0, "evidence": 0}
     renamed: dict[str, str] = {}
     for e in entries:
         if e["type"] in counters:
@@ -229,6 +326,12 @@ def build_record(c: Client) -> list[dict]:
         for field in ("decision", "approval"):
             if e.get(field) in renamed:
                 e[field] = renamed[e[field]]
+        # Beliefs cite evidence by id, and the ids were just renumbered into
+        # reading order. A citation that survives the renumbering by accident
+        # is a dangling reference the validator would catch, but only after it
+        # had been handed to somebody.
+        if e["type"] == "belief" and e.get("evidence"):
+            e["evidence"] = [renamed.get(x, x) for x in e["evidence"]]
 
     # ── integrity ───────────────────────────────────────────────────────────
     # The digest covers every entry above it, so any later edit to the exported
@@ -255,9 +358,15 @@ def main() -> int:
     ap.add_argument("--key", required=True)
     ap.add_argument("--project", required=True)
     ap.add_argument("--out", default="-")
+    ap.add_argument("--excerpts", action="store_true",
+                    help="include the quoted source text in evidence entries. "
+                         "Off by default: the citation and its digest are "
+                         "enough to check a record, and an export that carries "
+                         "the body of somebody's email is a disclosure, not a "
+                         "proof.")
     a = ap.parse_args()
 
-    entries = build_record(Client(a.url, a.key, a.project))
+    entries = build_record(Client(a.url, a.key, a.project), excerpts=a.excerpts)
     text = "\n".join(json.dumps(e) for e in entries) + "\n"
     if a.out == "-":
         sys.stdout.write(text)
