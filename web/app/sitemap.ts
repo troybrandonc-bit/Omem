@@ -36,6 +36,7 @@ const ROUTES = [
   "/vendor-review",
   "/spec/testimony-record/emitting",
   "/spec/testimony-record/view",
+  "/spec/commons-contribution",
   "/spec/testimony-record/implementations",
   "/commons",
   "/claims",

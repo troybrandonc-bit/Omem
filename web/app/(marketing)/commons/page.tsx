@@ -1,5 +1,6 @@
 import { MarketingShell } from "@/components/marketing/chrome";
 import { Section, Eyebrow, HeroHeading, ButtonLink } from "@/components/marketing/ui";
+import { CommonsState } from "@/components/marketing/commons-state";
 import { CommonsLive } from "./live";
 
 export const metadata = {
@@ -56,6 +57,27 @@ export default function Commons() {
           </p>
         </div>
         <CommonsLive />
+      </Section>
+
+      <Section className="section-y">
+        <h2 className="text-title font-semibold">What is in it</h2>
+        <CommonsState />
+      </Section>
+
+      <Section className="section-y">
+        <h2 className="text-title font-semibold">Contributing without OMEM</h2>
+        <p className="mt-4 max-w-2xl text-note leading-relaxed text-muted">
+          A contribution is a handful of counts over a published vocabulary of
+          392 words, a coarse population shape and a record of which uses you
+          granted. Almost none of that is specific to any one piece of
+          software, and until recently there was no way for anyone running
+          something else to know that. The format is now written down so that
+          anything storing facts about people can contribute:{" "}
+          <a href="/spec/commons-contribution" className="underline hover:text-fg">
+            the contribution format
+          </a>
+          , with a worked example and one POST that needs no account.
+        </p>
       </Section>
 
       <Section className="section-y">
