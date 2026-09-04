@@ -633,6 +633,10 @@ TR-4 VerifiableThe record can be shown not to have changed.The implementation pu
 Most systems shipping today are at TR-1 without meaning to be. The gap that matters commercially is TR-2 to TR-3: that is where a record stops being a log and starts being an answer.
 If you are not sure where your own agent sits, there are eleven questions that will tell you, scored in the browser. Nothing is uploaded and there is no signup, which matters given who tends to need the answer.
 
+## Emitting one
+
+Most systems already store the facts a record is made of, so emitting one is a translation rather than a rewrite, and for a system that only records it is an afternoon. How to emit a record from a system you already have works through it against an ordinary two-table store, including the two things a first record usually gets wrong.
+
 ## Checking a claim
 
 A conformance level that cannot be checked by the person hearing it is an adjective. So the validator is published alongside the specification: one file, standard library only, no network, MIT. It checks the things a JSON Schema cannot, which is the relationships between entries: that cited evidence exists, that both sides of a contradiction are still present, that the risk class did not come from the model proposing the action, that the approver was a person the authentication layer named, and that the approver was not the agent whose action was approved.
@@ -696,6 +700,183 @@ The JSON SchemaRun the reference implementation
 
 ---
 
+# Emitting a Testimony Record
+Source: https://infrastructure.omem-cloud.com/spec/testimony-record/emitting
+
+Testimony Record
+
+# Emitting a record
+
+Your system almost certainly stores most of this already. A Testimony Record is a translation of facts you keep anyway, not a change to how anything works, and for a system that only records it is an afternoon rather than a project.
+Nothing here depends on any particular software. The format is CC BY, the schema and the validator are MIT, and you do not have to ask anyone.
+
+## First, does your system act?
+
+This is the question that decides how much work you are in for, so answer it before anything else. Does your system take or gate actions with effects outside itself: sending mail, moving money, writing to somebody else’s database, running code?
+If it does not, say so in a scope entry. The gate requirements at TR-3 are then satisfied by your having nothing to gate, rather than excused, and a record-only system can still reach TR-4 on the strength of its integrity alone. Most memory systems are in this category and it saves you most of the work.
+scope entry
+Copy code
+1{"spec":"testimony-record/0.2","type":"scope","id":"scope_1",
+2 "at":"2026-09-04T09:00:00Z","system":"your-system","acts":false,
+3 "note":"a memory store. It records and derives. Nothing actuates on it."}
+
+Declare it honestly. A record that says it does not act and then contains a decision entry fails at TR-1, which is lower than the level it was trying to skip.
+
+## What maps to what
+
+Six entry types. You will not need all of them.
+What you haveEntry
+A fact you storebeliefWhat it is about, what is claimed, whether it asserts or denies, and who put it there.
+The document or message it came fromevidenceKept as its own entry so a belief can point at it. A digest is enough; you do not have to publish the content.
+Two stored facts that disagreeconflictNames both sides. Neither is deleted to produce it.
+An action your system took, or refuseddecisionOnly if your system acts. Refusals count as much as permissions.
+A person who allowed oneapprovalOnly if your system acts. The identity comes from your auth layer, never from model output.
+How you would show the file has not changedintegrityA hash chain, signatures, deterministic replay, or an external anchor.
+
+## A worked example
+
+Take a store with the two tables nearly every memory system has: the things it read, and the things it concluded.
+schema.sql
+Copy code
+1-- the shape almost every memory system already has
+2CREATE TABLE sources (
+3 id TEXT PRIMARY KEY,
+4 kind TEXT, -- email, document, ticket, message
+5 uri TEXT, -- where it came from
+6 fetched TEXT, -- when you read it
+7 body TEXT
+8);
+9
+10CREATE TABLE facts (
+11 id TEXT PRIMARY KEY,
+12 subject TEXT, -- who or what the fact is about
+13 claim TEXT, -- what is claimed
+14 negated INTEGER, -- 0 asserts, 1 denies
+15 source_id TEXT REFERENCES sources(id),
+16 written_at TEXT,
+17 superseded INTEGER -- 0 current, 1 replaced by a later fact
+18);
+
+The export imports nothing you do not already have. Two details in it are the ones a first record usually gets wrong: the evidence vocabulary is closed, so your own kinds have to be mapped onto it, and the file has to read in time order, so the entries are sorted before anything is digested.
+export.py
+Copy code
+1import hashlib, json, sqlite3
+2
+3SPEC = "testimony-record/0.2"
+4
+5# The evidence vocabulary is closed: document, message, event, api, human,
+6# derived. Map your own kinds onto it rather than passing yours through, and
+7# default to something rather than emitting a kind the schema will reject.
+8KIND = {"email": "message", "chat": "message", "ticket": "document",
+9 "doc": "document", "webhook": "event", "api": "api"}
+10
+11db = sqlite3.connect("memory.db")
+12db.row_factory = sqlite3.Row
+13out = []
+14
+15# 1. Every source you kept becomes an evidence entry. The digest lets a reader
+16# show the cited source is unchanged without you handing over the body of
+17# it, which matters the first time somebody asks for your record in a review.
+18for s in db.execute("SELECT * FROM sources"):
+19 out.append({"spec": SPEC, "type": "evidence", "id": f"ev_{s['id']}",
+20 "at": s["fetched"], "kind": KIND.get(s["kind"], "document"),
+21 "source": s["uri"], "retrieved_at": s["fetched"],
+22 "digest": "sha256:" + hashlib.sha256(
+23 (s["body"] or "").encode()).hexdigest(),
+24 "redacted": True})
+25
+26# 2. Every fact becomes a belief citing the source it came from. A fact with
+27# no source exports with an empty list. Say that rather than hide it: a
+28# system that cannot express "believed, and nothing supports it" will
+29# eventually invent support.
+30at = {}
+31for f in db.execute("SELECT * FROM facts"):
+32 at[f["id"]] = f["written_at"]
+33 out.append({"spec": SPEC, "type": "belief", "id": f"b_{f['id']}",
+34 "at": f["written_at"], "subject": f["subject"],
+35 "proposition": f["claim"],
+36 "polarity": "deny" if f["negated"] else "affirm",
+37 "state": "believed_true" if not f["superseded"] else "unknown",
+38 "asserted_by": {"id": "your-system", "kind": "system"},
+39 "evidence": [f"ev_{f['source_id']}"] if f["source_id"] else []})
+40
+41# 3. Where two current facts disagree, both are already above. This names the
+42# disagreement so a reader does not have to notice it by diffing rows. A
+43# contradiction is only visible once its second side arrives, so it is dated
+44# by the later of the two.
+45rows = db.execute("""
+46 SELECT a.id AS x, b.id AS y, a.subject, a.claim
+47 FROM facts a JOIN facts b
+48 ON a.subject = b.subject AND a.claim = b.claim
+49 AND a.negated <> b.negated AND a.id < b.id
+50 WHERE a.superseded = 0 AND b.superseded = 0""")
+51for i, c in enumerate(rows, 1):
+52 out.append({"spec": SPEC, "type": "conflict", "id": f"c_{i}",
+53 "at": max(at[c["x"]], at[c["y"]]), "subject": c["subject"],
+54 "proposition": c["claim"], "sides": [f"b_{c['x']}", f"b_{c['y']}"],
+55 "declared_by": {"id": "your-system", "kind": "system"},
+56 "resolution": None})
+57
+58# 4. Say what your system is. If it takes no actions, say so and the gate
+59# requirements are satisfied by having nothing to gate. It is dated at or
+60# before everything else, because it describes the whole record.
+61first = min(e["at"] for e in out)
+62out.append({"spec": SPEC, "type": "scope", "id": "scope_1", "at": first,
+63 "system": "your-system", "acts": False})
+64
+65# 5. Append-only means the file reads in time order. Within one timestamp,
+66# evidence precedes the belief that cites it. Getting this wrong is the
+67# most common way a first record fails TR-1.
+68RANK = {"scope": 0, "evidence": 1, "belief": 2, "conflict": 3}
+69out.sort(key=lambda e: (e["at"], RANK.get(e["type"], 4)))
+70
+71# 6. One digest over everything above, so a later edit to the file shows.
+72body = "\n".join(json.dumps(e, sort_keys=True) for e in out)
+73out.append({"spec": SPEC, "type": "integrity", "id": "i_1",
+74 "at": out[-1]["at"], "scheme": "hash-chain",
+75 "digest": "sha256:" + hashlib.sha256(body.encode()).hexdigest(),
+76 "covers": [e["id"] for e in out]})
+77
+78for e in out:
+79 print(json.dumps(e))
+
+That record reaches TR-4 as a record-only system: every belief cites its source or declares itself ungrounded, both sides of a disagreement survive with the conflict named, and one digest covers the file.
+
+## Aim at the level you have earned
+
+The levels are not a score and there is no advantage in claiming one you are not at. A record that overstates fails the validator in front of whoever you sent it to, which is worse than an honest lower level in every situation this format exists for.
+LevelWhat it says
+TR-1The record exists and is append-onlyMost systems reach this without meaning to. If you never edit a row to change what it said, you are close.
+TR-2Beliefs cite evidence, disagreements surviveThe step that takes real work, and the one worth taking. It is where a log becomes an answer.
+TR-3Actions carry a verdict, approvals carry a nameOnly applies if your system acts. If it does not, declare that and the level is satisfied.
+TR-4The record can be shown not to have changedIndependent of TR-3 in substance, and reachable by a record-only system that declares itself one.
+
+## Check it yourself
+
+Do not send anybody a record you have not run the validator over. It reports every level separately, so a level you have satisfied is visible even when something below it is not met.
+terminal
+Copy code
+1python3 export.py > record.jsonl
+2python3 testimony_validate.py record.jsonl
+3
+4# the validator is one file, standard library only, and makes no network
+5# calls. Copy it into your own repository and run it in your own CI rather
+6# than depending on ours. A conformance claim nobody else can check is an
+7# adjective.
+
+## Two things people get wrong
+
+Exporting an empty evidence array everywhere. An empty list is the correct export for a belief nothing supports, and the validator accepts it, which means a record citing nothing at all can pass TR-2 while meaning nothing. That is not a hypothetical: this specification’s own reference implementation did exactly that for a month. If your store knows where a fact came from, cite it.
+Resolving a disagreement on the way out. If two of your facts contradict each other, both belong in the record. Picking the more recent one during export produces a record that is tidier than your system and less true than it.
+
+## Getting listed
+
+Send a record your system produced, and the command that produced it, to hello@omem-cloud.com. It gets run through the published validator, and if it passes, the implementation is listed with the level it reached and the date it was checked. No fee, no membership, and no requirement to use any particular software. An implementation in any language on any stack counts the same.
+If you find the specification wrong rather than merely inconvenient, that is more useful than a listing. The erratum on the specification page came from an implementer who read the validator and found it refusing a level to systems that had earned it.
+OMEM is the reference implementation and its exporter is readable if you want a second example against a more complicated store. You do not need it, and nothing on this page assumes it.
+
+---
+
 # Testimony Record implementations
 Source: https://infrastructure.omem-cloud.com/spec/testimony-record/implementations
 
@@ -712,6 +893,7 @@ One implementation is not a standard, and the editor of a specification listing 
 
 ## Getting listed
 
+If you have not emitted one before, start here: a worked example against an ordinary store, with the mapping from what you already keep to what the record wants.
 Send a record your system produced, along with the command that produced it, to hello@omem-cloud.com. It gets run through the published validator. If it passes, the implementation is listed here with the level it reached and the date it was checked. There is no fee, no membership, and no requirement to use OMEM or anything else in particular. An implementation in any language, on any stack, counts the same.
 Records are checked, not trusted. If a later version stops conforming, the listing says so rather than quietly keeping the old level.
 terminal
