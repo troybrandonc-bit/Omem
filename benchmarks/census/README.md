@@ -150,17 +150,21 @@ Reported in the Machine Testimony conformance census, 2026-09-04
 The census as a whole:
 
 ```
-Clifford, T. (2026). The Testimony Record conformance census.
-Machine Testimony. machinetestimony.org
+Clifford, T. (2026). The Testimony Record Conformance Census: What Eight
+Agent Systems Record About What They Did. Machine Testimony.
+doi:10.5281/zenodo.22290922
 ```
+
+Deposited 4 September 2026. `10.5281/zenodo.22290922` is the concept DOI and
+always resolves to the most recent census; `10.5281/zenodo.22290923` points at this
+one specifically. Cite the first unless you mean the second.
 
 **What establishes when a finding was first made.** Three things, in increasing
 order of how much they prove. The commits in this repository are dated and
 public. `MANIFEST.json` fixes the exact content of every assessment at the
 assessed date, so the finding cannot be quietly revised into something it was
-not. And where this census is deposited with a DOI, that deposit is a dated
-record held by a third party the author does not control, which is the only one
-of the three that does not rest on trusting him.
+not. And the deposit at `doi:10.5281/zenodo.22290923` is a dated record held by CERN,
+which is the only one of the three that does not rest on trusting the author.
 
 **The honest limit.** A dated publication establishes priority. It does not
 oblige anybody to credit it, and open source projects generally do not credit
