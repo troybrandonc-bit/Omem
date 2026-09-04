@@ -1,7 +1,11 @@
 # The Testimony Record as an Internet-Draft
 
 `draft-clifford-testimony-record-00.md` is the specification rewritten in
-Internet-Draft form, for submission to the IETF datatracker.
+Internet-Draft form.
+
+**Posted 4 September 2026:**
+<https://datatracker.ietf.org/doc/draft-clifford-testimony-record/>
+Active, Informational, expires 8 March 2027.
 
 ## Why this exists
 
@@ -61,6 +65,10 @@ out.
 4. The `-00` version posts immediately. Later versions replace it, and the
    numbering is part of the record: `-01` exists because `-00` said something
    that turned out to be wrong, and both stay public.
+
+Leave **Replaces** empty unless this draft supersedes a differently named one;
+revisions of the same name are not replacements. Leave the note to the
+Secretariat empty unless something genuinely needs a human to read it.
 
 A draft expires six months after posting unless a new version is submitted.
 Resubmitting an unchanged draft to keep it alive is normal and costs nothing.
