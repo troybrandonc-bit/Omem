@@ -32,7 +32,7 @@ normative:
   RFC7464:
 
 informative:
-  RFC6962:
+  RFC9162:
   I-D.ietf-scitt-architecture:
   TR-SPEC:
     title: "The Testimony Record"
@@ -404,7 +404,7 @@ record contradicting its own declaration fails at TR-1, and the declaration is
 reported with the level rather than hidden inside it. Neither is a substitute
 for external attestation. Consumers requiring assurance beyond self-assertion
 should look to the SCITT architecture {{I-D.ietf-scitt-architecture}} and to
-transparency logs {{RFC6962}}.
+transparency logs {{RFC9162}}.
 
 An approval is only as strong as its identity source. The format requires
 identity to originate outside anything the proposing model can write, and

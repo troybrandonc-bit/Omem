@@ -27,8 +27,16 @@ which is what most authors write now. There are two routes.
 
 **Without installing anything.** Upload the `.md` file to
 <https://author-tools.ietf.org/>. It renders the text, HTML and PDF, and runs
-`idnits`, which is the checker the submission tool runs. Do this before
-submitting, because it catches boilerplate problems the local build does not.
+`idnits`, which is the checker the submission tool runs. Do this before every
+submission, not only the first: it catches boilerplate problems the local
+build does not, and it is the only thing that flags a reference that has been
+obsoleted since the last version went out.
+
+On 4 September 2026 it ran `0 errors, 0 flaws` on `-00`, with one warning and
+one comment. The warning ("couldn't figure out when the document was first
+submitted") is what every unsubmitted `-00` produces and resolves itself on
+submission. The comment was real: RFC 6962 had been obsoleted by RFC 9162, and
+the draft now cites RFC 9162.
 
 **Locally**, which needs Ruby and Python:
 
