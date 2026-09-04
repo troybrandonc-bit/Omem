@@ -270,6 +270,15 @@ export default function Emitting() {
           <CodeBlock single={CHECK} filename="terminal"
             label="Validating your own record before anyone else does" />
 
+          <p>
+            Once you have one,{" "}
+            <a href="/spec/testimony-record/view">the viewer</a> will read it
+            back to you: beliefs resolved to their evidence, contradictions
+            drawn as pairs, and the conformance level computed in the browser.
+            It is the fastest way to see whether your mapping did what you
+            intended.
+          </p>
+
           <h2>Two things people get wrong</h2>
           <p>
             <b>Exporting an empty evidence array everywhere.</b> An empty list
