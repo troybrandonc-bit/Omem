@@ -402,14 +402,27 @@ jobs:
       # same toolchain, run on every commit instead.
       - name: Markdown to xml2rfc v3
         run: |
-          kdrfc --v3 --xml spec/draft-clifford-testimony-record-00.md 2>&1 \
-            | tee /tmp/kdrfc.log
+          # Every reference the draft cites is committed under .refcache, so the
+          # usual run needs no network at all. That is not only for speed: the
+          # first version of this job fetched from bib.ietf.org on every commit
+          # and failed on a connection reset, which is a CI job that teaches
+          # people to ignore it. Refresh the cache deliberately, not by accident.
+          #
+          # The retry covers the case where a reference is added and the cache
+          # does not have it yet.
+          for i in 1 2 3; do
+            kdrfc --v3 --xml spec/draft-clifford-testimony-record-00.md 2>&1 \
+              | tee /tmp/kdrfc.log && break
+            echo "attempt $i failed, retrying"; sleep 5
+          done
           # kramdown reports every problem it has as a warning and exits 0,
           # including a reference it could not resolve, which then renders as
           # a citation to nothing.
           if grep -qE '^\*\*' /tmp/kdrfc.log; then
             echo "::error::kramdown-rfc warned"; cat /tmp/kdrfc.log; exit 1
           fi
+          test -f spec/draft-clifford-testimony-record-00.xml || {
+            echo "::error::no XML produced"; exit 1; }
       - name: xml2rfc v3 to text
         run: |
           xml2rfc --text --v3 spec/draft-clifford-testimony-record-00.xml \
