@@ -684,6 +684,12 @@ The validator now reports every level’s own result rather than only the highes
 Every entry names its version. Within a major version, entry types and required fields are only ever added, never removed or repurposed, so a reader written against 0.1 keeps working. Breaking changes get a new major version and both remain published.
 This specification is edited by its author. Proposals, objections and implementation reports are welcome as issues on the OMEM repository, and the editor decides what enters a version. That is stated plainly rather than dressed up as a committee: a small standard with a named editor moves faster than a large one with a process, and you can see exactly who to argue with.
 
+## Where else this document lives
+
+The specification is also published as an Internet-Draft: draft-clifford-testimony-record-00, posted 4 September 2026.
+That is not an endorsement and the datatracker says so on the page: an individual submission has no formal standing in the IETF standards process, and anyone may post one. What it is, is a copy of this document with an identifier nobody here controls, archived where it stays readable whether or not this site does. If you are deciding whether to implement a format maintained by one person, that is a fair thing to want, and it costs you nothing to check.
+The draft expires on 8 March 2027 unless a new version is posted, which is how Internet-Drafts work rather than a sign of anything. It is generated from one file in the repository, and a test in CI fails if it and the reference validator ever disagree about a field, a type or an allowed value.
+
 ## Licence, name, and conformance claims
 
 The specification text is CC BY 4.0: copy it, quote it, translate it, build products on it, including commercially, with attribution. The JSON Schema and any reference code are MIT. Implementing this specification costs nothing and requires no permission.
