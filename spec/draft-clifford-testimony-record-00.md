@@ -87,11 +87,13 @@ Distributed tracing records calls. Neither retains what a system concluded, nor
 whether two of its conclusions disagreed, nor whether a person with a name
 permitted a consequential action or a process did so unattended.
 
-The gap is not hypothetical. A survey of eight widely used agent memory and
-agent framework implementations {{CENSUS}} found that several pause a
-consequential action to wait for human approval, and none records the identity
-of the person who approved. A run in which an engineer read the arguments and
-decided produces a record indistinguishable from one in which a script approved
+The gap is not hypothetical. A survey of eight agent memory and agent framework
+implementations {{CENSUS}} assessed six that take or gate actions, five of them
+written by someone other than this document's author. Against the requirement
+that an approval identify a person or a named role holder, four of those five
+were assessed absent and the fifth could not be established either way. None
+was assessed present. A run in which an engineer read the arguments and decided
+produces a record indistinguishable from one in which a script approved
 everything automatically.
 
 ## Scope
