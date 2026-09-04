@@ -91,6 +91,12 @@ export default function Implementations() {
 
           <h2>Getting listed</h2>
           <p>
+            If you have not emitted one before,{" "}
+            <a href="/spec/testimony-record/emitting">start here</a>: a worked
+            example against an ordinary store, with the mapping from what you
+            already keep to what the record wants.
+          </p>
+          <p>
             Send a record your system produced, along with the command that
             produced it, to <span className="mono">hello@omem-cloud.com</span>.
             It gets run through the published validator. If it passes, the
