@@ -309,6 +309,31 @@ export default function Spec() {
             process, and you can see exactly who to argue with.
           </p>
 
+          <h2>Where else this document lives</h2>
+          <p>
+            The specification is also published as an Internet-Draft:{" "}
+            <a href="https://datatracker.ietf.org/doc/draft-clifford-testimony-record/">
+              draft-clifford-testimony-record-00</a>, posted 4 September 2026.
+          </p>
+          <p>
+            That is not an endorsement and the datatracker says so on the page:
+            an individual submission has no formal standing in the IETF
+            standards process, and anyone may post one. What it is, is a copy
+            of this document with an identifier nobody here controls, archived
+            where it stays readable whether or not this site does. If you are
+            deciding whether to implement a format maintained by one person,
+            that is a fair thing to want, and it costs you nothing to check.
+          </p>
+          <p>
+            The draft expires on 8 March 2027 unless a new version is posted,
+            which is how Internet-Drafts work rather than a sign of anything.
+            It is generated from{" "}
+            <a href="https://github.com/troybrandonc-bit/Omem/blob/main/spec/draft-clifford-testimony-record-00.md">
+              one file in the repository</a>, and a test in CI fails if it and
+            the reference validator ever disagree about a field, a type or an
+            allowed value.
+          </p>
+
           <h2>Licence, name, and conformance claims</h2>
           <p>
             The specification text is{" "}
