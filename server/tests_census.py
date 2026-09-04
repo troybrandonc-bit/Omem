@@ -46,7 +46,9 @@ def valid_doc(claims=("stores",)):
     cannot drift out of date when a requirement is added."""
     doc = {
         "subject": "example", "name": "Example", "version": "1.0.0",
-        "url": "https://example.invalid", "claims": list(claims),
+        "url": "https://example.invalid",
+        "commit": "0123456789abcdef0123456789abcdef01234567",
+        "claims": list(claims),
         "assessed_on": "2026-09-04", "assessed_by": "tester",
         "method": "read of the source", "assessments": {},
     }
@@ -200,6 +202,75 @@ check("every level has at least one requirement",
       all(rubric.BY_LEVEL.get(lvl) for lvl in rubric.LEVEL_ORDER))
 check("requirement ids are unique",
       len(rubric.BY_ID) == len(rubric.REQUIREMENTS))
+
+print("== every assessment is pinned to a checkable commit ==")
+# This is the answer to the objection this census will actually attract: that a
+# project shipped the missing capability afterwards, so the finding is false.
+# A verdict is about a named tree, which still exists and still reads the same.
+d = copy.deepcopy(base)
+d["commit"] = "9a7924b"
+ok, why = rejects(d, "40-character")
+check("an abbreviated commit hash is rejected", ok, why)
+
+d = copy.deepcopy(base)
+del d["commit"]
+ok, why = rejects(d, "commit")
+check("a subject with no commit at all is rejected", ok, why)
+
+SUBJ = os.path.join(ROOT, "benchmarks", "census", "subjects")
+for name in sorted(os.listdir(SUBJ)):
+    if not name.endswith(".json"):
+        continue
+    with open(os.path.join(SUBJ, name), encoding="utf-8") as f:
+        doc = json.load(f)
+    check("%s pins a full commit id" % name,
+          bool(subject.SHA1.match(doc.get("commit", ""))), doc.get("commit"))
+
+print("== the census can be shown not to have changed ==")
+# A document grading other systems on whether their records can be shown
+# unaltered has no business being unable to demonstrate the same about itself.
+import manifest as MAN  # noqa: E402
+
+built = MAN.build()
+check("a manifest can be built from the shipped files",
+      len(built["subjects"]) >= 1 and built["census_digest"].startswith("sha256:"),
+      built.get("census_digest"))
+check("it digests the questions as well as the answers",
+      set(built["scored_against"]) == {"rubric.py", "subject.py"},
+      sorted(built["scored_against"]))
+check("every listed subject carries its assessed commit",
+      all(subject.SHA1.match(r["commit"]) for r in built["subjects"]))
+
+with open(MAN.MANIFEST, encoding="utf-8") as f:
+    stored = json.load(f)
+check("the shipped manifest matches the shipped files",
+      stored["census_digest"] == built["census_digest"],
+      "%s != %s" % (stored.get("census_digest"), built["census_digest"]))
+
+# Soften one verdict and confirm the digest moves. The realistic threat to a
+# document like this is not corruption, it is a quiet edit after a complaint:
+# a verdict downgraded from present to partial, or a note reworded, in a file
+# that still validates perfectly afterwards.
+victim = os.path.join(SUBJ, "omem.json")
+original = open(victim, "rb").read()
+try:
+    doc = json.loads(original.decode("utf-8"))
+    doc["assessments"]["R1.1"]["verdict"] = "partial"
+    with open(victim, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(doc, f, indent=2, ensure_ascii=False)
+    after = MAN.build()
+    check("changing a verdict changes the census digest",
+          after["census_digest"] != built["census_digest"])
+    changed = [r for r in after["subjects"] if r["file"].endswith("omem.json")]
+    check("and the changed file's own digest moves with it",
+          changed and changed[0]["digest"] != next(
+              r["digest"] for r in built["subjects"]
+              if r["file"].endswith("omem.json")))
+finally:
+    with open(victim, "wb") as f:
+        f.write(original)
+check("the file was restored after the tamper test",
+      MAN.build()["census_digest"] == built["census_digest"])
 
 print("== the shipped subject files pass their own rules ==")
 SUBJ = os.path.join(ROOT, "benchmarks", "census", "subjects")

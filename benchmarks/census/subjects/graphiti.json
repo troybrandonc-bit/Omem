@@ -3,112 +3,217 @@
   "name": "Graphiti",
   "version": "0.30.1 (a6e026f)",
   "url": "https://github.com/getzep/graphiti",
+  "commit": "a6e026f8fca27af9c1fc4cfe359c3834dc9655bb",
   "license": "Apache-2.0",
-  "claims": ["stores", "derives"],
+  "claims": [
+    "stores",
+    "derives"
+  ],
   "assessed_on": "2026-09-04",
   "assessed_by": "Michael Brandon Clifford",
   "method": "Read of graphiti_core/edges.py, graphiti_core/nodes.py and graphiti_core/utils/maintenance/edge_operations.py at a6e026f, cloned from the public repository. Line numbers are that commit's.",
   "notes": "Graphiti is bi-temporal by design and it shows in almost every answer here. A fact that stops being true is not removed: resolve_edge_contradictions stamps invalid_at and expired_at on the existing edge and keeps it, so both sides of a disagreement remain in the graph and a query about a past moment can still be answered. Facts also point at the episodes they were extracted from, and the raw episode content is retained as a separate node type, which means the told and the inferred can never be confused for one another. This is the strongest showing of the systems assessed so far and it was arrived at independently of this specification, which is the most useful kind of agreement. The single thing standing between it and TR-1 is that deletion, when it does happen, leaves no record that it happened.",
-
   "assessments": {
     "R1.1": {
       "verdict": "present",
       "evidence": [
-        {"kind": "source", "locator": "graphiti_core/edges.py:54", "note": "created_at is a required field on the base Edge, stored with the edge itself"},
-        {"kind": "source", "locator": "graphiti_core/edges.py:271", "note": "expired_at records when the system learned a fact was no longer valid, which is transaction time kept separately from valid_at and invalid_at, the world time"}
+        {
+          "kind": "source",
+          "locator": "graphiti_core/edges.py:54",
+          "note": "created_at is a required field on the base Edge, stored with the edge itself"
+        },
+        {
+          "kind": "source",
+          "locator": "graphiti_core/edges.py:271",
+          "note": "expired_at records when the system learned a fact was no longer valid, which is transaction time kept separately from valid_at and invalid_at, the world time"
+        }
       ],
       "note": "The separation of transaction time from valid time is exactly the distinction the specification draws between when an entry was written and when the fact held, and graphiti keeps both."
     },
     "R1.2": {
       "verdict": "present",
       "evidence": [
-        {"kind": "source", "locator": "graphiti_core/utils/maintenance/edge_operations.py:538 resolve_edge_contradictions", "note": "a superseded edge has invalid_at and expired_at set and is appended to invalidated_edges; it is never removed from the graph"},
-        {"kind": "source", "locator": "graphiti_core/edges.py:274-279", "note": "valid_at and invalid_at bound the interval over which the fact held, so the prior state is still queryable as history"}
+        {
+          "kind": "source",
+          "locator": "graphiti_core/utils/maintenance/edge_operations.py:538 resolve_edge_contradictions",
+          "note": "a superseded edge has invalid_at and expired_at set and is appended to invalidated_edges; it is never removed from the graph"
+        },
+        {
+          "kind": "source",
+          "locator": "graphiti_core/edges.py:274-279",
+          "note": "valid_at and invalid_at bound the interval over which the fact held, so the prior state is still queryable as history"
+        }
       ]
     },
     "R1.3": {
       "verdict": "present",
       "evidence": [
-        {"kind": "source", "locator": "graphiti_core/utils/maintenance/edge_operations.py:538-572", "note": "the ordinary ingestion path closes an interval on the old edge and creates a new one; nothing recorded is overwritten or discarded"},
-        {"kind": "source", "locator": "graphiti_core/edges.py:263-286", "note": "the fact text on an invalidated edge is left intact; only the temporal bounds are stamped"}
+        {
+          "kind": "source",
+          "locator": "graphiti_core/utils/maintenance/edge_operations.py:538-572",
+          "note": "the ordinary ingestion path closes an interval on the old edge and creates a new one; nothing recorded is overwritten or discarded"
+        },
+        {
+          "kind": "source",
+          "locator": "graphiti_core/edges.py:263-286",
+          "note": "the fact text on an invalidated edge is left intact; only the temporal bounds are stamped"
+        }
       ],
       "note": "A correction is a new edge plus a closed interval on the old one, which is what the specification asks for. Hard deletion exists but is an explicit administrative call rather than part of this path, and is assessed at R1.5."
     },
     "R1.4": {
       "verdict": "present",
       "evidence": [
-        {"kind": "source", "locator": "graphiti_core/nodes.py:318 EpisodicNode, and EntityNode in the same module", "note": "raw source material and extracted entities are different node types"},
-        {"kind": "source", "locator": "graphiti_core/edges.py:263 EntityEdge", "note": "an extracted fact is an edge type distinct from both node types, carrying fact, episodes and its temporal bounds"}
+        {
+          "kind": "source",
+          "locator": "graphiti_core/nodes.py:318 EpisodicNode, and EntityNode in the same module",
+          "note": "raw source material and extracted entities are different node types"
+        },
+        {
+          "kind": "source",
+          "locator": "graphiti_core/edges.py:263 EntityEdge",
+          "note": "an extracted fact is an edge type distinct from both node types, carrying fact, episodes and its temporal bounds"
+        }
       ]
     },
     "R1.5": {
       "verdict": "absent",
       "evidence": [
-        {"kind": "source", "locator": "graphiti_core/nodes.py:111 Node.delete", "note": "issues DETACH DELETE against the node and its edges"},
-        {"kind": "source", "locator": "graphiti_core/nodes.py:178 delete_by_group_id", "note": "removes an entire partition in batches, which is the natural call for a per-tenant or per-subject erasure request"},
-        {"kind": "searched", "locator": "grep -rniE 'erasure|deletion_log|tombstone|deleted_at' graphiti_core/ --include=*.py", "note": "no match; there is no record type, column or table that survives a delete to say one happened"}
+        {
+          "kind": "source",
+          "locator": "graphiti_core/nodes.py:111 Node.delete",
+          "note": "issues DETACH DELETE against the node and its edges"
+        },
+        {
+          "kind": "source",
+          "locator": "graphiti_core/nodes.py:178 delete_by_group_id",
+          "note": "removes an entire partition in batches, which is the natural call for a per-tenant or per-subject erasure request"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'erasure|deletion_log|tombstone|deleted_at' graphiti_core/ --include=*.py",
+          "note": "no match; there is no record type, column or table that survives a delete to say one happened"
+        }
       ],
       "note": "This is the one requirement keeping graphiti below TR-1, and it is narrow. Everything about the ordinary write path is append-only and bi-temporal. What is missing is that when a deletion does occur, whether for privacy or housekeeping, the graph afterwards is indistinguishable from one where the data never existed. A tombstone carrying the deleted uuid, the time and the requester, without the content, would close it."
     },
-
     "R2.1": {
       "verdict": "present",
       "evidence": [
-        {"kind": "source", "locator": "graphiti_core/edges.py:267-270", "note": "EntityEdge.episodes is a list of the episode ids the fact was extracted from"},
-        {"kind": "source", "locator": "graphiti_core/nodes.py:318-328", "note": "EpisodicNode retains content, the raw episode data, along with source, source_description and valid_at; entity_edges points back at the facts drawn from it"}
+        {
+          "kind": "source",
+          "locator": "graphiti_core/edges.py:267-270",
+          "note": "EntityEdge.episodes is a list of the episode ids the fact was extracted from"
+        },
+        {
+          "kind": "source",
+          "locator": "graphiti_core/nodes.py:318-328",
+          "note": "EpisodicNode retains content, the raw episode data, along with source, source_description and valid_at; entity_edges points back at the facts drawn from it"
+        }
       ],
       "note": "The link is bidirectional and followable, and the raw material is retained rather than discarded after extraction. This is the requirement most systems miss and it is the one graphiti answers best."
     },
     "R2.2": {
       "verdict": "present",
       "evidence": [
-        {"kind": "source", "locator": "graphiti_core/nodes.py:318-321", "note": "an EpisodicNode holds content, described as 'raw episode data', with a source of EpisodeType and a source_description"},
-        {"kind": "source", "locator": "graphiti_core/edges.py:264-266", "note": "an EntityEdge holds fact, produced by LLM extraction. It is a different type in a different part of the schema"}
+        {
+          "kind": "source",
+          "locator": "graphiti_core/nodes.py:318-321",
+          "note": "an EpisodicNode holds content, described as 'raw episode data', with a source of EpisodeType and a source_description"
+        },
+        {
+          "kind": "source",
+          "locator": "graphiti_core/edges.py:264-266",
+          "note": "an EntityEdge holds fact, produced by LLM extraction. It is a different type in a different part of the schema"
+        }
       ],
       "note": "The distinction is structural rather than a flag, which is stronger: a consumer cannot accidentally read an extracted fact as something a person said, because the two are not the same kind of object."
     },
     "R2.3": {
       "verdict": "present",
       "evidence": [
-        {"kind": "source", "locator": "graphiti_core/utils/maintenance/edge_operations.py:562-570", "note": "the contradicted edge has invalid_at set to the new edge's valid_at and expired_at stamped, then is returned in invalidated_edges. Both edges remain in the graph"},
-        {"kind": "source", "locator": "graphiti_core/utils/maintenance/edge_operations.py:531-534", "note": "embeddings are generated for the invalidated edges as well as the resolved ones, so a superseded fact stays retrievable rather than becoming inert"}
+        {
+          "kind": "source",
+          "locator": "graphiti_core/utils/maintenance/edge_operations.py:562-570",
+          "note": "the contradicted edge has invalid_at set to the new edge's valid_at and expired_at stamped, then is returned in invalidated_edges. Both edges remain in the graph"
+        },
+        {
+          "kind": "source",
+          "locator": "graphiti_core/utils/maintenance/edge_operations.py:531-534",
+          "note": "embeddings are generated for the invalidated edges as well as the resolved ones, so a superseded fact stays retrievable rather than becoming inert"
+        }
       ]
     },
     "R2.4": {
       "verdict": "partial",
       "evidence": [
-        {"kind": "source", "locator": "graphiti_core/utils/maintenance/edge_operations.py:538", "note": "resolve_edge_contradictions returns the invalidated edges to its caller but writes no record that a contradiction was the cause"},
-        {"kind": "searched", "locator": "grep -rniE 'class Conflict|conflict_id|contradiction' graphiti_core/ --include=*.py", "note": "matches are function names and prompt text only; there is no conflict object, and no field on an edge naming what invalidated it"}
+        {
+          "kind": "source",
+          "locator": "graphiti_core/utils/maintenance/edge_operations.py:538",
+          "note": "resolve_edge_contradictions returns the invalidated edges to its caller but writes no record that a contradiction was the cause"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'class Conflict|conflict_id|contradiction' graphiti_core/ --include=*.py",
+          "note": "matches are function names and prompt text only; there is no conflict object, and no field on an edge naming what invalidated it"
+        }
       ],
       "note": "A disagreement is discoverable: query the edges between one pair of nodes and look for a closed interval. It is not recorded as such, so an edge invalidated by a contradiction and one invalidated because the fact simply lapsed look identical, and nothing points from the loser to the winner."
     },
     "R2.5": {
       "verdict": "partial",
       "evidence": [
-        {"kind": "source", "locator": "graphiti_core/utils/maintenance/edge_operations.py:562-570", "note": "the invalidation is written down as a temporal bound"},
-        {"kind": "searched", "locator": "grep -rn 'invalidated_by\\|resolved_by\\|decided_by\\|model_name' graphiti_core/edges.py graphiti_core/utils/maintenance/edge_operations.py", "note": "no match; neither the model that extracted the contradicting fact nor the reason is recorded on either edge"}
+        {
+          "kind": "source",
+          "locator": "graphiti_core/utils/maintenance/edge_operations.py:562-570",
+          "note": "the invalidation is written down as a temporal bound"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rn 'invalidated_by\\|resolved_by\\|decided_by\\|model_name' graphiti_core/edges.py graphiti_core/utils/maintenance/edge_operations.py",
+          "note": "no match; neither the model that extracted the contradicting fact nor the reason is recorded on either edge"
+        }
       ],
       "note": "That the conflict was resolved is recorded. Who resolved it is not. The decision runs through an LLM extraction step and then the temporal comparison in this function, and the graph afterwards carries neither the model, the prompt version nor the reason."
     },
-
     "R4.1": {
       "verdict": "absent",
       "evidence": [
-        {"kind": "searched", "locator": "grep -rniE 'hash_chain|merkle|signature|tamper|checksum|digest' graphiti_core/ --include=*.py", "note": "the only hash is an md5 used to key the LLM response cache at llm_client/client.py:157; nothing relates to record integrity"},
-        {"kind": "docs", "locator": "graphiti README.md", "note": "no integrity, verification or tamper-evidence claim is made"}
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'hash_chain|merkle|signature|tamper|checksum|digest' graphiti_core/ --include=*.py",
+          "note": "the only hash is an md5 used to key the LLM response cache at llm_client/client.py:157; nothing relates to record integrity"
+        },
+        {
+          "kind": "docs",
+          "locator": "graphiti README.md",
+          "note": "no integrity, verification or tamper-evidence claim is made"
+        }
       ]
     },
     "R4.2": {
       "verdict": "absent",
       "evidence": [
-        {"kind": "searched", "locator": "grep -rniE 'def verify|verification' graphiti_core/ --include=*.py", "note": "no verification surface exists, so there is nothing for an independent party to run"}
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'def verify|verification' graphiti_core/ --include=*.py",
+          "note": "no verification surface exists, so there is nothing for an independent party to run"
+        }
       ]
     },
     "R4.3": {
       "verdict": "absent",
       "evidence": [
-        {"kind": "searched", "locator": "grep -rniE 'hash_chain|merkle|signature|tamper|checksum|digest' graphiti_core/ --include=*.py", "note": "no match; nothing binds one record to the next, so an edit made directly against the graph database leaves no evidence"},
-        {"kind": "source", "locator": "graphiti_core/edges.py:49-54", "note": "an edge carries a uuid and timestamps but no digest of itself or of anything preceding it"}
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'hash_chain|merkle|signature|tamper|checksum|digest' graphiti_core/ --include=*.py",
+          "note": "no match; nothing binds one record to the next, so an edit made directly against the graph database leaves no evidence"
+        },
+        {
+          "kind": "source",
+          "locator": "graphiti_core/edges.py:49-54",
+          "note": "an edge carries a uuid and timestamps but no digest of itself or of anything preceding it"
+        }
       ],
       "note": "The bi-temporal design means the ordinary code path does not lose history, which is a different and weaker property than being able to show that nobody went around the code path."
     }

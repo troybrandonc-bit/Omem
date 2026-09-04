@@ -43,8 +43,16 @@ EVIDENCE_KINDS = {
     "searched": "where the assessor looked and did not find it",
 }
 
-REQUIRED_TOP = ("subject", "name", "version", "url", "claims", "assessed_on",
-                "assessed_by", "method", "assessments")
+REQUIRED_TOP = ("subject", "name", "version", "url", "commit", "claims",
+                "assessed_on", "assessed_by", "method", "assessments")
+
+# A full 40-character object id, not an abbreviation. The point of pinning is
+# that a reader can `git checkout` the exact tree every citation refers to and
+# see for themselves, and a short hash is an invitation to argue about which
+# commit was meant. This is also the answer to the obvious objection to a census
+# like this: nobody can implement the missing capability next month and call the
+# finding false, because the finding was never about next month.
+SHA1 = re.compile(r"^[0-9a-f]{40}$")
 
 
 class SubjectError(Exception):
@@ -82,6 +90,11 @@ def validate(doc: dict) -> list[str]:
     if not str(doc["version"]).strip():
         problems.append("version is empty; an assessment of an unnamed version "
                         "is false as soon as the software moves")
+    if not SHA1.match(str(doc.get("commit", ""))):
+        problems.append(
+            "commit must be a full 40-character hex object id. An assessment "
+            "that cannot be checked out is an opinion, and an abbreviated one "
+            "leaves room to argue about which tree was read.")
     if not DATE.match(str(doc.get("assessed_on", ""))):
         problems.append("assessed_on must be YYYY-MM-DD")
 

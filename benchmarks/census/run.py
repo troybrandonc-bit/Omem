@@ -161,11 +161,90 @@ def render(docs: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def render_one(doc: dict) -> str:
+    """One subject's assessment, as a document its maintainers can act on.
+
+    Sending somebody a census and expecting them to find their own row is how
+    a correction request becomes a press release. This renders their rows only,
+    with every citation, so the reply can be "R2.1 is wrong, look here" rather
+    than "which part?".
+    """
+    lines: list[str] = []
+    w = lines.append
+    reached = subject.level_reached(doc)
+
+    w(f"# {doc['name']} {doc['version']}: Testimony Record assessment")
+    w("")
+    w(f"Assessed {doc['assessed_on']} by {doc['assessed_by']}, against the "
+      f"Testimony Record specification (CC BY 4.0).")
+    w("")
+    w(f"**Method.** {doc['method']}")
+    w("")
+    w(f"**Reached:** {reached or 'no level yet'}. Per level, requirements met "
+      "out of those that apply: "
+      + ", ".join(f"{lvl} {t[0]}/{t[1]}" if t[1] else f"{lvl} n/a"
+                  for lvl in rubric.LEVEL_ORDER
+                  for t in [tally(doc, lvl)]) + ".")
+    w("")
+    if doc.get("notes"):
+        w(doc["notes"])
+        w("")
+    w("A level counts as reached only when nothing in it is missing, so a "
+      "system meeting four of five requirements shows no level. The per-level "
+      "counts above are there so that reads correctly. There is no total and "
+      "no ranking against other systems, by design.")
+    w("")
+    w("## Every requirement, with where it was checked")
+    w("")
+
+    for lvl in rubric.LEVEL_ORDER:
+        rows = [r for r in rubric.BY_LEVEL[lvl]
+                if rubric.applicable(r, doc["claims"])]
+        if not rows:
+            continue
+        w(f"### {lvl} {rubric.LEVELS[lvl][0]}")
+        w("")
+        w(f"*{rubric.LEVELS[lvl][1]}*")
+        w("")
+        for req in rows:
+            got = doc["assessments"].get(req.id) or {}
+            v = got.get("verdict", "?")
+            w(f"**{req.id} [{v}]** {req.question}")
+            w("")
+            w(f"- A pass would mean: {req.present_means}")
+            if got.get("note"):
+                w(f"- Assessed: {got['note']}")
+            for e in got.get("evidence") or []:
+                w(f"- `{e.get('kind')}` {e.get('locator')}"
+                  + (f" - {e['note']}" if e.get("note") else ""))
+            w("")
+
+    w("## If a verdict here is wrong")
+    w("")
+    w("Every answer above cites a file and line at the pinned commit, or a "
+      "search that can be repeated against it, so a wrong one can be shown to "
+      "be wrong rather than argued about. Corrections are welcome by pull "
+      "request against the subject file or by email to hello@omem-cloud.com, "
+      "naming the requirement and where to look. A correction that lands "
+      "changes the file, the report and the assessment date.")
+    w("")
+    w("There is no fee, no membership, and no requirement to use any "
+      "particular software. The specification text is CC BY 4.0 and the tools "
+      "are MIT.")
+    w("")
+    return "\n".join(lines)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--check", action="store_true",
                     help="validate the subject files and stop")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--for", dest="subject_id", default=None,
+                    help="render one subject's assessment as markdown, for "
+                         "sending to the people who maintain it")
+    ap.add_argument("--out-dir", default=None,
+                    help="with --for all, write one file per subject here")
     ap.add_argument("--dir", default=SUBJECTS)
     a = ap.parse_args()
 
@@ -183,6 +262,24 @@ def main() -> int:
         return 1 if bad else 0
     if bad:
         return 1
+
+    if a.subject_id:
+        if a.subject_id == "all":
+            out = a.out_dir or "."
+            os.makedirs(out, exist_ok=True)
+            for d in docs:
+                path = os.path.join(out, f"{d['subject']}-assessment.md")
+                with open(path, "w", encoding="utf-8", newline="\n") as f:
+                    f.write(render_one(d))
+                print(f"wrote {path}")
+            return 0
+        picked = [d for d in docs if d["subject"] == a.subject_id]
+        if not picked:
+            print(f"no subject {a.subject_id!r}; have: "
+                  + ", ".join(d["subject"] for d in docs), file=sys.stderr)
+            return 1
+        print(render_one(picked[0]))
+        return 0
 
     if a.json:
         print(json.dumps({

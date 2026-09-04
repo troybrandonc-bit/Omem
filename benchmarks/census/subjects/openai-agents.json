@@ -3,165 +3,322 @@
   "name": "OpenAI Agents SDK",
   "version": "0.22.0 (89c02c8)",
   "url": "https://github.com/openai/openai-agents-python",
+  "commit": "89c02c828ee8510fe9a84ee6675608193aa13b02",
   "license": "MIT",
-  "claims": ["stores", "derives", "acts"],
+  "claims": [
+    "stores",
+    "derives",
+    "acts"
+  ],
   "assessed_on": "2026-09-04",
   "assessed_by": "Michael Brandon Clifford",
   "method": "Read of src/agents/tool.py, src/agents/run_state.py, src/agents/_tool_invocation.py, src/agents/memory/sqlite_session.py and src/agents/memory/openai_responses_compaction_session.py at 89c02c8, cloned from the public repository. Line numbers are that commit's.",
   "notes": "This is the first system assessed here that gates actions, so it is the first with anything to say at TR-3, and the shape of the answer is consistent: the SDK knows a great deal about WHAT was proposed and almost nothing about WHO allowed it. Tools carry needs_approval set in developer code, a run keeps a canonical ledger of tool invocations recording whether each executed, and a rejection can carry a reason. But approve() takes no approver, and the only thing called an identity in the approval path identifies the tool call rather than a person. The other half of the picture is the session layer, where the default store is append-only but the optional compaction session clears the whole history and writes back a model-written summary in its place. Both observations describe an SDK doing its job: it is a framework for building agents, not a record of what they did, and it does not claim otherwise.",
-
   "assessments": {
     "R1.1": {
       "verdict": "present",
       "evidence": [
-        {"kind": "source", "locator": "src/agents/memory/sqlite_session.py:245-253", "note": "the messages table stores created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP alongside message_data, so the write time is held with the item"}
+        {
+          "kind": "source",
+          "locator": "src/agents/memory/sqlite_session.py:245-253",
+          "note": "the messages table stores created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP alongside message_data, so the write time is held with the item"
+        }
       ]
     },
     "R1.2": {
       "verdict": "partial",
       "evidence": [
-        {"kind": "source", "locator": "src/agents/memory/sqlite_session.py:245-253", "note": "the default session only appends items, so there is no in-place change for a previous version to survive"},
-        {"kind": "source", "locator": "src/agents/memory/openai_responses_compaction_session.py:271-286 _replace_underlying_session_items", "note": "the compaction session calls underlying_session.clear_session() and then add_items(output_items), so the turns that were summarised are no longer readable afterwards"}
+        {
+          "kind": "source",
+          "locator": "src/agents/memory/sqlite_session.py:245-253",
+          "note": "the default session only appends items, so there is no in-place change for a previous version to survive"
+        },
+        {
+          "kind": "source",
+          "locator": "src/agents/memory/openai_responses_compaction_session.py:271-286 _replace_underlying_session_items",
+          "note": "the compaction session calls underlying_session.clear_session() and then add_items(output_items), so the turns that were summarised are no longer readable afterwards"
+        }
       ],
       "note": "In the default session there is nothing to preserve, because nothing changes. Where a session does change, in compaction, the prior state is destroyed rather than superseded."
     },
     "R1.3": {
       "verdict": "partial",
       "evidence": [
-        {"kind": "source", "locator": "src/agents/memory/sqlite_session.py add_items", "note": "the ordinary write is an append; nothing is edited in place"},
-        {"kind": "source", "locator": "src/agents/memory/sqlite_session.py:381 pop_item and :435 clear_session", "note": "both issue DELETE FROM against the messages table"},
-        {"kind": "source", "locator": "src/agents/memory/openai_responses_compaction_session.py:250-286", "note": "compaction triggers automatically once enough candidate items exist and performs a clear-then-add as one replacement transaction"}
+        {
+          "kind": "source",
+          "locator": "src/agents/memory/sqlite_session.py add_items",
+          "note": "the ordinary write is an append; nothing is edited in place"
+        },
+        {
+          "kind": "source",
+          "locator": "src/agents/memory/sqlite_session.py:381 pop_item and :435 clear_session",
+          "note": "both issue DELETE FROM against the messages table"
+        },
+        {
+          "kind": "source",
+          "locator": "src/agents/memory/openai_responses_compaction_session.py:250-286",
+          "note": "compaction triggers automatically once enough candidate items exist and performs a clear-then-add as one replacement transaction"
+        }
       ],
       "note": "The default path appends and is clean. What makes this partial is that a supported and automatic path destroys: with the compaction session, reaching the item threshold clears the session and replaces it with a summary, so the conversation an auditor would want to read is gone by design rather than by accident."
     },
     "R1.4": {
       "verdict": "present",
       "evidence": [
-        {"kind": "source", "locator": "src/agents/memory/openai_responses_compaction_session.py:53", "note": "items are discriminated by type, and compaction items are recognised as such when selecting candidates"},
-        {"kind": "source", "locator": "src/agents/memory/sqlite_session.py:245-253", "note": "message_data holds a Responses API item, which is a typed union covering messages, function calls and tool outputs"}
+        {
+          "kind": "source",
+          "locator": "src/agents/memory/openai_responses_compaction_session.py:53",
+          "note": "items are discriminated by type, and compaction items are recognised as such when selecting candidates"
+        },
+        {
+          "kind": "source",
+          "locator": "src/agents/memory/sqlite_session.py:245-253",
+          "note": "message_data holds a Responses API item, which is a typed union covering messages, function calls and tool outputs"
+        }
       ]
     },
     "R1.5": {
       "verdict": "absent",
       "evidence": [
-        {"kind": "source", "locator": "src/agents/memory/sqlite_session.py:435-446 clear_session", "note": "deletes the session's messages and the session row itself, with ON DELETE CASCADE on the foreign key"},
-        {"kind": "searched", "locator": "grep -rniE 'tombstone|deleted_at|erasure|audit' src/agents/memory/ --include=*.py", "note": "no match; nothing survives a cleared session to record that it existed"}
+        {
+          "kind": "source",
+          "locator": "src/agents/memory/sqlite_session.py:435-446 clear_session",
+          "note": "deletes the session's messages and the session row itself, with ON DELETE CASCADE on the foreign key"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'tombstone|deleted_at|erasure|audit' src/agents/memory/ --include=*.py",
+          "note": "no match; nothing survives a cleared session to record that it existed"
+        }
       ]
     },
-
     "R2.1": {
       "verdict": "partial",
       "evidence": [
-        {"kind": "source", "locator": "src/agents/memory/sqlite_session.py:245-253", "note": "session items are stored verbatim, so an ordinary message is its own source and needs no link"},
-        {"kind": "source", "locator": "src/agents/memory/openai_responses_compaction_session.py:271-286", "note": "a compaction item does not carry references to the items it replaced, and those items have been deleted by the same transaction"}
+        {
+          "kind": "source",
+          "locator": "src/agents/memory/sqlite_session.py:245-253",
+          "note": "session items are stored verbatim, so an ordinary message is its own source and needs no link"
+        },
+        {
+          "kind": "source",
+          "locator": "src/agents/memory/openai_responses_compaction_session.py:271-286",
+          "note": "a compaction item does not carry references to the items it replaced, and those items have been deleted by the same transaction"
+        }
       ],
       "note": "For verbatim items the question barely applies, which is a fair pass. For the one kind of item the SDK generates itself, the sources are neither cited nor retained."
     },
     "R2.2": {
       "verdict": "present",
       "evidence": [
-        {"kind": "source", "locator": "src/agents/memory/openai_responses_compaction_session.py:53", "note": "a generated summary is written as an item of type 'compaction' and is excluded from later compaction candidate selection on that basis"}
+        {
+          "kind": "source",
+          "locator": "src/agents/memory/openai_responses_compaction_session.py:53",
+          "note": "a generated summary is written as an item of type 'compaction' and is excluded from later compaction candidate selection on that basis"
+        }
       ],
       "note": "Model-written content in the history is labelled as model-written. That is the whole of what this requirement asks, and the SDK does it."
     },
     "R2.3": {
       "verdict": "absent",
       "evidence": [
-        {"kind": "searched", "locator": "grep -rniE 'class Conflict|contradiction|disagree' src/agents/ --include=*.py", "note": "the single match is an unrelated code comment at run_state.py:2514; there is no notion of a proposition, so there is nothing that could disagree"},
-        {"kind": "source", "locator": "src/agents/memory/sqlite_session.py:245-253", "note": "the session is an ordered list of conversation items; two statements that contradict each other are simply two items"}
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'class Conflict|contradiction|disagree' src/agents/ --include=*.py",
+          "note": "the single match is an unrelated code comment at run_state.py:2514; there is no notion of a proposition, so there is nothing that could disagree"
+        },
+        {
+          "kind": "source",
+          "locator": "src/agents/memory/sqlite_session.py:245-253",
+          "note": "the session is an ordered list of conversation items; two statements that contradict each other are simply two items"
+        }
       ],
       "note": "This is a consequence of the SDK storing conversation rather than belief. Both statements survive as text, but nothing in the system can tell that they are about the same thing, so nothing is retained as a disagreement."
     },
     "R2.4": {
       "verdict": "absent",
       "evidence": [
-        {"kind": "searched", "locator": "grep -rniE 'class Conflict|contradiction|disagree' src/agents/ --include=*.py", "note": "no conflict type, record or query surface exists anywhere in the package"}
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'class Conflict|contradiction|disagree' src/agents/ --include=*.py",
+          "note": "no conflict type, record or query surface exists anywhere in the package"
+        }
       ]
     },
     "R2.5": {
       "verdict": "partial",
       "evidence": [
-        {"kind": "source", "locator": "src/agents/memory/sqlite_session.py:245-253", "note": "the default session never resolves anything: both statements stay in the log and neither is preferred, which is the conservative behaviour this requirement allows"},
-        {"kind": "source", "locator": "src/agents/memory/openai_responses_compaction_session.py:271-286", "note": "compaction replaces a stretch of history with a model-written summary, which can silently reconcile or drop a disagreement, and records neither that it did so nor what it dropped"}
+        {
+          "kind": "source",
+          "locator": "src/agents/memory/sqlite_session.py:245-253",
+          "note": "the default session never resolves anything: both statements stay in the log and neither is preferred, which is the conservative behaviour this requirement allows"
+        },
+        {
+          "kind": "source",
+          "locator": "src/agents/memory/openai_responses_compaction_session.py:271-286",
+          "note": "compaction replaces a stretch of history with a model-written summary, which can silently reconcile or drop a disagreement, and records neither that it did so nor what it dropped"
+        }
       ],
       "note": "Never resolving would be a pass. Compaction is the exception: it is the one place where an earlier statement can quietly stop being part of the record, decided by a model, with nothing written down about the decision."
     },
-
     "R3.1": {
       "verdict": "partial",
       "evidence": [
-        {"kind": "source", "locator": "src/agents/run_state.py:1356-1370 _serialize_tool_invocations", "note": "a canonical per-run ledger records each call id with its type, approval scope, fingerprint, and whether it executed and completed. An attempted call that never ran is present in it"},
-        {"kind": "source", "locator": "src/agents/run_state.py:1330-1354 _serialize_approvals", "note": "approvals and rejections serialise alongside, including rejection messages"},
-        {"kind": "searched", "locator": "grep -rniE 'tombstone|deleted_at|erasure|audit' src/agents/memory/ --include=*.py", "note": "no persistence layer writes the ledger anywhere; RunState serialises to JSON on request and it is the application's job to keep it"}
+        {
+          "kind": "source",
+          "locator": "src/agents/run_state.py:1356-1370 _serialize_tool_invocations",
+          "note": "a canonical per-run ledger records each call id with its type, approval scope, fingerprint, and whether it executed and completed. An attempted call that never ran is present in it"
+        },
+        {
+          "kind": "source",
+          "locator": "src/agents/run_state.py:1330-1354 _serialize_approvals",
+          "note": "approvals and rejections serialise alongside, including rejection messages"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'tombstone|deleted_at|erasure|audit' src/agents/memory/ --include=*.py",
+          "note": "no persistence layer writes the ledger anywhere; RunState serialises to JSON on request and it is the application's job to keep it"
+        }
       ],
       "note": "The information exists and is well modelled, which is most of the work. What it is not is durable: the ledger lives in a run object, and whether it survives the process is a decision the SDK leaves to whoever embeds it."
     },
     "R3.2": {
       "verdict": "present",
       "evidence": [
-        {"kind": "source", "locator": "src/agents/tool.py:486-494", "note": "needs_approval is declared on the tool, as a bool or a callable, and the docstring states the call must be approved via RunState.approve() or rejected via RunState.reject() before continuing"},
-        {"kind": "source", "locator": "src/agents/tool.py:707-743", "note": "the function_tool decorator takes needs_approval and passes it into the constructed tool, so it is fixed in developer code at definition time"}
+        {
+          "kind": "source",
+          "locator": "src/agents/tool.py:486-494",
+          "note": "needs_approval is declared on the tool, as a bool or a callable, and the docstring states the call must be approved via RunState.approve() or rejected via RunState.reject() before continuing"
+        },
+        {
+          "kind": "source",
+          "locator": "src/agents/tool.py:707-743",
+          "note": "the function_tool decorator takes needs_approval and passes it into the constructed tool, so it is fixed in developer code at definition time"
+        }
       ],
       "note": "This is a boolean gate rather than a graded risk class, but the substance the requirement asks for is met: whether an action needs approval is decided outside anything the model writes, and the model cannot clear its own gate."
     },
     "R3.3": {
       "verdict": "partial",
       "evidence": [
-        {"kind": "source", "locator": "src/agents/run_state.py:1330-1354", "note": "the approvals record carries rejected alongside approved, per tool, with the same standing"},
-        {"kind": "source", "locator": "src/agents/run_state.py:1356-1370", "note": "the invocation ledger separates executed from completed, so a call stopped before execution is distinguishable from one that ran"}
+        {
+          "kind": "source",
+          "locator": "src/agents/run_state.py:1330-1354",
+          "note": "the approvals record carries rejected alongside approved, per tool, with the same standing"
+        },
+        {
+          "kind": "source",
+          "locator": "src/agents/run_state.py:1356-1370",
+          "note": "the invocation ledger separates executed from completed, so a call stopped before execution is distinguishable from one that ran"
+        }
       ],
       "note": "Refusals are modelled as faithfully as permissions, and the same caveat applies as at R3.1: this lives in the run state, not in a record that outlives it."
     },
     "R3.4": {
       "verdict": "present",
       "evidence": [
-        {"kind": "source", "locator": "src/agents/run_state.py:1300-1312 reject", "note": "reject takes rejection_message, and the docstring says that exact text is sent back to the model when the run resumes"},
-        {"kind": "source", "locator": "src/agents/run_state.py:1345-1352", "note": "rejection_messages and sticky_rejection_message are serialised with the approval record"},
-        {"kind": "source", "locator": "src/agents/tool.py:194", "note": "DEFAULT_APPROVAL_REJECTION_MESSAGE gives a refusal a reason even when the caller supplies none"}
+        {
+          "kind": "source",
+          "locator": "src/agents/run_state.py:1300-1312 reject",
+          "note": "reject takes rejection_message, and the docstring says that exact text is sent back to the model when the run resumes"
+        },
+        {
+          "kind": "source",
+          "locator": "src/agents/run_state.py:1345-1352",
+          "note": "rejection_messages and sticky_rejection_message are serialised with the approval record"
+        },
+        {
+          "kind": "source",
+          "locator": "src/agents/tool.py:194",
+          "note": "DEFAULT_APPROVAL_REJECTION_MESSAGE gives a refusal a reason even when the caller supplies none"
+        }
       ]
     },
     "R3.5": {
       "verdict": "absent",
       "evidence": [
-        {"kind": "source", "locator": "src/agents/run_state.py:1285 approve", "note": "the signature is approve(self, approval_item, always_approve=False). There is no parameter for who is approving"},
-        {"kind": "source", "locator": "src/agents/run_context.py:1043 approve_tool", "note": "the underlying context call takes the same arguments and records approved/rejected as booleans or call-id lists, with no actor"},
-        {"kind": "searched", "locator": "grep -rniE 'approver|approved_by|principal' src/agents/run_state.py src/agents/run_context.py src/agents/tool.py", "note": "the matches are approval_identity at run_state.py:1080 and :1190, which come from _tool_invocation.py:135 tool_invocation_identity and identify WHICH TOOL CALL an approval belongs to, by server label, tool name and request id. Nothing in the approval path identifies a person"}
+        {
+          "kind": "source",
+          "locator": "src/agents/run_state.py:1285 approve",
+          "note": "the signature is approve(self, approval_item, always_approve=False). There is no parameter for who is approving"
+        },
+        {
+          "kind": "source",
+          "locator": "src/agents/run_context.py:1043 approve_tool",
+          "note": "the underlying context call takes the same arguments and records approved/rejected as booleans or call-id lists, with no actor"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'approver|approved_by|principal' src/agents/run_state.py src/agents/run_context.py src/agents/tool.py",
+          "note": "the matches are approval_identity at run_state.py:1080 and :1190, which come from _tool_invocation.py:135 tool_invocation_identity and identify WHICH TOOL CALL an approval belongs to, by server label, tool name and request id. Nothing in the approval path identifies a person"
+        }
       ],
       "note": "The SDK pauses the run and hands the decision to the embedding application. Who that application asked, and whether it asked anybody, is not part of what it records."
     },
     "R3.6": {
       "verdict": "absent",
       "evidence": [
-        {"kind": "searched", "locator": "grep -rniE 'approver|approved_by|principal' src/agents/run_state.py src/agents/run_context.py src/agents/tool.py", "note": "no human identity is captured at any point, so there is no identity for an authentication layer to be the source of"},
-        {"kind": "source", "locator": "src/agents/run_state.py:1285-1298", "note": "approve resolves the approval item and calls through to the context; nothing about the caller is examined or stored"}
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'approver|approved_by|principal' src/agents/run_state.py src/agents/run_context.py src/agents/tool.py",
+          "note": "no human identity is captured at any point, so there is no identity for an authentication layer to be the source of"
+        },
+        {
+          "kind": "source",
+          "locator": "src/agents/run_state.py:1285-1298",
+          "note": "approve resolves the approval item and calls through to the context; nothing about the caller is examined or stored"
+        }
       ]
     },
     "R3.7": {
       "verdict": "absent",
       "evidence": [
-        {"kind": "source", "locator": "src/agents/run_state.py:1285 approve", "note": "always_approve=True marks a tool approved for the remainder of the run, so a program can clear the gate for every subsequent call in one statement"},
-        {"kind": "searched", "locator": "grep -rniE 'approver|approved_by|principal' src/agents/run_state.py src/agents/run_context.py src/agents/tool.py", "note": "with no principals in the model, there is nothing to compare, so a proposer and an approver cannot be told apart even in principle"}
+        {
+          "kind": "source",
+          "locator": "src/agents/run_state.py:1285 approve",
+          "note": "always_approve=True marks a tool approved for the remainder of the run, so a program can clear the gate for every subsequent call in one statement"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'approver|approved_by|principal' src/agents/run_state.py src/agents/run_context.py src/agents/tool.py",
+          "note": "with no principals in the model, there is nothing to compare, so a proposer and an approver cannot be told apart even in principle"
+        }
       ],
       "note": "This is the requirement most likely to be assumed satisfied by anyone who sees a human-in-the-loop feature and stops reading. The pause is real; the attribution is not."
     },
-
     "R4.1": {
       "verdict": "absent",
       "evidence": [
-        {"kind": "searched", "locator": "grep -rniE 'hash_chain|merkle|tamper|checksum|signature' src/agents/ --include=*.py", "note": "matches are Python introspection (inspect.signature) and a ToolCallSignature tuple used to index tool calls; nothing relates to record integrity"}
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'hash_chain|merkle|tamper|checksum|signature' src/agents/ --include=*.py",
+          "note": "matches are Python introspection (inspect.signature) and a ToolCallSignature tuple used to index tool calls; nothing relates to record integrity"
+        }
       ]
     },
     "R4.2": {
       "verdict": "absent",
       "evidence": [
-        {"kind": "searched", "locator": "grep -rniE 'hash_chain|merkle|tamper|checksum|signature' src/agents/ --include=*.py", "note": "no verification surface exists, so there is nothing for an independent party to run"}
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'hash_chain|merkle|tamper|checksum|signature' src/agents/ --include=*.py",
+          "note": "no verification surface exists, so there is nothing for an independent party to run"
+        }
       ]
     },
     "R4.3": {
       "verdict": "absent",
       "evidence": [
-        {"kind": "source", "locator": "src/agents/memory/sqlite_session.py:245-253", "note": "session rows carry an autoincrement id and a timestamp, and nothing binding one row to the next; an UPDATE against the table would leave no evidence"},
-        {"kind": "searched", "locator": "grep -rniE 'hash_chain|merkle|tamper|checksum' src/agents/ --include=*.py", "note": "no match"}
+        {
+          "kind": "source",
+          "locator": "src/agents/memory/sqlite_session.py:245-253",
+          "note": "session rows carry an autoincrement id and a timestamp, and nothing binding one row to the next; an UPDATE against the table would leave no evidence"
+        },
+        {
+          "kind": "searched",
+          "locator": "grep -rniE 'hash_chain|merkle|tamper|checksum' src/agents/ --include=*.py",
+          "note": "no match"
+        }
       ]
     }
   }

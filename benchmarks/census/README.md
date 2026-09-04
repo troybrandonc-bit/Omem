@@ -86,6 +86,49 @@ in CI:
 `server/tests_census.py` proves each of these rejects what it claims to reject,
 because a stated rule and an enforced one are different things.
 
+## What a verdict is a claim about, and what would change it
+
+Every verdict here is a claim about **one named commit**, not about a project.
+Not "mem0 does not record deletion" but "mem0 at `9a7924be...` did not, and here
+are the file and the line". Each subject pins a full 40-character object id and
+`subject.py` refuses an abbreviation, so anyone can check out the exact tree
+every citation refers to:
+
+```
+git clone https://github.com/mem0ai/mem0 && cd mem0
+git checkout 9a7924befd7026e41e445ba809370009e5e985a6
+```
+
+That is what makes the census durable rather than an opinion with a shelf life.
+**A project that ships the missing capability tomorrow has not made anything
+here false.** The assessment was of a commit that still exists and still reads
+the same way. When a system changes, the honest response is a new assessment
+with a new date and a new commit, sitting beside the old one, never an edit to
+it. That is what the specification this rubric comes from asks of everybody
+else, and there is no version of this exercise where the census exempts itself.
+
+The census can also be shown not to have changed. `manifest.py` records the
+digest of every subject file and of the questions they were scored against, and
+`--check` verifies it:
+
+```
+python3 benchmarks/census/manifest.py --check
+```
+
+The realistic threat to a document like this is not corruption, it is a quiet
+edit after a complaint: a verdict softened, a note reworded, in a file that
+still validates perfectly afterwards. `tests_census.py` tampers with a verdict
+and confirms the digest moves.
+
+**One verdict is demonstrated rather than read.** Everything here was reached by
+reading source, which is honest and is also weaker than it sounds: a read can
+miss a branch or look at the wrong module. Most of these findings are about what
+a system does not record, which no amount of running can prove. mem0 R1.5 is the
+exception, because it claims something IS written and it concerns data somebody
+asked to have deleted, so `verify/mem0_delete_retains_text.py` executes mem0's
+own storage layer and shows the deleted text still on disk. No network, no LLM,
+no API key.
+
 ## The conflict of interest
 
 OMEM is the reference implementation of the specification these questions
@@ -149,6 +192,10 @@ Eight subjects, assessed on 4 September 2026: OMEM, mem0, Graphiti, LangGraph,
 CrewAI, the OpenAI Agents SDK, AutoGen and Letta Code. Each was read from a
 clone of its public repository at a pinned commit, and every verdict cites a
 file and line in that commit or a search that can be repeated against it.
+
+Everything below is a statement about the commit named in each subject file and
+nothing more. Where a project is named without a version, read it as shorthand
+for that pinned commit. See "What a verdict is a claim about" above.
 
 Three patterns hold across every system except the reference implementation,
 and they are the findings worth taking away:
@@ -215,7 +262,10 @@ small, and for two it is the same one.
 |---|---|
 | `rubric.py` | the twenty requirements, as capability questions |
 | `subject.py` | the assessment format, and the rules that reject a bad one |
-| `run.py` | the report |
-| `subjects/*.json` | one assessed system each |
+| `run.py` | the report, and `--for <id>` for one system's assessment |
+| `manifest.py` | digests, so the census can be shown not to have changed |
+| `MANIFEST.json` | those digests, as published |
+| `verify/` | scripts that demonstrate a finding by running the assessed system |
+| `subjects/*.json` | one assessed system each, pinned to a full commit id |
 
 Copyright 2026 Michael Brandon Clifford. MIT licensed.
