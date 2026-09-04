@@ -27,9 +27,32 @@ import json
 import re
 import sys
 
-SPEC = "testimony-record/0.1"
+SPEC = "testimony-record/0.2"
+SPECS = ("testimony-record/0.1", "testimony-record/0.2")
 LEVELS = ["TR-1", "TR-2", "TR-3", "TR-4"]
-TYPES = {"belief", "evidence", "conflict", "decision", "approval", "integrity"}
+TYPES = {"belief", "evidence", "conflict", "decision", "approval", "integrity",
+         "scope"}
+
+# `scope` exists because this validator was refusing a level to systems that
+# had earned it. TR-3 required at least one decision entry, on the reasoning
+# that a record with no decisions cannot demonstrate a gate. True, and it meant
+# a system which takes no actions at all could never pass TR-3, and since the
+# ladder is cumulative its integrity at TR-4 stayed invisible however good it
+# was. A record-only system with a real hash chain reported TR-2.
+#
+# Reported by Phill Clapham on 4 September 2026, who is that case: a chained
+# audit, no actuation gate, and no need for one. The check it failed appears
+# nowhere in the specification text, which says only that every consequential
+# action produces a decision entry, and a system with no consequential actions
+# satisfies that by having none.
+#
+# The check is still worth having, because without it a system that does act
+# passes TR-3 by omitting its decisions. So the record declares whether the
+# system acts, and the validator believes it. That declaration is visible in
+# the reported level for the same reason the census reports what a subject
+# claims: "TR-4, record only" is a different sentence from "TR-4".
+#
+# 0.1 records have no scope entry and are validated exactly as before.
 RFC3339 = re.compile(
     r"^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+-]\d{2}:\d{2})$")
 
@@ -41,6 +64,8 @@ class Report:
     def __init__(self):
         self.checks: list[dict] = []
         self.level: str | None = None
+        self.spec: str = SPEC
+        self.scope: str = "acts"
 
     def add(self, level: str, name: str, ok: bool, detail: str = ""):
         self.checks.append({"level": level, "check": name, "ok": ok, "detail": detail})
@@ -49,7 +74,9 @@ class Report:
         return [c for c in self.checks if c["level"] == level and not c["ok"]]
 
     def as_dict(self) -> dict:
-        return {"spec": SPEC, "level": self.level, "checks": self.checks}
+        return {"spec": self.spec, "level": self.level, "scope": self.scope,
+                "levels_met": {lvl: not self.failures(lvl) for lvl in LEVELS},
+                "checks": self.checks}
 
 
 def _parse(text: str) -> tuple[list[dict], list[str]]:
@@ -73,6 +100,7 @@ def _parse(text: str) -> tuple[list[dict], list[str]]:
 
 
 REQUIRED = {
+    "scope": ("acts",),
     "belief": ("subject", "proposition", "polarity", "state", "asserted_by"),
     "evidence": ("kind", "source"),
     "conflict": ("subject", "proposition", "sides"),
@@ -99,9 +127,17 @@ def validate(text: str) -> Report:
           "; ".join(parse_errors[:3]))
     r.add("TR-1", "the record is not empty", bool(entries))
 
-    bad_spec = [e for e in entries if e.get("spec") != SPEC]
-    r.add("TR-1", "every entry names this specification version", not bad_spec,
-          f"{len(bad_spec)} entr(ies) with a different or missing spec field")
+    named = {e.get("spec") for e in entries}
+    known = named & set(SPECS)
+    bad_spec = [e for e in entries if e.get("spec") not in SPECS]
+    r.add("TR-1", "every entry names a known specification version",
+          bool(entries) and not bad_spec,
+          f"{len(bad_spec)} entr(ies) with an unknown or missing spec field")
+    r.add("TR-1", "the record names one specification version, not several",
+          len(named) <= 1,
+          f"mixed versions in one record: {sorted(x for x in named if x)}")
+    if len(known) == 1:
+        r.spec = known.pop()
 
     bad_type = [e for e in entries if e.get("type") not in TYPES]
     r.add("TR-1", "every entry has a known type", not bad_type,
@@ -195,8 +231,36 @@ def validate(text: str) -> Report:
     # ── TR-3: actions carry a verdict, approvals carry a name ────────────────
     decisions = by_type["decision"]
     approvals = by_type["approval"]
-    r.add("TR-3", "the record contains at least one decision", bool(decisions),
-          "a record with no decisions cannot demonstrate a gate")
+
+    # What the emitting system says it does. Absent, the answer is "it acts",
+    # which is what every 0.1 record means and keeps them validating unchanged.
+    scopes = by_type["scope"]
+    r.add("TR-1", "at most one scope entry", len(scopes) <= 1,
+          f"{len(scopes)} scope entries; a record describes one system")
+    declared = scopes[0] if scopes else None
+    if declared is not None and declared.get("spec") == "testimony-record/0.1":
+        r.add("TR-1", "scope is not used in a 0.1 record", False,
+              "the scope entry was introduced in testimony-record/0.2; a 0.1 "
+              "record carrying one is claiming a version it does not name")
+    acts = True if declared is None else bool(declared.get("acts"))
+    r.scope = "acts" if acts else "record only"
+
+    # A system that says it does not act, and then records actions, is not
+    # describing itself. Catching that is what makes the declaration safe to
+    # believe at all.
+    r.add("TR-1", "a record that declares no actions contains none",
+          acts or not decisions,
+          f"scope says acts=false but the record carries {len(decisions)} "
+          f"decision entr(ies)")
+
+    if acts:
+        r.add("TR-3", "the record contains at least one decision", bool(decisions),
+              "a record from a system that acts, with no decisions in it, "
+              "cannot demonstrate a gate. If this system does not act, say so "
+              "with a scope entry rather than leaving it to be inferred.")
+    else:
+        r.add("TR-3", "no decisions required: the system declares it does not act",
+              True, "")
 
     self_declared = [d for d in decisions
                      if str(d.get("risk_source", "")).lower() in UNTRUSTED_SOURCES
@@ -307,10 +371,32 @@ def main() -> int:
             print(f"  {mark} {c['check']}")
             if not c["ok"] and c["detail"]:
                 print(f"       {c['detail']}")
-        print("\nConformance: " + (r.level or "none, TR-1 not met"))
+        scope = "" if r.scope == "acts" else f", {r.scope}"
+        print("\nConformance: " + (r.level or "none, TR-1 not met") + scope)
+
+        # Every level's own result, always. The ladder is cumulative, so a
+        # level can be satisfied and not reached, and the old output threw
+        # that away: a record-only system with a real hash chain was told
+        # TR-2 and never told its integrity had passed. Printing what was
+        # already computed costs nothing, and not printing it cost somebody
+        # three weeks of thinking their chain was invisible.
+        met = {lvl: not r.failures(lvl) for lvl in LEVELS}
+        print("Per level:   " + "   ".join(
+            f"{lvl} {'met' if met[lvl] else 'not met'}" for lvl in LEVELS))
+
+        if r.level:
+            higher = [lvl for lvl in LEVELS
+                      if met[lvl] and LEVELS.index(lvl) > LEVELS.index(r.level)]
+            if higher:
+                print("\n" + ", ".join(higher) + " "
+                      + ("is" if len(higher) == 1 else "are")
+                      + " satisfied but not reached, because the levels are "
+                        "cumulative and a\nlevel below is not met. The checks "
+                        "are listed above either way.")
+
         if r.level and r.level != "TR-4":
             nxt = LEVELS[LEVELS.index(r.level) + 1]
-            print(f"To reach {nxt}, fix:")
+            print(f"\nTo reach {nxt}, fix:")
             for c in r.failures(nxt):
                 print(f"  - {c['check']}")
 

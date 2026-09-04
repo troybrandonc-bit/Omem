@@ -125,11 +125,80 @@ check("a replay scheme that does not name its engine stops at TR-3",
 check("an integrity entry covering an entry that is not there stops at TR-3",
       level_of(edit("i_1", lambda o: o.update({"covers": ["nope"]}))) == "TR-3")
 
+
+print("== a system that does not act, reported by Phill Clapham 4 Sep 2026 ==")
+# TR-3 required at least one decision entry, so a record-only system could
+# never pass it, and the cumulative ladder then hid its integrity at TR-4
+# however real that integrity was. The check appears nowhere in the
+# specification text, which asks only that every consequential action produce
+# a decision entry. A system with no consequential actions satisfies it.
+S2 = "testimony-record/0.2"
+
+
+def record_only(acts=False, with_decision=False, spec=S2):
+    import hashlib
+    E = [{"spec": spec, "type": "scope", "id": "scope_1",
+          "at": "2026-09-04T08:59:00Z", "acts": acts},
+         {"spec": spec, "type": "evidence", "id": "e1",
+          "at": "2026-09-04T09:00:00Z", "kind": "document", "source": "doc:1",
+          "digest": "sha256:aa", "redacted": True},
+         {"spec": spec, "type": "belief", "id": "b1",
+          "at": "2026-09-04T09:00:01Z", "subject": "s", "proposition": "p",
+          "polarity": "affirm", "state": "believed_true",
+          "asserted_by": {"id": "sys", "kind": "system"}, "evidence": ["e1"]}]
+    if with_decision:
+        E.append({"spec": spec, "type": "decision", "id": "d1",
+                  "at": "2026-09-04T09:00:02Z", "action_type": "send",
+                  "risk_class": "low", "risk_source": "registry",
+                  "proposed_by": {"id": "sys", "kind": "agent"},
+                  "verdict": "permitted", "executed": True, "approval": None})
+    body = "\n".join(json.dumps(e, sort_keys=True) for e in E)
+    dg = hashlib.sha256(body.encode()).hexdigest()
+    E.append({"spec": spec, "type": "integrity", "id": "i1",
+              "at": "2026-09-04T09:00:03Z", "scheme": "hash-chain",
+              "digest": "sha256:" + dg, "covers": [e["id"] for e in E]})
+    return "\n".join(json.dumps(e) for e in E)
+
+
+r = tv.validate(record_only(acts=False))
+check("a record-only system with a real chain reaches TR-4",
+      r.level == "TR-4", r.level)
+check("and the level carries the scope it was earned under",
+      r.scope == "record only", r.scope)
+
+r = tv.validate(record_only(acts=True))
+check("the same record claiming to act fails TR-3 for having no decisions",
+      r.level == "TR-2", r.level)
+check("and its integrity is still reported as satisfied rather than hidden",
+      not r.failures("TR-4"), r.failures("TR-4"))
+
+r = tv.validate(record_only(acts=False, with_decision=True))
+check("declaring no actions and then recording one fails TR-1",
+      r.level is None, r.level)
+
+r = tv.validate(record_only(acts=False, spec="testimony-record/0.1"))
+check("a 0.1 record may not carry a scope entry",
+      any(not c["ok"] and "scope is not used" in c["check"] for c in r.checks),
+      [c["check"] for c in r.checks if not c["ok"]])
+
+mixed = record_only(acts=False).replace("testimony-record/0.2",
+                                        "testimony-record/0.1", 1)
+r = tv.validate(mixed)
+check("a record mixing specification versions fails TR-1",
+      r.level is None, r.level)
+
 print("== the report itself ==")
 r = tv.validate("\n".join(lines()))
 d = r.as_dict()
+# The report names the version the RECORD declared, not the newest the
+# validator knows. A 0.1 record is a 0.1 record however new the checker is.
 check("the report is machine readable and names the level",
-      d["level"] == "TR-4" and d["spec"] == tv.SPEC, d)
+      d["level"] == "TR-4" and d["spec"] == "testimony-record/0.1", d)
+check("and reports every level's own result, not only the one reached",
+      d["levels_met"] == {"TR-1": True, "TR-2": True, "TR-3": True,
+                          "TR-4": True}, d.get("levels_met"))
+check("and reports the scope it was validated under",
+      d["scope"] == "acts", d.get("scope"))
 check("every check carries its level and outcome",
       all({"level", "check", "ok"} <= set(c) for c in d["checks"]))
 check("an empty record reaches no level at all", tv.validate("").level is None)

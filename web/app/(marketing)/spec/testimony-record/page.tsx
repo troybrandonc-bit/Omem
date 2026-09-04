@@ -154,6 +154,7 @@ export default function Spec() {
             <li><strong>decision</strong>: an action that was proposed, its risk class, the beliefs it rested on, and the verdict, including refusals.</li>
             <li><strong>approval</strong>: a named human or role holder permitting a decision, with the identity sourced from authentication.</li>
             <li><strong>integrity</strong>: a statement about how the record can be verified not to have changed.</li>
+            <li><strong>scope</strong>: at most one per record, declaring whether the emitting system takes or gates actions. Absent, it is taken to act, which is what every 0.1 record means. Introduced in 0.2; see the erratum below.</li>
           </ul>
 
           <CodeBlock single={ENTRY} filename="record.jsonl"
@@ -167,6 +168,7 @@ export default function Spec() {
             <li>MUST be able to express an ungrounded belief. A system that cannot say &ldquo;believed, but nothing supports it&rdquo; will eventually fabricate support.</li>
             <li>MUST source an action&rsquo;s risk class from outside the proposing model. A plan that can declare its own risk class is not gated.</li>
             <li>MUST record refusals as durably as permissions.</li>
+            <li>MUST NOT declare that it does not act and then record a decision. A scope entry is believed, so a record contradicting its own declaration fails at TR-1 rather than at the level it was trying to skip.</li>
             <li>MUST source approver identity from the authentication layer, and MUST NOT accept it from content the model can write.</li>
             <li>MUST NOT let the principal that proposed an action approve it. A credential the acting agent holds cannot supply the approval, whatever name accompanies the request.</li>
             <li>SHOULD record the time a claim held separately from the time it was written, so a past state can be reconstructed.</li>
@@ -236,6 +238,40 @@ export default function Spec() {
               ))}
             </tbody>
           </table>
+
+          <h2>Erratum, 4 September 2026</h2>
+          <p>
+            The reference validator was refusing TR-3 to any record containing
+            no decision entries, on the reasoning that a record with no
+            decisions cannot demonstrate a gate. That check appears nowhere in
+            the requirements above. TR-3 asks that every consequential action
+            produce a decision entry, and a system with no consequential actions
+            satisfies it by having none.
+          </p>
+          <p>
+            Because the levels are cumulative, the consequence was worse than a
+            wrong verdict on one level. A system that keeps a genuinely
+            tamper-evident record and has no actuation gate anywhere, which is a
+            reasonable design and a common one, stopped at TR-2, and its
+            integrity at TR-4 never became visible however good it was.
+          </p>
+          <p>
+            Reported by Phill Clapham, who is that case. The fix is the{" "}
+            <span className="mono">scope</span> entry: a record says whether its
+            system acts and the validator believes it. The check is kept for
+            systems that do act, because without it a system passes TR-3 by
+            omitting the decisions it took, and a record that declares it does
+            not act while carrying decisions fails at TR-1. The declaration is
+            reported beside the level, since{" "}
+            <span className="mono">TR-4, record only</span> is a different
+            sentence from <span className="mono">TR-4</span>.
+          </p>
+          <p>
+            The validator now reports every level&rsquo;s own result rather than
+            only the highest reached, so a level that is satisfied but gated
+            behind an unmet one below stays visible. Records naming 0.1 are
+            validated exactly as before and do not carry scope entries.
+          </p>
 
           <h2>Versioning and governance</h2>
           <p>
