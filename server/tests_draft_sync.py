@@ -195,18 +195,26 @@ def main():
               re.search(r"^# %s\s*$" % re.escape(heading), text, re.M) is not None)
     check("the draft carries no em dashes", "\u2014" not in text)
 
-    # The author address is archived forever and IANA would list it as the
-    # contact for the media type. The first version of this draft carried a
-    # .com address beside a .org website, which is a dead contact on a document
-    # nobody can edit afterwards.
-    email = re.search(r"^\s*email: (\S+@(\S+))\s*$", text, re.M)
-    uri = re.search(r"^\s*uri: https?://(?:www\.)?(\S+?)/?\s*$", text, re.M)
-    check("the author's email domain matches the author's website",
-          bool(email and uri) and email.group(2) == uri.group(1),
-          "email %s, uri %s" % (email and email.group(2), uri and uri.group(1)))
+    # The author address is archived on submission, IANA would list it as the
+    # contact for the media type, and neither can be edited afterwards. So it
+    # is pinned here rather than merely checked for plausibility.
+    #
+    # The obvious check is that the email domain matches the website domain.
+    # That check was written, passed, and was wrong: the site is .org and the
+    # mailbox is .com, which Troy confirmed on 4 September 2026 after it had
+    # already been "corrected" to the domain that receives nothing. An
+    # assumption that looks tidy is not evidence, and there is no way to
+    # verify a mailbox from CI.
+    #
+    # Changing this constant means confirming the new address receives mail
+    # first. That is the whole point of it being a constant.
+    CONTACT = "troy@machinetestimony.com"
+    email = re.search(r"^\s*email: (\S+)\s*$", text, re.M)
+    check("the author address is the confirmed mailbox",
+          bool(email) and email.group(1) == CONTACT,
+          "draft says %s" % (email and email.group(1)))
     iana = re.findall(r"<(\S+@\S+)>", text)
-    check("the IANA contact is the author's address",
-          bool(email) and set(iana) == {email.group(1)},
+    check("the IANA contact is the same address", set(iana) == {CONTACT},
           "in the draft: %s" % sorted(set(iana)))
     # Every reference defined in the front matter has to be cited, or xml2rfc
     # warns and the citation is dead weight in a document people will read.

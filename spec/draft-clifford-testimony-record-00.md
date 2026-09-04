@@ -19,7 +19,7 @@ author:
     ins: T. Clifford
     name: Troy Clifford
     organization: Machine Testimony
-    email: troy@machinetestimony.org
+    email: troy@machinetestimony.com
     uri: https://machinetestimony.org
 
 # RFC 2119 and RFC 8174 are deliberately absent here: the bcp14
@@ -479,7 +479,7 @@ Additional information:
   the line-delimited framing. Macintosh file type code(s): N/A.
 
 Person and email address to contact for further information:
-: Troy Clifford <troy@machinetestimony.org>
+: Troy Clifford <troy@machinetestimony.com>
 
 Intended usage:
 : COMMON

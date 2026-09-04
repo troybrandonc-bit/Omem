@@ -71,6 +71,13 @@ exist nowhere. A specification that disagrees with its own reference
 implementation is worse than no specification, because somebody builds the wrong
 thing and then cannot work out why their record is being rejected.
 
+The author's contact address is pinned in that suite rather than pattern
+matched. The tidy check is that the email domain matches the website domain,
+and that check was written, passed, and was wrong: the site is `.org`, the
+mailbox is `.com`. A mailbox cannot be verified from CI, so the constant is
+the record of it having been verified by a person, and changing it means
+verifying the new one first.
+
 The check covers what a machine can compare. It does not check the prose, and
 the prose is where the next mistake will be.
 
