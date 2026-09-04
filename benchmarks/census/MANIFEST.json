@@ -6,12 +6,14 @@
       "Michael Brandon Clifford"
     ],
     "publisher": "Machine Testimony",
+    "doi": "10.5281/zenodo.22290922",
+    "doi_this_version": "10.5281/zenodo.22290923",
     "author": "Clifford, T.",
     "url": "https://machinetestimony.org",
     "finding_id_format": "MTC-<assessed date>-<subject>-<requirement>",
     "finding_id_example": "MTC-2026-09-04-mem0-R1.5",
-    "cite_as": "Clifford, T. (2026). The Testimony Record conformance census. Machine Testimony. machinetestimony.org",
-    "priority": "The digest below fixes the content of these findings at the assessed date. Where this census is deposited with a DOI, that deposit is the dated third-party record of when each observation was first made."
+    "cite_as": "Clifford, T. (2026). The Testimony Record Conformance Census: What Eight Agent Systems Record About What They Did. Machine Testimony. doi:10.5281/zenodo.22290922",
+    "priority": "The digest below fixes the content of these findings at the assessed date. The deposit at doi:10.5281/zenodo.22290923, held by CERN and dated 4 September 2026, is the third-party record of when each observation was first made. Cite the concept DOI, 10.5281/zenodo.22290922, which resolves to the latest version; cite the version DOI to point at this one specifically."
   },
   "assessed_on": [
     "2026-09-04"
