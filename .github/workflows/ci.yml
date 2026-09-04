@@ -371,3 +371,36 @@ jobs:
             sleep 2
           done
           echo "::error::server never became healthy"; docker logs omem-ci; exit 1
+
+  internet-draft:
+    name: internet-draft renders
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ruby/setup-ruby@v1
+        with: { ruby-version: "3.3" }
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      - run: gem install kramdown-rfc2629 && pip install xml2rfc
+      # The datatracker rejects a draft that does not build, and it does so at
+      # submission time, which is the worst moment to find out. This is the
+      # same toolchain, run on every commit instead.
+      - name: Markdown to xml2rfc v3
+        run: kdrfc --v3 --xml spec/draft-clifford-testimony-record-00.md
+      - name: xml2rfc v3 to text
+        run: |
+          xml2rfc --text --v3 spec/draft-clifford-testimony-record-00.xml \
+            --out /tmp/draft.txt 2>&1 | tee /tmp/x2r.log
+          # xml2rfc reports most problems as warnings and still exits 0. An
+          # undefined reference is one of them, and it produces a draft with
+          # [Ref] where a citation should be.
+          if grep -qiE "^.*(Error|undefined|unused)" /tmp/x2r.log; then
+            echo "::error::xml2rfc reported problems"; cat /tmp/x2r.log; exit 1
+          fi
+          head -40 /tmp/draft.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: internet-draft
+          path: |
+            spec/draft-clifford-testimony-record-00.xml
+            /tmp/draft.txt
