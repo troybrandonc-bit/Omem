@@ -585,6 +585,7 @@ There are six entry types:
 - decision: an action that was proposed, its risk class, the beliefs it rested on, and the verdict, including refusals.
 - approval: a named human or role holder permitting a decision, with the identity sourced from authentication.
 - integrity: a statement about how the record can be verified not to have changed.
+- scope: at most one per record, declaring whether the emitting system takes or gates actions. Absent, it is taken to act, which is what every 0.1 record means. Introduced in 0.2; see the erratum below.
 record.jsonl
 Copy code
 1{"spec":"testimony-record/0.1","type":"belief","id":"b_41",
@@ -615,6 +616,7 @@ A conforming implementation:
 - MUST be able to express an ungrounded belief. A system that cannot say “believed, but nothing supports it” will eventually fabricate support.
 - MUST source an action’s risk class from outside the proposing model. A plan that can declare its own risk class is not gated.
 - MUST record refusals as durably as permissions.
+- MUST NOT declare that it does not act and then record a decision. A scope entry is believed, so a record contradicting its own declaration fails at TR-1 rather than at the level it was trying to skip.
 - MUST source approver identity from the authentication layer, and MUST NOT accept it from content the model can write.
 - MUST NOT let the principal that proposed an action approve it. A credential the acting agent holds cannot supply the approval, whatever name accompanies the request.
 - SHOULD record the time a claim held separately from the time it was written, so a past state can be reconstructed.
@@ -656,6 +658,13 @@ Automatic recording of events over the system's lifetime (Art. 12(1))TR-1. Entri
 Logs enabling identification of risk situations and post-market monitoring (Art. 12(2))TR-2 and TR-3. Conflicts surface disagreement; decision entries surface refusals and the actions that were attempted.
 Records kept by providers and deployers, at least six months (Art. 19, Art. 26)Out of scope for the format, but TR-1's append-only requirement makes retention a storage decision rather than a reconstruction problem.
 Human oversight, including the ability to intervene (Art. 14)TR-3. The approval entry is the evidence that oversight was real and attributable.
+
+## Erratum, 4 September 2026
+
+The reference validator was refusing TR-3 to any record containing no decision entries, on the reasoning that a record with no decisions cannot demonstrate a gate. That check appears nowhere in the requirements above. TR-3 asks that every consequential action produce a decision entry, and a system with no consequential actions satisfies it by having none.
+Because the levels are cumulative, the consequence was worse than a wrong verdict on one level. A system that keeps a genuinely tamper-evident record and has no actuation gate anywhere, which is a reasonable design and a common one, stopped at TR-2, and its integrity at TR-4 never became visible however good it was.
+Reported by Phill Clapham, who is that case. The fix is the scope entry: a record says whether its system acts and the validator believes it. The check is kept for systems that do act, because without it a system passes TR-3 by omitting the decisions it took, and a record that declares it does not act while carrying decisions fails at TR-1. The declaration is reported beside the level, since TR-4, record only is a different sentence from TR-4.
+The validator now reports every level’s own result rather than only the highest reached, so a level that is satisfied but gated behind an unmet one below stays visible. Records naming 0.1 are validated exactly as before and do not carry scope entries.
 
 ## Versioning and governance
 
