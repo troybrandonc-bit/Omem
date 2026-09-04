@@ -12,6 +12,13 @@ export const metadata = {
  * we would not enforce. No em dashes. */
 
 const SECTIONS: [string, React.ReactNode][] = [
+  ["Who is responsible",
+   <>These pages, the hosted services described below, and any personal data
+   they involve are the responsibility of <b>Garnet Taurus Ltd</b>, a company
+   registered in England and Wales, number 15568640, at 20 Wenlock Road, London
+   N1 7GU. The OMEM software itself is MIT licensed and runs on your
+   own machines, where you are the controller and we are not a processor,
+   because nothing reaches us.</>],
   ["The software",
    <>OMEM is licensed under the MIT License, which is the whole agreement for
    the code: you can use, modify, and redistribute it, commercially or not, and
@@ -61,7 +68,7 @@ export default function Terms() {
             </div>
           ))}
           <p className="border-t pt-6 text-caption text-faint">
-            Last updated 31 August 2026.
+            Last updated 4 September 2026.
           </p>
         </div>
       </Section>

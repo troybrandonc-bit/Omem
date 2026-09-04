@@ -13,6 +13,14 @@ export const metadata = {
  * commons. Plain language on purpose; no em dashes. */
 
 const SECTIONS: [string, React.ReactNode][] = [
+  ["Who is responsible",
+   <>These pages, the hosted services described below, and any personal data
+   they involve are the responsibility of <b>Garnet Taurus Ltd</b>, a company
+   registered in England and Wales, number 15568640, at 20 Wenlock Road, London
+   N1 7GU. Garnet Taurus Ltd is the data controller for anything collected
+   through this site. The OMEM software itself is MIT licensed and runs on your
+   own machines, where you are the controller and we are not a processor,
+   because nothing reaches us.</>],
   ["The software: your data never reaches us",
    <>OMEM is self-hosted. Your memory data, your agents&rsquo; beliefs, and your
    API keys live in a database on your own machine or server. The software makes
@@ -65,7 +73,7 @@ export default function Privacy() {
             </div>
           ))}
           <p className="border-t pt-6 text-caption text-faint">
-            Last updated 31 August 2026. Questions: use the form at{" "}
+            Last updated 4 September 2026. Questions: use the form at{" "}
             <a href="/pilot" className="underline hover:text-fg">/pilot</a> or open
             a GitHub issue.
           </p>
