@@ -1,6 +1,18 @@
 {
   "spec": "testimony-record/0.1",
   "what": "Conformance census: assessments of named systems at named commits, against the requirements in rubric.py.",
+  "attribution": {
+    "assessors": [
+      "Michael Brandon Clifford"
+    ],
+    "publisher": "Machine Testimony",
+    "author": "Clifford, T.",
+    "url": "https://machinetestimony.org",
+    "finding_id_format": "MTC-<assessed date>-<subject>-<requirement>",
+    "finding_id_example": "MTC-2026-09-04-mem0-R1.5",
+    "cite_as": "Clifford, T. (2026). The Testimony Record conformance census. Machine Testimony. machinetestimony.org",
+    "priority": "The digest below fixes the content of these findings at the assessed date. Where this census is deposited with a DOI, that deposit is the dated third-party record of when each observation was first made."
+  },
   "assessed_on": [
     "2026-09-04"
   ],
@@ -14,6 +26,7 @@
       "commit": "027ecf0a379bcc1d09956d46d12d44a3ad9cee14",
       "assessed_on": "2026-09-04",
       "level_reached": null,
+      "assessed_by": "Michael Brandon Clifford",
       "digest": "sha256:542117c7648f72c1cdd33b5e0cd5ff9535d3b7f424425059bc5ee5aa28df15b2"
     },
     {
@@ -25,6 +38,7 @@
       "commit": "92eb5f91830cde5a7c4be921cb295c5523649d13",
       "assessed_on": "2026-09-04",
       "level_reached": null,
+      "assessed_by": "Michael Brandon Clifford",
       "digest": "sha256:34f38ec9d049eb7ef68a2a9d74818903c3df56ad33274dd96c99c67c601dcf7c"
     },
     {
@@ -36,6 +50,7 @@
       "commit": "a6e026f8fca27af9c1fc4cfe359c3834dc9655bb",
       "assessed_on": "2026-09-04",
       "level_reached": null,
+      "assessed_by": "Michael Brandon Clifford",
       "digest": "sha256:b5c2b68ed0cedde6fa93df174e2a4d03d44178c0ea575ac782be1cd34bf95d34"
     },
     {
@@ -47,6 +62,7 @@
       "commit": "81bf17b23123e4ef8b9d5f49fa09a0122fc2edd1",
       "assessed_on": "2026-09-04",
       "level_reached": null,
+      "assessed_by": "Michael Brandon Clifford",
       "digest": "sha256:308e258454fb925f92092d6b21122dfaf439840e28d88ac983296904be819bc2"
     },
     {
@@ -58,6 +74,7 @@
       "commit": "e0a0e1e62278f2ae9d5a9dea27c85e71e887e51b",
       "assessed_on": "2026-09-04",
       "level_reached": null,
+      "assessed_by": "Michael Brandon Clifford",
       "digest": "sha256:cf1183b8775bceb964317d7f4aa59d64b2c140a9e0c78509f4e15a9f9530d761"
     },
     {
@@ -69,6 +86,7 @@
       "commit": "9a7924befd7026e41e445ba809370009e5e985a6",
       "assessed_on": "2026-09-04",
       "level_reached": null,
+      "assessed_by": "Michael Brandon Clifford",
       "digest": "sha256:6442ffb50b7d24f4c46ada622fcedbe7824993dfacc676c249ae88aa61d21cfc"
     },
     {
@@ -80,6 +98,7 @@
       "commit": "9a77c206655340dc37222113327b98ac3b049c98",
       "assessed_on": "2026-09-04",
       "level_reached": "TR-4",
+      "assessed_by": "Michael Brandon Clifford",
       "digest": "sha256:b944f006d0ba2449ef09986709400ab538a7515d69a3ec20dcf89762090927d6"
     },
     {
@@ -91,6 +110,7 @@
       "commit": "89c02c828ee8510fe9a84ee6675608193aa13b02",
       "assessed_on": "2026-09-04",
       "level_reached": null,
+      "assessed_by": "Michael Brandon Clifford",
       "digest": "sha256:1c4d173e051c2b5f8b7f156e8560cf1b4903111858feac07715505a100c0f995"
     }
   ],

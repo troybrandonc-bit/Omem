@@ -72,9 +72,11 @@ def build() -> dict:
             "commit": doc["commit"],
             "assessed_on": doc["assessed_on"],
             "level_reached": subject.level_reached(doc),
+            "assessed_by": doc["assessed_by"],
             "digest": _digest(path),
         })
 
+    assessors = sorted({r["assessed_by"] for r in rows})
     scored = {f: _digest(os.path.join(HERE, f)) for f in SCORED_AGAINST}
 
     # One digest over everything above, computed from the parts rather than
@@ -89,6 +91,25 @@ def build() -> dict:
         "spec": "testimony-record/0.1",
         "what": "Conformance census: assessments of named systems at named "
                 "commits, against the requirements in rubric.py.",
+        # Who made these observations and when. A finding identifier names the
+        # observation rather than the state of the world, so it survives the
+        # thing it describes being fixed. That is the point: a project that
+        # changes something found here has not made the finding go away, and
+        # the id is what a changelog or an issue can point at afterwards.
+        "attribution": {
+            "assessors": assessors,
+            "publisher": "Machine Testimony",
+            "author": "Clifford, T.",
+            "url": "https://machinetestimony.org",
+            "finding_id_format": "MTC-<assessed date>-<subject>-<requirement>",
+            "finding_id_example": "MTC-2026-09-04-mem0-R1.5",
+            "cite_as": "Clifford, T. (2026). The Testimony Record conformance "
+                       "census. Machine Testimony. machinetestimony.org",
+            "priority": "The digest below fixes the content of these findings "
+                        "at the assessed date. Where this census is deposited "
+                        "with a DOI, that deposit is the dated third-party "
+                        "record of when each observation was first made.",
+        },
         "assessed_on": sorted({r["assessed_on"] for r in rows}),
         "subjects": rows,
         "scored_against": scored,

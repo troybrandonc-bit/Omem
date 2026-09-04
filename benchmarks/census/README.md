@@ -129,6 +129,47 @@ asked to have deleted, so `verify/mem0_delete_retains_text.py` executes mem0's
 own storage layer and shows the deleted text still on disk. No network, no LLM,
 no API key.
 
+## Citing this, and who found what
+
+Every requirement in every assessment carries a stable identifier:
+
+```
+MTC-<assessed date>-<subject>-<requirement>      e.g. MTC-2026-09-04-mem0-R1.5
+```
+
+It names **the observation, not the state of the world**, so it stays valid
+after the thing it describes is changed. A project fixing something recorded
+here can point at the id in its own changelog, and a reader can go and see what
+the finding actually said rather than taking either side's word for it:
+
+```
+Reported in the Machine Testimony conformance census, 2026-09-04
+(MTC-2026-09-04-mem0-R1.5)
+```
+
+The census as a whole:
+
+```
+Clifford, T. (2026). The Testimony Record conformance census.
+Machine Testimony. machinetestimony.org
+```
+
+**What establishes when a finding was first made.** Three things, in increasing
+order of how much they prove. The commits in this repository are dated and
+public. `MANIFEST.json` fixes the exact content of every assessment at the
+assessed date, so the finding cannot be quietly revised into something it was
+not. And where this census is deposited with a DOI, that deposit is a dated
+record held by a third party the author does not control, which is the only one
+of the three that does not rest on trusting him.
+
+**The honest limit.** A dated publication establishes priority. It does not
+oblige anybody to credit it, and open source projects generally do not credit
+external assessments they were never told about. The mechanism that reliably
+produces attribution is coordinated disclosure, where the reporting process
+names the reporter, and that was not used here: the findings were published
+rather than sent. That was a deliberate choice and this paragraph is the cost
+of it, written down rather than left to be discovered.
+
 ## The conflict of interest
 
 OMEM is the reference implementation of the specification these questions

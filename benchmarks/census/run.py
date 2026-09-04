@@ -38,8 +38,20 @@ import rubric      # noqa: E402
 import subject     # noqa: E402
 
 SUBJECTS = os.path.join(HERE, "subjects")
+
+# Every finding gets a stable identifier, so a changelog, an issue or a paper
+# can point at one verdict rather than at a document. "MTC" is the census;
+# the date is when it was assessed, not when it is read. A finding that gets
+# fixed keeps its id: the id names the observation, not the state of the world.
+CENSUS_ID = "MTC"
+
+
 MARK = {"present": "yes", "partial": "part", "absent": "no",
         "undetermined": "?", "not_applicable": "-"}
+
+
+def finding_id(doc: dict, req_id: str) -> str:
+    return f"{CENSUS_ID}-{doc['assessed_on']}-{doc['subject']}-{req_id}"
 
 
 def tally(doc: dict, level: str) -> tuple[int, int]:
@@ -211,6 +223,8 @@ def render_one(doc: dict) -> str:
             v = got.get("verdict", "?")
             w(f"**{req.id} [{v}]** {req.question}")
             w("")
+            w(f"`{finding_id(doc, req.id)}`")
+            w("")
             w(f"- A pass would mean: {req.present_means}")
             if got.get("note"):
                 w(f"- Assessed: {got['note']}")
@@ -219,6 +233,25 @@ def render_one(doc: dict) -> str:
                   + (f" - {e['note']}" if e.get("note") else ""))
             w("")
 
+    w("## Citing a finding from this")
+    w("")
+    w("Each requirement above carries an identifier of the form "
+      "`MTC-<assessed date>-<subject>-<requirement>`. It names the "
+      "observation, not the state of the world, so it stays valid after the "
+      "thing it describes is changed. A changelog entry might read:")
+    w("")
+    w("```")
+    w(f"Reported in the Machine Testimony conformance census, "
+      f"{doc['assessed_on']} ({finding_id(doc, 'R1.1')})")
+    w("```")
+    w("")
+    w("The census as a whole should be cited as:")
+    w("")
+    w("```")
+    w(f"Clifford, T. ({doc['assessed_on'][:4]}). The Testimony Record "
+      f"conformance census. Machine Testimony. machinetestimony.org")
+    w("```")
+    w("")
     w("## If a verdict here is wrong")
     w("")
     w("Every answer above cites a file and line at the pinned commit, or a "
