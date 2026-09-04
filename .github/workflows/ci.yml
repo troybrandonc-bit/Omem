@@ -338,6 +338,21 @@ jobs:
             echo "::error::the adapter suite skipped in the job that installs langgraph"; exit 1
           fi
           echo "$out" | tail -1
+      # The testimony adapter is the one that has to run against a real graph:
+      # its whole subject is what LangGraph's resume boundary does and does not
+      # carry, and a mock of that boundary would be a mock of the finding.
+      - name: The Testimony Record adapter, against a real graph
+        working-directory: server
+        run: |
+          out=$(python tests_langgraph_testimony.py)
+          echo "$out"
+          if echo "$out" | grep -qE '^[[:space:]]*SKIP:'; then
+            echo "::error::the testimony adapter suite skipped where langgraph is installed"; exit 1
+          fi
+      - name: The example emits a record the reference validator accepts
+        run: |
+          python adapters/langgraph/example.py /tmp/record.jsonl
+          python scripts/testimony_validate.py /tmp/record.jsonl --require TR-4
 
   dashboard:
     name: dashboard / web
@@ -387,14 +402,27 @@ jobs:
       # same toolchain, run on every commit instead.
       - name: Markdown to xml2rfc v3
         run: |
-          kdrfc --v3 --xml spec/draft-clifford-testimony-record-00.md 2>&1 \
-            | tee /tmp/kdrfc.log
+          # Every reference the draft cites is committed under .refcache, so the
+          # usual run needs no network at all. That is not only for speed: the
+          # first version of this job fetched from bib.ietf.org on every commit
+          # and failed on a connection reset, which is a CI job that teaches
+          # people to ignore it. Refresh the cache deliberately, not by accident.
+          #
+          # The retry covers the case where a reference is added and the cache
+          # does not have it yet.
+          for i in 1 2 3; do
+            kdrfc --v3 --xml spec/draft-clifford-testimony-record-00.md 2>&1 \
+              | tee /tmp/kdrfc.log && break
+            echo "attempt $i failed, retrying"; sleep 5
+          done
           # kramdown reports every problem it has as a warning and exits 0,
           # including a reference it could not resolve, which then renders as
           # a citation to nothing.
           if grep -qE '^\*\*' /tmp/kdrfc.log; then
             echo "::error::kramdown-rfc warned"; cat /tmp/kdrfc.log; exit 1
           fi
+          test -f spec/draft-clifford-testimony-record-00.xml || {
+            echo "::error::no XML produced"; exit 1; }
       - name: xml2rfc v3 to text
         run: |
           xml2rfc --text --v3 spec/draft-clifford-testimony-record-00.xml \
