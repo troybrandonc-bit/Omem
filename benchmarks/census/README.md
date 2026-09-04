@@ -77,6 +77,11 @@ in CI:
   of being written unless it says which X.
 - **`partial` does not clear a level.** A requirement half met will not hold the
   first time somebody leans on it.
+- **Not knowing is its own verdict, and not a free pass.** A system can keep the
+  record in a component the assessor cannot read: a hosted server, a closed
+  dependency. `undetermined` says so, needs the same `searched` evidence as
+  `absent`, and blocks a level exactly as `absent` does, because a level
+  awarded on unchecked facts looks identical to one that was verified.
 
 `server/tests_census.py` proves each of these rejects what it claims to reject,
 because a stated rule and an enforced one are different things.
@@ -114,6 +119,14 @@ things:
 Two of the three findings were against the author. That is the intended ratio
 for a first run, and it is why this file says so rather than leaving it out.
 
+A fourth correction came later, from assessing somebody else. Letta Code keeps
+its approval record in a server that is not in the repository the harness lives
+in, and the rubric had no way to say so: the choice was between calling a
+capability absent without looking at it and calling it present without looking
+at it. `undetermined` was added for that, and the first thing it did was stop
+this census from publishing a guess about the one system whose answer might
+have been yes.
+
 ## Being assessed, and correcting an assessment
 
 Nothing here is self-reported and nothing is taken on trust, in either
@@ -132,65 +145,69 @@ yet.
 
 ## Status
 
-Six subjects, assessed on 4 September 2026: OMEM, mem0, Graphiti, LangGraph,
-CrewAI and the OpenAI Agents SDK. Each was read from a clone of its public
-repository at a pinned commit, and every verdict cites a file and line in that
-commit or a search that can be repeated against it.
+Eight subjects, assessed on 4 September 2026: OMEM, mem0, Graphiti, LangGraph,
+CrewAI, the OpenAI Agents SDK, AutoGen and Letta Code. Each was read from a
+clone of its public repository at a pinned commit, and every verdict cites a
+file and line in that commit or a search that can be repeated against it.
 
 Three patterns hold across every system except the reference implementation,
 and they are the findings worth taking away:
 
-**Nobody records that data was destroyed.** R1.5 is absent for four of the five
-and partial for the fifth. Every one of these systems has a delete path
-somebody will reach for on a subject-erasure request, and afterwards the store
-is indistinguishable from one where the data never existed. mem0 comes closest
-by writing a history row, and in doing so keeps the deleted text in it, which
-is the opposite problem.
+**Nobody records who approved.** Four of the eight gate actions and not one
+records a person. The OpenAI Agents SDK's `approve()` takes no approver
+argument, and the only thing called an identity in its approval path names the
+tool call. CrewAI's `request_human_input` reads a line from the console.
+AutoGen's `ApprovalResponse` requires a reason and has no field for who gave
+it. LangGraph resumes an interrupt with an arbitrary value from whoever holds
+the thread. Letta Code is the one possible exception and could not be settled:
+it has a server-validated acting-user identity built for exactly this, and
+whether that identity reaches the approval record is not visible from the
+harness. In every case the pause is real. In seven of eight the attribution is
+absent, which matters to anyone who has to evidence human oversight rather than
+perform it.
 
-**Nobody records who approved.** All three systems here that gate actions have
-a real human-in-the-loop mechanism, and none captures an approver. The OpenAI
-Agents SDK's `approve()` takes no approver argument, and the only thing called
-an identity in its approval path identifies the tool call. CrewAI's
-`request_human_input` reads a line from the console and returns the text.
-LangGraph resumes an interrupt with `Command(resume=...)`, an arbitrary value
-from whoever holds the thread. In every case the pause is real and the
-attribution is absent, which matters for anyone who has to evidence human
-oversight rather than merely perform it.
+**Nobody records that data was destroyed.** R1.5 is absent in five and partial
+in two. Every one of these systems has a delete path somebody will reach for on
+a subject-erasure request, and afterwards the store is mostly indistinguishable
+from one where the data never existed. The two partials fail in opposite
+directions and both are instructive: mem0 writes a history row and keeps the
+deleted text inside it, and Letta Code records the deletion as a git commit
+while the content stays in history and on every mirror it was pushed to.
 
-**Nobody can show a record did not change.** R4.1 through R4.3 are absent for
-every assessed system. No integrity scheme, no verification surface, nothing
-binding one record to the next. Where history is preserved it is preserved by
-the code path behaving well, which is a different and weaker property than
-being able to show that nobody went around the code path.
+**Almost nobody can show a record did not change.** TR-4 is absent outright for
+six of the eight. Where history survives, it survives because the code path
+behaved, which is weaker than being able to show nobody went around it.
 
-Setting aside OMEM, whose result is a tautology for the reasons given above, no
-system assessed so far reaches TR-1, and the reasons differ enough to matter:
+Setting aside OMEM, whose result is a tautology for the reasons given above:
 
-- **Graphiti** and **LangGraph** each meet four of the five TR-1 requirements
-  and fail only R1.5, so both are one change from a level neither was aiming
-  at. Graphiti got there by being bi-temporal: a contradicted fact is stamped
-  invalid rather than deleted, and facts point back at the episodes they came
-  from. LangGraph got there because time travel needs it: every checkpoint is a
-  new row carrying its parent's id, so a thread's history is a chain nothing
-  overwrites.
-- **mem0** consolidates on purpose: on contradiction its prompt instructs the
-  model to delete the older memory, and updates overwrite in place with the
-  previous value kept in a separate history database.
-- **CrewAI** overwrites too, through an LLM-authored keep/update/delete plan,
-  and keeps no history at all. Its most fixable finding is narrow: a blocked
-  tool call constructs a reason and discards it two frames later.
-- **The OpenAI Agents SDK** models what was proposed carefully, including a
-  ledger recording which calls executed, but leaves durability to the
-  application embedding it.
+- **Letta Code** has the most interesting store in the census. Memory is a git
+  repository, so append-only, revision history and content addressing come free,
+  and it is the only assessed system with any answer at TR-4 at all. It stops
+  one step short deliberately: `memory-git-signing.ts` disables commit signing,
+  for the sound reason that the harness-managed committer identities have no
+  key, so a rewritten history carries no attestation. Its post-commit push
+  mirror is already most of an external anchor.
+- **Graphiti** and **LangGraph** each meet four of five at TR-1 and fail only
+  R1.5, so both are one change from a level neither was aiming at. Graphiti got
+  there by being bi-temporal, stamping a contradicted fact invalid rather than
+  deleting it. LangGraph got there because time travel needs it: every
+  checkpoint is a new row carrying its parent's id.
+- **mem0** and **CrewAI** both consolidate through an LLM that decides
+  keep/update/delete over existing memories. mem0 keeps the previous value in a
+  history database; CrewAI keeps nothing.
+- **AutoGen** models the approval request best of anyone here, carrying the code
+  and the full context, and requires a reason on the response. It then returns a
+  refusal as `exit_code=1`, the same shape an execution error takes, and its
+  memory items carry no timestamp at all.
+- **The OpenAI Agents SDK** keeps a careful ledger of which calls executed and
+  leaves durability to the application embedding it.
 
-None of this is an accusation of failure. Five of the six are not trying to
+None of this is an accusation of failure. Seven of the eight are not trying to
 produce a testimony record and have never said they were. What the census
 establishes is narrower and more useful: which facts each one already keeps, so
 anybody who needs those facts knows what they are starting from, and which
-single change would move each system the furthest. For two of them that change
-is the same one, and it is small.
-
-Still to assess: AutoGen and Letta.
+single change would move each system furthest. For three of them that change is
+small, and for two it is the same one.
 
 ## Files
 

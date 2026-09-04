@@ -36,7 +36,14 @@ CAPABILITIES = {
     "acts": "takes or gates actions with effects outside itself",
 }
 
-VERDICTS = ("present", "partial", "absent", "not_applicable")
+# `undetermined` exists because the alternative is a guess. A system can keep
+# the record this rubric asks about in a component the assessor cannot read: a
+# hosted server, a closed dependency, anything outside the repository in front
+# of them. Scoring that `absent` would state a fact about software nobody
+# looked at, which is the exact failure the evidence rules exist to prevent.
+# It blocks a conformance level exactly as `absent` does, because a level
+# claimed on unchecked facts is not a level.
+VERDICTS = ("present", "partial", "absent", "undetermined", "not_applicable")
 
 LEVELS = {
     "TR-1": ("Recorded", "The record exists and is append-only."),

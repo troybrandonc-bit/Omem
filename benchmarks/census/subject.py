@@ -140,14 +140,17 @@ def validate(doc: dict) -> list[str]:
 
         problems.extend(_evidence_problems(req.id, got.get("evidence")))
 
-        if verdict == "absent":
+        if verdict in ("absent", "undetermined"):
             kinds = {e.get("kind") for e in got.get("evidence") or []
                      if isinstance(e, dict)}
             if "searched" not in kinds:
+                why = ("Otherwise it is an accusation, not a finding."
+                       if verdict == "absent" else
+                       "An unanswered question still has to say what was "
+                       "looked at and why it could not be settled.")
                 problems.append(
-                    f"{req.id}: an 'absent' verdict needs at least one "
-                    f"'searched' evidence item saying where you looked. "
-                    f"Otherwise it is an accusation, not a finding.")
+                    f"{req.id}: a {verdict!r} verdict needs at least one "
+                    f"'searched' evidence item saying where you looked. {why}")
 
     return problems
 
@@ -177,13 +180,17 @@ def level_reached(doc: dict) -> str | None:
     `partial` does not clear a level. A requirement half met is a requirement
     that will not hold up the first time somebody leans on it, and the whole
     value of a conformance level is that it means one thing.
+
+    Nor does `undetermined`. A level awarded on a requirement nobody could
+    check is a level resting on an assumption, which is worth less than no
+    level at all because it looks the same as one that was verified.
     """
     reached = None
     for lvl in rubric.LEVEL_ORDER:
         ok = True
         for req in rubric.BY_LEVEL[lvl]:
             v = (doc["assessments"].get(req.id) or {}).get("verdict")
-            if v in ("absent", "partial"):
+            if v in ("absent", "partial", "undetermined"):
                 ok = False
             elif v is None and rubric.applicable(req, doc["claims"]):
                 ok = False

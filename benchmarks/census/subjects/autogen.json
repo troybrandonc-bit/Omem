@@ -1,0 +1,159 @@
+{
+  "subject": "autogen",
+  "name": "AutoGen",
+  "version": "autogen-core 0.7.5 (027ecf0)",
+  "url": "https://github.com/microsoft/autogen",
+  "license": "MIT (code, LICENSE-CODE); CC BY 4.0 (documentation, LICENSE)",
+  "claims": ["stores", "acts"],
+  "assessed_on": "2026-09-04",
+  "assessed_by": "Michael Brandon Clifford",
+  "method": "Read of python/packages/autogen-core/src/autogen_core/memory/_base_memory.py and _list_memory.py, and python/packages/autogen-agentchat/src/autogen_agentchat/agents/_code_executor_agent.py at 027ecf0, cloned from the public repository. Line numbers are that commit's.",
+  "notes": "AutoGen is assessed as storing and acting but not deriving: its memory holds what a caller puts in it, and any inference is done by the user's agents rather than by the framework. It has the best-modelled approval request in this census. ApprovalRequest carries the code and the full LLM context, and ApprovalResponse requires a reason rather than accepting a bare boolean, which is more than the other frameworks here ask for. Two things stop that translating into a record. The reason reaches the transcript interpolated into an output string on a result carrying exit_code=1, which is the same shape an execution error takes, so a refusal and a crash are indistinguishable to anything reading afterwards. And ApprovalResponse has no approver, so the fact that a person decided is not recorded even though the fact that a decision happened is. On the memory side, the built-in ListMemory is an append-only in-process list whose contents carry no timestamp at all.",
+
+  "assessments": {
+    "R1.1": {
+      "verdict": "absent",
+      "evidence": [
+        {"kind": "source", "locator": "python/packages/autogen-core/src/autogen_core/memory/_base_memory.py:26-36 MemoryContent", "note": "the fields are content, mime_type and an optional free-form metadata dict. There is no time field of any kind"},
+        {"kind": "searched", "locator": "grep -rniE 'created_at|timestamp|\\bts\\b' python/packages/autogen-core/src/autogen_core/memory/ --include=*.py", "note": "no match anywhere in the memory package"}
+      ],
+      "note": "A caller can put a timestamp in metadata, but then the caller is recording it, not the system, and nothing obliges or checks it. Reading a MemoryContent back gives no answer to when it was stored."
+    },
+    "R1.2": {
+      "verdict": "partial",
+      "evidence": [
+        {"kind": "source", "locator": "python/packages/autogen-core/src/autogen_core/memory/_base_memory.py:78-131", "note": "the Memory API is update_context, query, add, clear and close. There is no update or delete-one operation, so a stored item cannot be changed and nothing is lost to a change"},
+        {"kind": "source", "locator": "python/packages/autogen-core/src/autogen_core/memory/_list_memory.py:22-23", "note": "ListMemory is documented as a \"Simple chronological list-based memory implementation\" holding its contents in the component config, with no persistence of its own"}
+      ],
+      "note": "Nothing is overwritten, because nothing can be. What keeps this from a pass is that readable later is bounded by the life of the process: the built-in implementation is a list, and preserving it across a restart is the embedding application's problem."
+    },
+    "R1.3": {
+      "verdict": "present",
+      "evidence": [
+        {"kind": "source", "locator": "python/packages/autogen-core/src/autogen_core/memory/_base_memory.py:114", "note": "add is the only write, and it appends a MemoryContent"},
+        {"kind": "source", "locator": "python/packages/autogen-core/src/autogen_core/memory/_base_memory.py:125 clear", "note": "the only destructive call empties the whole store and is an explicit operation rather than part of writing"}
+      ],
+      "note": "The ordinary write path is append-only by omission rather than by design: there is no update operation to misuse. That is still the property the requirement asks for."
+    },
+    "R1.4": {
+      "verdict": "partial",
+      "evidence": [
+        {"kind": "source", "locator": "python/packages/autogen-core/src/autogen_core/memory/_base_memory.py:26-36", "note": "MemoryContent carries a mime_type, so text, JSON, images and binary are distinguishable"},
+        {"kind": "source", "locator": "python/packages/autogen-core/src/autogen_core/memory/_base_memory.py:35-36", "note": "everything beyond the content and its MIME type goes into an untyped metadata dict"}
+      ],
+      "note": "The type discriminates the format of the payload, not the kind of record. A claim, the document it came from and a note about an action are all one MemoryContent differing only in what a caller happened to put in metadata."
+    },
+    "R1.5": {
+      "verdict": "absent",
+      "evidence": [
+        {"kind": "source", "locator": "python/packages/autogen-core/src/autogen_core/memory/_base_memory.py:125 clear", "note": "\"Clear all entries from memory\"; the whole store goes and nothing marks that it did"},
+        {"kind": "searched", "locator": "grep -rniE 'tombstone|deleted_at|erasure|audit' python/packages/autogen-core/src/autogen_core/memory/ --include=*.py", "note": "no match"}
+      ],
+      "note": "There is also no way to remove one subject's items short of clearing everything, which makes an erasure request an all-or-nothing operation on the whole memory."
+    },
+
+    "R2.1": {
+      "verdict": "absent",
+      "evidence": [
+        {"kind": "source", "locator": "python/packages/autogen-core/src/autogen_core/memory/_base_memory.py:26-36", "note": "MemoryContent has no field referring to a message, document or event"},
+        {"kind": "searched", "locator": "grep -rniE 'source|provenance|origin|message_id' python/packages/autogen-core/src/autogen_core/memory/ --include=*.py", "note": "the only matches are docstrings about cleaning up resources; nothing in the package models where a memory came from"}
+      ]
+    },
+    "R2.3": {
+      "verdict": "present",
+      "evidence": [
+        {"kind": "source", "locator": "python/packages/autogen-core/src/autogen_core/memory/_base_memory.py:78-125", "note": "the API offers no update and no consolidation step, so two items that disagree both remain in the list until the store is cleared"},
+        {"kind": "source", "locator": "python/packages/autogen-core/src/autogen_core/memory/_list_memory.py:22-23", "note": "the list is chronological and nothing prunes it"}
+      ],
+      "note": "Both survive, which is what this asks. They survive because nothing in the framework is capable of noticing they disagree, which is what the next requirement is for."
+    },
+    "R2.4": {
+      "verdict": "absent",
+      "evidence": [
+        {"kind": "searched", "locator": "grep -rniE 'class Conflict|contradict|disagree' python/packages/autogen-core/src/autogen_core/ python/packages/autogen-agentchat/src/ --include=*.py", "note": "the two matches are code comments about type variance and content types; there is no conflict record, id or query surface"}
+      ]
+    },
+    "R2.5": {
+      "verdict": "present",
+      "evidence": [
+        {"kind": "source", "locator": "python/packages/autogen-core/src/autogen_core/memory/_base_memory.py:78-125", "note": "nothing in the memory API resolves anything: there is no update, no merge and no consolidation, so a disagreement is never decided and never silently closed"}
+      ],
+      "note": "A pass under the specification's own wording, which records resolution only if it happens. This is the conservative outcome, reached because the framework declines to do the thing rather than because it does it carefully."
+    },
+
+    "R3.1": {
+      "verdict": "partial",
+      "evidence": [
+        {"kind": "source", "locator": "python/packages/autogen-agentchat/src/autogen_agentchat/agents/_code_executor_agent.py:69-73 ApprovalRequest", "note": "the request carries the code to be executed and the full LLM message context, so what was proposed is captured in detail"},
+        {"kind": "source", "locator": "python/packages/autogen-agentchat/src/autogen_agentchat/agents/_code_executor_agent.py:711-714", "note": "a denied execution returns a result rather than vanishing, so the attempt leaves a trace in the conversation"},
+        {"kind": "searched", "locator": "grep -rniE 'tombstone|deleted_at|erasure|audit' python/packages/autogen-core/src/autogen_core/memory/ --include=*.py", "note": "no durable record type exists; the trace is a message in the team's history, persisted only if the embedding application saves that state"}
+      ],
+      "note": "The attempt is recorded and the record is well populated. Whether it outlives the run is not the framework's decision."
+    },
+    "R3.2": {
+      "verdict": "present",
+      "evidence": [
+        {"kind": "source", "locator": "python/packages/autogen-agentchat/src/autogen_agentchat/agents/_code_executor_agent.py:140-141", "note": "approval_func is supplied when constructing the CodeExecutorAgent and is \"called before each code execution to get approval\"; the model cannot install, remove or satisfy it"},
+        {"kind": "source", "locator": "python/packages/autogen-agentchat/src/autogen_agentchat/agents/_code_executor_agent.py:84-86", "note": "the function types are fixed in the framework, so the gate's shape is not something a plan can negotiate"}
+      ],
+      "note": "Scoped to code execution rather than to tool calls in general, which is narrower than the requirement imagines but is genuinely outside model control within that scope."
+    },
+    "R3.3": {
+      "verdict": "partial",
+      "evidence": [
+        {"kind": "source", "locator": "python/packages/autogen-agentchat/src/autogen_agentchat/agents/_code_executor_agent.py:711-714", "note": "a refusal returns exit_code=1 with output \"Code execution was not approved. Reason: ...\", which is the same result type and the same exit code an execution error produces"}
+      ],
+      "note": "The refusal is recorded in the same channel and with the same standing as a permission, which satisfies the letter. Structurally it is indistinguishable from a crash: anyone counting failed executions afterwards will count refusals among them."
+    },
+    "R3.4": {
+      "verdict": "partial",
+      "evidence": [
+        {"kind": "source", "locator": "python/packages/autogen-agentchat/src/autogen_agentchat/agents/_code_executor_agent.py:76-80 ApprovalResponse", "note": "reason is a required str, not an optional one, so a refusal cannot be expressed without giving a reason"},
+        {"kind": "source", "locator": "python/packages/autogen-agentchat/src/autogen_agentchat/agents/_code_executor_agent.py:714", "note": "the reason reaches the record interpolated into an output string; the ApprovalResponse object itself is not retained"}
+      ],
+      "note": "Requiring the reason at the point of decision is better than every other framework assessed here, two of which discard it or never model it. What is lost is the structure: a reason parsed back out of a formatted sentence is not a machine-readable field."
+    },
+    "R3.5": {
+      "verdict": "absent",
+      "evidence": [
+        {"kind": "source", "locator": "python/packages/autogen-agentchat/src/autogen_agentchat/agents/_code_executor_agent.py:76-80", "note": "ApprovalResponse is approved: bool and reason: str. There is no field for who approved"},
+        {"kind": "searched", "locator": "grep -rn 'approver|approved_by|principal' python/packages/autogen-agentchat/src/autogen_agentchat/agents/_code_executor_agent.py", "note": "no match; the module that defines the approval surface models no person"}
+      ],
+      "note": "The documented example function reads a console prompt and returns ApprovalResponse(approved=True, reason='Approved by user'). The word user appears in the reason string, which is a sentence rather than an identity."
+    },
+    "R3.6": {
+      "verdict": "absent",
+      "evidence": [
+        {"kind": "source", "locator": "python/packages/autogen-agentchat/src/autogen_agentchat/agents/_code_executor_agent.py:84-86", "note": "an approval function is any callable matching the signature, invoked in-process with no authentication step anywhere in the path"},
+        {"kind": "searched", "locator": "grep -rn 'approver|approved_by|principal' python/packages/autogen-agentchat/src/autogen_agentchat/agents/_code_executor_agent.py", "note": "no identity is captured, so none can be sourced from an authentication layer"}
+      ]
+    },
+    "R3.7": {
+      "verdict": "absent",
+      "evidence": [
+        {"kind": "source", "locator": "python/packages/autogen-agentchat/src/autogen_agentchat/agents/_code_executor_agent.py:84-86", "note": "the approval function is ordinary code in the same process as the agent, so a one-line function returning approved=True satisfies the gate with no person involved and nothing distinguishing that from a human decision"},
+        {"kind": "searched", "locator": "grep -rn 'approver|approved_by|principal' python/packages/autogen-agentchat/src/autogen_agentchat/agents/_code_executor_agent.py", "note": "with no principals modelled, a proposer and an approver cannot be told apart"}
+      ]
+    },
+
+    "R4.1": {
+      "verdict": "absent",
+      "evidence": [
+        {"kind": "searched", "locator": "grep -rniE 'hash_chain|merkle|tamper|checksum' python/packages/autogen-core/src/ python/packages/autogen-agentchat/src/ --include=*.py", "note": "no match; no integrity scheme is defined or published"}
+      ]
+    },
+    "R4.2": {
+      "verdict": "absent",
+      "evidence": [
+        {"kind": "searched", "locator": "grep -rniE 'hash_chain|merkle|tamper|checksum' python/packages/autogen-core/src/ python/packages/autogen-agentchat/src/ --include=*.py", "note": "no scheme exists, so there is nothing for an independent party to run"}
+      ]
+    },
+    "R4.3": {
+      "verdict": "absent",
+      "evidence": [
+        {"kind": "source", "locator": "python/packages/autogen-core/src/autogen_core/memory/_list_memory.py:22-23", "note": "memory is a plain in-process list with no digest over its contents, so alteration is not merely undetectable, it leaves nothing behind to detect"},
+        {"kind": "searched", "locator": "grep -rniE 'hash_chain|merkle|tamper|checksum' python/packages/autogen-core/src/ --include=*.py", "note": "no match"}
+      ]
+    }
+  }
+}

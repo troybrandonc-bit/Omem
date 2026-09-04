@@ -105,6 +105,31 @@ check("the same claim with a search that can be repeated is accepted",
 check("and an absent requirement stops the level being reached",
       subject.level_reached(d) == "TR-1", subject.level_reached(d))
 
+print("== not knowing is its own answer, and it is not a free pass ==")
+# A system can keep the record in a component the assessor cannot read: a
+# hosted server, a closed dependency. Scoring that absent would state a fact
+# about software nobody opened, which is the failure the evidence rules exist
+# to stop. Scoring it present would be worse.
+d = copy.deepcopy(base)
+d["assessments"]["R4.2"] = {
+    "verdict": "undetermined",
+    "evidence": [{"kind": "docs", "locator": "https://example.invalid/docs"}]}
+ok, why = rejects(d, "'searched' evidence item")
+check("an undetermined verdict with no record of where you looked is rejected",
+      ok, why)
+
+d = copy.deepcopy(base)
+d["assessments"]["R4.2"] = {
+    "verdict": "undetermined",
+    "evidence": [
+        {"kind": "searched", "locator": "grep -rn 'verify' src/",
+         "note": "the verification surface is defined in a hosted service, "
+                 "not in this repository"}]}
+check("with a record of where you looked, it is accepted",
+      subject.validate(d) == [], subject.validate(d))
+check("and it blocks the level exactly as an absent verdict would",
+      subject.level_reached(d) == "TR-3", subject.level_reached(d))
+
 print("== a requirement cannot be quietly dropped ==")
 d = copy.deepcopy(base)
 del d["assessments"]["R4.3"]

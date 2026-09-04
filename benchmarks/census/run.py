@@ -38,7 +38,8 @@ import rubric      # noqa: E402
 import subject     # noqa: E402
 
 SUBJECTS = os.path.join(HERE, "subjects")
-MARK = {"present": "yes", "partial": "part", "absent": "no", "not_applicable": "-"}
+MARK = {"present": "yes", "partial": "part", "absent": "no",
+        "undetermined": "?", "not_applicable": "-"}
 
 
 def tally(doc: dict, level: str) -> tuple[int, int]:
@@ -65,7 +66,7 @@ def gaps(doc: dict, level: str) -> list[tuple]:
     out = []
     for req in rubric.BY_LEVEL[level]:
         got = doc["assessments"].get(req.id) or {}
-        if got.get("verdict") in ("absent", "partial"):
+        if got.get("verdict") in ("absent", "partial", "undetermined"):
             where = "; ".join(
                 f"{e.get('kind')}: {e.get('locator')}"
                 for e in (got.get("evidence") or [])[:2])
@@ -114,6 +115,7 @@ def render(docs: list[dict]) -> str:
     w("")
     w("  yes = the system keeps this fact    part = partially, or not durably")
     w("  no  = it does not keep it           -    = outside what it claims to do")
+    w("  ?   = kept somewhere the assessor could not read, so not settled")
     w("")
 
     # ── per system ──────────────────────────────────────────────────────────
