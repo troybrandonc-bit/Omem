@@ -176,76 +176,91 @@ def render(docs: list[dict]) -> str:
 def render_one(doc: dict) -> str:
     """One subject's assessment, as a document its maintainers can act on.
 
-    Sending somebody a census and expecting them to find their own row is how
-    a correction request becomes a press release. This renders their rows only,
-    with every citation, so the reply can be "R2.1 is wrong, look here" rather
+    Sending somebody a census and expecting them to find their own row is how a
+    correction request becomes a press release. This renders their rows only,
+    with every citation, so a reply can be "R2.1 is wrong, look here" rather
     than "which part?".
+
+    Deliberately written as a document rather than as a form. Structured data
+    invites a template, a template invites a bolded label in front of every
+    field, and a page of bolded labels reads as something nobody wrote. The
+    citations stay a list because a list of citations is a list; everything
+    around them is sentences.
     """
     lines: list[str] = []
     w = lines.append
     reached = subject.level_reached(doc)
+    LEVEL_WORD = {None: "No conformance level is reached."}
 
     w(f"# {doc['name']} {doc['version']}: Testimony Record assessment")
     w("")
-    w(f"Assessed {doc['assessed_on']} by {doc['assessed_by']}, against the "
-      f"Testimony Record specification (CC BY 4.0).")
+    w(f"Assessed on {doc['assessed_on']} by {doc['assessed_by']}, against the "
+      f"Testimony Record specification, which is CC BY 4.0.")
     w("")
-    w(f"**Method.** {doc['method']}")
+    w(doc["method"])
     w("")
-    w(f"**Reached:** {reached or 'no level yet'}. Per level, requirements met "
-      "out of those that apply: "
-      + ", ".join(f"{lvl} {t[0]}/{t[1]}" if t[1] else f"{lvl} n/a"
-                  for lvl in rubric.LEVEL_ORDER
-                  for t in [tally(doc, lvl)]) + ".")
+    w(f"Repository {doc['url']}, at commit {doc['commit']}.")
+    w("")
+    tallies = ", ".join(
+        f"{lvl} {t[0]} of {t[1]}" if t[1] else f"{lvl} not applicable"
+        for lvl in rubric.LEVEL_ORDER for t in [tally(doc, lvl)])
+    w(LEVEL_WORD.get(reached, f"Reaches {reached}.")
+      + f" Requirements met, counting only those that apply to what this "
+        f"system does: {tallies}.")
+    w("")
+    w("A level counts as reached only when nothing in it is missing, so a "
+      "system meeting four of five requirements shows no level at all. The "
+      "counts above are given so that reads correctly. There is no total and "
+      "no ranking against other systems.")
     w("")
     if doc.get("notes"):
         w(doc["notes"])
         w("")
-    w("A level counts as reached only when nothing in it is missing, so a "
-      "system meeting four of five requirements shows no level. The per-level "
-      "counts above are there so that reads correctly. There is no total and "
-      "no ranking against other systems, by design.")
-    w("")
-    w("## Every requirement, with where it was checked")
-    w("")
 
     for lvl in rubric.LEVEL_ORDER:
         rows = [r for r in rubric.BY_LEVEL[lvl]
                 if rubric.applicable(r, doc["claims"])]
         if not rows:
             continue
-        w(f"### {lvl} {rubric.LEVELS[lvl][0]}")
+        w(f"## {lvl} {rubric.LEVELS[lvl][0]}")
         w("")
-        w(f"*{rubric.LEVELS[lvl][1]}*")
+        w(rubric.LEVELS[lvl][1])
         w("")
         for req in rows:
             got = doc["assessments"].get(req.id) or {}
-            v = got.get("verdict", "?")
-            w(f"**{req.id} [{v}]** {req.question}")
+            v = got.get("verdict", "unassessed")
+            w(f"### {req.id}, {v}")
             w("")
-            w(f"`{finding_id(doc, req.id)}`")
+            w(req.question)
             w("")
-            w(f"- A pass would mean: {req.present_means}")
+            w(f"Passing means {req.present_means}. "
+              f"Cite this finding as {finding_id(doc, req.id)}.")
+            w("")
             if got.get("note"):
-                w(f"- Assessed: {got['note']}")
+                w(got["note"])
+                w("")
+            w("Checked at:")
+            w("")
             for e in got.get("evidence") or []:
-                w(f"- `{e.get('kind')}` {e.get('locator')}"
-                  + (f" - {e['note']}" if e.get("note") else ""))
+                bit = f"- {e.get('kind')}, `{e.get('locator')}`"
+                if e.get("note"):
+                    bit += f". {e['note']}"
+                w(bit)
             w("")
 
     w("## Citing a finding from this")
     w("")
     w("Each requirement above carries an identifier of the form "
       "`MTC-<assessed date>-<subject>-<requirement>`. It names the "
-      "observation, not the state of the world, so it stays valid after the "
-      "thing it describes is changed. A changelog entry might read:")
+      "observation and not the state of the world, so it stays valid after "
+      "the thing it describes is changed. A changelog entry might read:")
     w("")
     w("```")
     w(f"Reported in the Machine Testimony conformance census, "
       f"{doc['assessed_on']} ({finding_id(doc, 'R1.1')})")
     w("```")
     w("")
-    w("The census as a whole should be cited as:")
+    w("The census as a whole:")
     w("")
     w("```")
     w(f"Clifford, T. ({doc['assessed_on'][:4]}). The Testimony Record "
@@ -254,12 +269,13 @@ def render_one(doc: dict) -> str:
     w("")
     w("## If a verdict here is wrong")
     w("")
-    w("Every answer above cites a file and line at the pinned commit, or a "
+    w("Every answer above cites a file and a line at the pinned commit, or a "
       "search that can be repeated against it, so a wrong one can be shown to "
       "be wrong rather than argued about. Corrections are welcome by pull "
-      "request against the subject file or by email to hello@omem-cloud.com, "
-      "naming the requirement and where to look. A correction that lands "
-      "changes the file, the report and the assessment date.")
+      "request against the assessment file, or by email to "
+      "hello@omem-cloud.com naming the requirement and where to look. A "
+      "correction that lands changes the file, the report and the assessment "
+      "date.")
     w("")
     w("There is no fee, no membership, and no requirement to use any "
       "particular software. The specification text is CC BY 4.0 and the tools "
