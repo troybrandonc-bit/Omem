@@ -1,14 +1,27 @@
 # A Testimony Record from a LangGraph human-in-the-loop flow
 
-One file, no dependencies beyond LangGraph itself, and nothing from OMEM.
+One file, LangGraph as its only dependency, and nothing from OMEM.
 
 ```bash
-pip install langgraph
-cp testimony_langgraph.py  next-to-your-graph/
-python3 example.py record.jsonl
-python3 ../../scripts/testimony_validate.py record.jsonl
+pip install testimony-langgraph
+```
+
+```python
+rec.approve(graph, config,
+            approver={"id": "sam@example.com", "kind": "human"},
+            identity_source="auth-session")
+rec.write("record.jsonl")
+```
+
+```bash
+testimony-validate record.jsonl
 # Conformance: TR-4
 ```
+
+The reference validator ships with the package, so a record can be checked by
+whoever is holding it without cloning anything. It is one standard-library file
+with no network access, and it is the same file this repository uses, copied in
+at build time rather than forked.
 
 ## What problem this solves
 
