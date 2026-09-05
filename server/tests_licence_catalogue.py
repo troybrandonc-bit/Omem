@@ -100,6 +100,17 @@ for f in LICENCE.FEATURES:
     words = f.replace("_", " ")
     check("the page mentions %s" % f, words in flat.lower(), words)
 
+# A panel that names a paid tier and no price sends every enquiry into a
+# conversation, which does not scale for one person. It also had a price of
+# "$12k a year, and up" while a session was being told it had none, so this is
+# checked rather than remembered.
+_price = re.search(r'display text-3xl">(?:&euro;|&pound;|.)?([\d,]{3,})', page)
+check("the enterprise panel names a price", _price is not None,
+      "no price found in the panel")
+if _price:
+    check("and it is a flat number rather than an invitation to negotiate",
+          "and up" not in flat, "the panel still says 'and up'")
+
 # The page once advertised tiers with a checkout that did not exist. A
 # self-serve claim is now allowed only when something can serve it.
 link = re.search(r'STRIPE_LINK\s*=\s*"([^"]*)"', page)

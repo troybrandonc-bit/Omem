@@ -310,7 +310,20 @@ export default function AuditCheck() {
                 </ButtonLink>
               </div>
 
+              {/* Most people running this did not build the whole stack. The
+                  gaps above are usually somebody else's to close, and until
+                  now this page ended without telling them how to ask. */}
               <p className="text-note text-muted mt-8">
+                If any of this is a supplier&rsquo;s to answer rather than
+                yours,{" "}
+                <a href="https://machinetestimony.org/ask/">
+                  these are the questions to send them
+                </a>
+                , with what a real answer looks like and what a soft yes sounds
+                like. They are free to send as your own, and they name nobody.
+              </p>
+
+              <p className="text-note text-muted mt-4">
                 Closing these gaps does not require anyone&rsquo;s product. The
                 format is free to implement and the validator is one file with
                 no dependencies. OMEM is the reference implementation if you
