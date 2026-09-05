@@ -78,6 +78,14 @@ export default function Commons() {
           </a>
           , with a worked example and one POST that needs no account.
         </p>
+        <p className="mt-4 max-w-2xl text-note leading-relaxed text-muted">
+          There is also a tool that does the whole thing. One file, standard
+          library only, needing nothing from OMEM: it takes a two column list of
+          subject and behaviour, derives the counts, refuses anything that could
+          name somebody, and sends it. It matters more than a convenience,
+          because one of the three tests a pattern has to pass is the one the
+          collector cannot run for you.
+        </p>
       </Section>
 
       <Section className="section-y">
