@@ -32,10 +32,25 @@ export const metadata = {
  * checkout that was never wired up. */
 const ENTERPRISE = [
   "Approval policy: rules for who may approve which action, or which risk class",
+  "Approval queue: an action waits for a person who is not here yet, and expires into a refusal rather than into silence",
   "Refusals name the rule that refused, so an operator can answer for it",
   "The licence verifies offline: no callback, no telemetry, nothing to phone home",
   "Source-available under ee/LICENSE. Read it, audit it, run it in development free",
 ];
+
+/* Where a checkout link goes when there is one to put here.
+ *
+ * Empty means there is no self-serve path, and the page says invoice, because
+ * this page's whole history is the lesson: it once advertised $25 and $299
+ * tiers whose checkout endpoint never created a Stripe session, so there was no
+ * way to pay for what was being sold. A link that does not work is worse than
+ * no link.
+ *
+ * Paste a real Stripe payment link here and the panel switches to offering it.
+ * tests_licence_catalogue.py holds the page to whichever of the two is true:
+ * with no link it may not use the language of self-serve, and with a link it
+ * has to be a real URL. */
+const STRIPE_LINK = "";
 
 const INCLUDED = [
   "The full memory model: belief state, contradiction, provenance, recall",
@@ -134,10 +149,28 @@ export default function Pricing() {
                 ))}
               </ul>
               <p className="mt-5 text-caption text-faint">
-                One component, because one is built. This list grows when code
+                Two components, because two are built. This list grows when code
                 ships, not when it is planned, which is why it is shorter than
                 you might expect a paid tier to be.
               </p>
+              {STRIPE_LINK ? (
+                <a
+                  href={STRIPE_LINK}
+                  className="mt-5 inline-flex items-center gap-2 text-note font-semibold underline underline-offset-4"
+                >
+                  Buy a licence
+                </a>
+              ) : (
+                <p className="mt-5 text-caption text-faint">
+                  There is no self-serve checkout. A licence is agreed in a
+                  conversation and paid on an invoice, which is a path that
+                  exists today. Write to{" "}
+                  <a href="mailto:hello@omem-cloud.com" className="underline underline-offset-4">
+                    hello@omem-cloud.com
+                  </a>
+                  .
+                </p>
+              )}
             </div>
           </div>
         </div>

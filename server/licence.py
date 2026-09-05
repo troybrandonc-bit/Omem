@@ -150,8 +150,14 @@ ISSUER_PUBLIC_KEY = os.environ.get(
 # customer buy something that could never switch on and discover it in
 # production. Add the next line the day the code lands, not the day it is
 # designed.
+# What a licence can unlock, and the only place it is described. /v1/licence
+# serves this, so an operator can see what exists without reading the source or
+# asking. A feature gated in the code and missing here is invisible to the
+# person paying for it, which tests_licence_catalogue.py refuses.
 FEATURES = {
     "approval_policy": "Policy over who may approve which risk class",
+    "approval_queue": "A queue where an action waits for a person who is not "
+                      "here yet, expiring into a refusal rather than silence",
 }
 
 

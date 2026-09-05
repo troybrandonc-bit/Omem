@@ -88,8 +88,21 @@ def main() -> int:
     ap.add_argument("--key", help="private key as hex. Avoid; use --key-file")
     ap.add_argument("--customer", help="the organisation the licence is for")
     ap.add_argument("--days", type=int, default=365)
-    ap.add_argument("--features", default="approval_policy,auditor_export")
+    # Defaulting to everything the catalogue knows, rather than to a list
+    # somebody has to keep in step with it. The previous default named
+    # auditor_export, which no code gates, so running this tool with its
+    # own defaults errored out.
+    ap.add_argument("--features", default=",".join(sorted(FEATURES)),
+                    help="comma separated; default is every feature in "
+                         "the catalogue")
     ap.add_argument("--note", default="")
+    ap.add_argument("--ledger", default="omem-licences.jsonl",
+                    help="append a record of this issuance here. It "
+                         "holds the claims and a digest of the token, "
+                         "never the token itself")
+    ap.add_argument("--no-ledger", action="store_true",
+                    help="issue without recording it. You will not "
+                         "remember who has what")
     a = ap.parse_args()
 
     if a.keygen:
@@ -172,6 +185,34 @@ def main() -> int:
         return 2
 
     token = _b64(payload) + "." + _b64(signature)
+
+    # A record of what was issued, so there is an answer to "who has what" and
+    # "when does theirs lapse" that is not somebody's memory of a conversation.
+    # It holds the claims, which are not secret, and a digest of the token
+    # rather than the token: the token is a bearer credential, and a file
+    # containing every one ever issued is a key ring nobody asked for.
+    #
+    # The public key is fingerprinted too. If the signing key is ever rotated,
+    # this is what says which licences were signed with the old one and so
+    # which have to be reissued.
+    if not a.no_ledger:
+        entry = dict(claims)
+        entry["token_sha256"] = hashlib.sha256(token.encode()).hexdigest()
+        entry["issuer_key"] = hashlib.sha256(public_key(seed)).hexdigest()[:16]
+        entry["days"] = a.days
+        try:
+            with open(os.path.expanduser(a.ledger), "a", encoding="utf-8",
+                      newline="\n") as f:
+                f.write(json.dumps(entry, sort_keys=True) + "\n")
+            print("# recorded in %s" % os.path.abspath(a.ledger))
+        except OSError as e:
+            # Not fatal: the licence is valid whether or not the note got
+            # written. Saying so is better than failing after the customer's
+            # token already exists.
+            print("# WARNING: could not write the ledger (%s). The licence "
+                  "below is still valid and nothing recorded it." % e,
+                  file=sys.stderr)
+
     print("# licence for %s, %d days, features: %s"
           % (a.customer, a.days, ", ".join(features)))
     print(token)
