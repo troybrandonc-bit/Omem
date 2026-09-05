@@ -101,7 +101,7 @@
       "assessed_on": "2026-09-04",
       "level_reached": "TR-4",
       "assessed_by": "Michael Brandon Clifford",
-      "digest": "sha256:b944f006d0ba2449ef09986709400ab538a7515d69a3ec20dcf89762090927d6"
+      "digest": "sha256:a780c70b2aecac5ab4f1bba39056aeff65fe8c95bfc3f45eccd6dac311999c9e"
     },
     {
       "file": "subjects/openai-agents.json",
@@ -120,7 +120,7 @@
     "rubric.py": "sha256:118d90d1591c69a590f579596801d90b7c9850d763971f043027c6a26e6d0e25",
     "subject.py": "sha256:a0c87ae528b15c0a8d977eedb13f4786715aca1c52376565dbba47e9f2f24cc7"
   },
-  "census_digest": "sha256:8e8eab59f5238efdb538f01b59d0f9de503cfbd67fd8d7080a916b9232d0c1aa",
+  "census_digest": "sha256:b66ecf0de51fcfece1e1527043d47ec60fbd32735a4c85f8f441d4fe45c88d75",
   "recompute": "python3 benchmarks/census/manifest.py --check",
   "note": "Each subject names the exact commit its citations refer to. A system that later gains a capability recorded here as absent has not made this document wrong: the assessment was of that commit, which still exists and still reads the same way. A later assessment is a new entry with a new date, never an edit to this one."
 }
