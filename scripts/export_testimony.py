@@ -24,9 +24,13 @@ import argparse
 import datetime as _dt
 import hashlib
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from testimony_validate import digest_of        # noqa: E402
 
 SPEC = "testimony-record/0.1"
 STATE = {"BELIEVED_TRUE": "believed_true", "BELIEVED_FALSE": "believed_false",
@@ -337,8 +341,16 @@ def build_record(c: Client, excerpts: bool = False) -> list[dict]:
     # The digest covers every entry above it, so any later edit to the exported
     # file is detectable; the engine it names is the frozen one whose replay of
     # the underlying log has to reproduce these same beliefs byte for byte.
-    digest = hashlib.sha256(
-        "\n".join(json.dumps(e, sort_keys=True) for e in entries).encode()).hexdigest()
+    # Taken from the validator beside this file rather than computed here.
+    #
+    # These were two implementations of one rule and they disagreed:
+    # json.dumps(sort_keys=True) leaves the default separators in place, so the
+    # serialisation hashed here carried a space after every comma and colon and
+    # the reference canonicalisation does not. Nothing caught it for as long as
+    # nothing recomputed a digest, which was until 5 September 2026. Every
+    # record this exporter has produced carries a digest no conforming verifier
+    # would arrive at.
+    digest = digest_of(entries)
     health = c.get("/v1/health") or {}
     last = entries[-1]["at"] if entries else _rfc3339(0)
     entries.append({

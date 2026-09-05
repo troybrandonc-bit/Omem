@@ -215,6 +215,43 @@ at it. `undetermined` was added for that, and the first thing it did was stop
 this census from publishing a guess about the one system whose answer might
 have been yes.
 
+A fifth came after publication, and it is the most serious, because it is
+against this census's own passing row and nothing here could have caught it.
+
+On 5 September 2026 the reference validator was found not to recompute
+digests. It checked that an integrity entry carried one. A record reached
+TR-4, the level called Verifiable, with a digest of sixty-four zeros, and an
+anchored record could carry a real, correctly signed timestamp token issued
+over some entirely different record.
+
+Fixing that surfaced two more. The specification had never said how a digest is
+computed: not the algorithm, not the serialisation, not the ordering. And the
+two implementations of the rule in these repositories had never agreed with
+each other, because `scripts/export_testimony.py` serialised with
+`json.dumps(sort_keys=True)`, whose default separators put a space after every
+comma and colon, while the reference canonicalisation uses neither. Every
+record that exporter has produced carries a digest no conforming verifier would
+arrive at.
+
+This bears on **R4.2**, whether an independent party can run the verification
+without the vendor's cooperation, which was assessed `present`. For the replay
+path it holds. For the digest it did not: a third party following the
+specification would have computed a different number and concluded the record
+had been altered when it had not. R4.3, whether alteration would be detectable,
+is unaffected, since the emitter's rule was self-consistent and an edit still
+broke it.
+
+The verdict is not being quietly changed here, and it is not being defended.
+The row was produced by reading code against questions, and the question was
+answered against a specification that did not say enough to answer it. The
+specification now defines the computation, the validator recomputes rather than
+accepts, the anchor's token is checked against the digest it is supposed to
+cover, and the exporter uses the reference canonicalisation. **R4.2 for OMEM
+should be re-read against that, and this file updated with the date it was.**
+
+Three of the five findings are now against the author, which is the ratio this
+section exists to report rather than to improve.
+
 ## Being assessed, and correcting an assessment
 
 Nothing here is self-reported and nothing is taken on trust, in either

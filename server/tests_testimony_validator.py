@@ -152,8 +152,11 @@ def record_only(acts=False, with_decision=False, spec=S2):
                   "risk_class": "low", "risk_source": "registry",
                   "proposed_by": {"id": "sys", "kind": "agent"},
                   "verdict": "permitted", "executed": True, "approval": None})
-    body = "\n".join(json.dumps(e, sort_keys=True) for e in E)
-    dg = hashlib.sha256(body.encode()).hexdigest()
+    # Taken from the validator. This was a third hand-rolled copy of the rule,
+    # keeping the default separators the other two did not use, so the fixture
+    # had been asserting a digest the validator would never have computed.
+    # Nothing noticed for as long as nothing recomputed one.
+    dg = tv.digest_of(E)
     E.append({"spec": spec, "type": "integrity", "id": "i1",
               "at": "2026-09-04T09:00:03Z", "scheme": "hash-chain",
               "digest": "sha256:" + dg, "covers": [e["id"] for e in E]})
