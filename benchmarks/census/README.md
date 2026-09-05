@@ -241,13 +241,20 @@ had been altered when it had not. R4.3, whether alteration would be detectable,
 is unaffected, since the emitter's rule was self-consistent and an edit still
 broke it.
 
-The verdict is not being quietly changed here, and it is not being defended.
-The row was produced by reading code against questions, and the question was
-answered against a specification that did not say enough to answer it. The
-specification now defines the computation, the validator recomputes rather than
-accepts, the anchor's token is checked against the digest it is supposed to
-cover, and the exporter uses the reference canonicalisation. **R4.2 for OMEM
-should be re-read against that, and this file updated with the date it was.**
+The verdict was not quietly changed and it was not defended. The row was
+produced by reading code against questions, and the question was answered
+against a specification that did not say enough to answer it. The specification
+now defines the computation, the validator recomputes rather than accepts, the
+anchor's token is checked against the digest it is meant to cover, and the
+exporter uses the reference canonicalisation.
+
+**Re-read on 5 September 2026, and R4.2 holds.** A record was exported from a
+live server and its digest recomputed from the published rule alone, with
+nothing of OMEM's on the path. The two agree, `covers` names the entries, and
+the export reaches TR-4 under a validator that recomputes. The subject file
+records the date and says plainly that the verdict did not hold as of 4
+September and does as of 5 September, which is a different sentence from the
+one it replaced.
 
 Three of the five findings are now against the author, which is the ratio this
 section exists to report rather than to improve.
