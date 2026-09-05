@@ -21,8 +21,12 @@ _os_seed.environ['OMEM_SEED_DEMO']='1'
 import api  # noqa: E402  (boots + seeds demo into the temp db)
 from http.server import ThreadingHTTPServer  # noqa: E402
 
-PORT = 8931
-srv = ThreadingHTTPServer(("127.0.0.1", PORT), api.Handler)
+# Port 0 means the operating system hands back a free one, which is what the
+# rest of the suites do. A fixed port makes anything else already listening on
+# it into a failure of this suite, reported as whatever that other process
+# happened to answer -- and a preview server on 8931 did exactly that.
+srv = ThreadingHTTPServer(("127.0.0.1", 0), api.Handler)
+PORT = srv.server_address[1]
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 time.sleep(0.3)
 
@@ -36,11 +40,25 @@ def call(method, path, body=None, token=None):
         data=json.dumps(body).encode() if body is not None else None,
         headers={"Content-Type": "application/json",
                  **({"Authorization": f"Bearer {token}"} if token else {})})
+    # Whatever answered has to be this server, and this server always answers
+    # JSON. Something else on the address returns an HTML error page, and
+    # decoding that raises a JSONDecodeError pointing at column 1 of line 1,
+    # which says nothing about what actually went wrong. Say it instead.
+    def parsed(raw, code):
+        try:
+            return json.loads(raw or b"{}")
+        except json.JSONDecodeError:
+            raise SystemExit(
+                f"\n{method} {path} answered {code} with something that is not "
+                f"JSON:\n  {raw[:160]!r}\n\nEither the server failed to start "
+                f"or something else is answering on {BASE}. Nothing after this "
+                f"point would mean anything, so the suite stops here.")
+
     try:
         with urllib.request.urlopen(req, timeout=5) as r:
-            return r.status, json.loads(r.read() or b"{}")
+            return r.status, parsed(r.read(), r.status)
     except urllib.error.HTTPError as e:
-        return e.code, json.loads(e.read() or b"{}")
+        return e.code, parsed(e.read(), e.code)
 
 
 def check(name, cond, detail=""):

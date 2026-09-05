@@ -247,7 +247,10 @@ else:
 
     os.environ["OMEM_TLS_CERT"] = CRT
     os.environ["OMEM_TLS_KEY"] = KEY
-    srv = api.ThreadingHTTPServer(("127.0.0.1", 8817), api.Handler)
+    # 0 rather than a number this suite would need kept free. Nothing here is
+    # about which port TLS lands on, and a collision would read as a TLS bug.
+    srv = api.ThreadingHTTPServer(("127.0.0.1", 0), api.Handler)
+    tls = "127.0.0.1:%d" % srv.server_address[1]
     check("wrap_tls reports that it wrapped the socket", api.wrap_tls(srv) is True)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     time.sleep(0.4)
@@ -255,14 +258,14 @@ else:
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
-    with urllib.request.urlopen("https://127.0.0.1:8817/v1/health", context=ctx, timeout=8) as r:
+    with urllib.request.urlopen("https://%s/v1/health" % tls, context=ctx, timeout=8) as r:
         body = json.loads(r.read())
     check("HTTPS serves the API", body.get("status") == "ok", str(body)[:120])
 
     # plaintext to a TLS port must not be answered as if it were fine
     plain_failed = False
     try:
-        urllib.request.urlopen("http://127.0.0.1:8817/v1/health", timeout=5).read()
+        urllib.request.urlopen("http://%s/v1/health" % tls, timeout=5).read()
     except Exception:
         plain_failed = True
     check("plaintext HTTP to the TLS port fails", plain_failed)
@@ -272,7 +275,7 @@ else:
     os.environ.pop("OMEM_TLS_KEY")
     half = False
     try:
-        api.wrap_tls(api.ThreadingHTTPServer(("127.0.0.1", 8818), api.Handler))
+        api.wrap_tls(api.ThreadingHTTPServer(("127.0.0.1", 0), api.Handler))
     except SystemExit:
         half = True
     check("cert without key refuses to start", half)
@@ -282,7 +285,7 @@ else:
     os.environ["OMEM_TLS_CERT"] = os.path.join(DATA, "nope.crt")
     os.environ["OMEM_TLS_KEY"] = KEY
     try:
-        api.wrap_tls(api.ThreadingHTTPServer(("127.0.0.1", 8819), api.Handler))
+        api.wrap_tls(api.ThreadingHTTPServer(("127.0.0.1", 0), api.Handler))
     except SystemExit:
         missing = True
     check("a missing certificate file refuses to start", missing)
@@ -290,7 +293,7 @@ else:
     os.environ.pop("OMEM_TLS_KEY", None)
 
 check("no TLS configured means no wrapping (plain HTTP stays the default)",
-      api.wrap_tls(api.ThreadingHTTPServer(("127.0.0.1", 8820), api.Handler)) is False)
+      api.wrap_tls(api.ThreadingHTTPServer(("127.0.0.1", 0), api.Handler)) is False)
 
 print(f"\n{_passed} passed, {_failed} failed")
 sys.exit(1 if _failed else 0)

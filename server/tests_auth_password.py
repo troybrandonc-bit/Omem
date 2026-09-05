@@ -36,8 +36,9 @@ import api  # noqa: E402
 import store as store_mod  # noqa: E402
 from security import totp_code, totp_secret  # noqa: E402
 
-PORT = 8814
-BASE = f"http://127.0.0.1:{PORT}"
+# PORT and BASE are set once the server has bound, below. They are not fixed
+# numbers: a suite that requires a particular port free fails whenever anything
+# else holds it, and reports that as a failure of the code under test.
 
 _passed = _failed = 0
 
@@ -76,7 +77,9 @@ def call(method, path, body=None, key=None):
         return e.code, json.loads(e.read() or b"{}")
 
 
-srv = api.ThreadingHTTPServer(("127.0.0.1", PORT), api.Handler)
+srv = api.ThreadingHTTPServer(("127.0.0.1", 0), api.Handler)   # 0: any free port
+PORT = srv.server_address[1]
+BASE = f"http://127.0.0.1:{PORT}"
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 time.sleep(0.3)
 
