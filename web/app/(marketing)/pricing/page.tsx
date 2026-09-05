@@ -114,13 +114,16 @@ export default function Pricing() {
             <div>
               <h2 className="text-note font-semibold">Enterprise components</h2>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="display text-3xl">$12k</span>
-                <span className="text-note text-muted">a year, and up</span>
+                <span className="display text-3xl">&euro;6,000</span>
+                <span className="text-note text-muted">a year, per organisation</span>
               </div>
               <p className="mt-4 max-w-[32ch] text-note text-muted">
                 For the organisation that has to say who is allowed to approve
-                what, and show the rule afterwards. Everything above stays free
-                whether you buy this or not.
+                what, and show the rule afterwards. Flat, per organisation, no
+                seat count and no metering: the licence verifies offline and
+                this product does not phone home, so there is nothing here that
+                could count your users. Everything above stays free whether you
+                buy this or not.
               </p>
               <ButtonLink href="/pilot" className="mt-6 w-full sm:w-auto">
                 Talk about a licence
