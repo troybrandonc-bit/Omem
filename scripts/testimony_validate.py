@@ -328,6 +328,24 @@ def validate(text: str) -> Report:
     r.add("TR-4", "a replay scheme names the engine and its version", not unnamed,
           f"{len(unnamed)} replay entr(ies) that cannot be reproduced by a third party")
 
+    # An external anchor is the one scheme whose evidence somebody else holds,
+    # which is the whole reason it is worth more than a digest the producer
+    # computed. Saying "external-anchor" without naming who anchored it, or
+    # without the token they returned, is the claim without the thing.
+    hollow = []
+    for g in integrity:
+        if g.get("scheme") != "external-anchor":
+            continue
+        a = g.get("anchor")
+        if not isinstance(a, dict):
+            hollow.append(f"line {g['_line']}: no anchor object")
+            continue
+        for f in ("kind", "authority", "token"):
+            if not a.get(f):
+                hollow.append(f"line {g['_line']}: anchor missing {f!r}")
+    r.add("TR-4", "an external anchor names its authority and carries its token",
+          not hollow, "; ".join(hollow[:3]))
+
     stale = []
     for g in integrity:
         for cid in g.get("covers") or []:
