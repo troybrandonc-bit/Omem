@@ -322,6 +322,77 @@ r = subprocess.run([sys.executable, TOOL, "--words", "telepathy"],
 check("and a miss says a contributor cannot extend it locally",
       "pull request" in r.stdout, r.stdout[:200])
 
+print("\nand a real collector, over HTTP, takes it and gives it back")
+# Everything above checks the payload against commons.validate, which is the
+# function behind the door rather than the door. A route that is not wired, a
+# content type the handler rejects, or a rate limiter would all pass every
+# check so far and fail the only thing a contributor ever does.
+TMP = os.environ.get("TEMP") or "/tmp"
+DB = os.path.join(TMP, "omem_commons_contribute.db")
+if os.path.exists(DB):
+    os.remove(DB)
+os.environ["OMEM_DB"] = DB
+os.environ["OMEM_BANK_COLLECTOR"] = "1"
+os.environ["OMEM_ADMIN_EMAILS"] = "op@example.com"
+os.environ["OMEM_COMMONS_DATASET_PUBLIC"] = "1"
+os.environ.setdefault("OMEM_TENANT_RL_BURST", "10000")
+os.environ.setdefault("OMEM_TENANT_RL_RPS", "10000")
+
+import threading                                              # noqa: E402
+import urllib.request                                         # noqa: E402
+from http.server import ThreadingHTTPServer                   # noqa: E402
+
+import api                                                    # noqa: E402
+
+srv = ThreadingHTTPServer(("127.0.0.1", 0), api.Handler)      # 0: any free port
+BASE = "http://127.0.0.1:%d" % srv.server_address[1]
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+# The commons endpoints allow ten requests per address before refusing, which
+# is right for a public collector and is not what this suite is measuring: it
+# reads the state back after every write. The limiter is real and is tested
+# where it belongs; here it is widened so a 429 cannot be mistaken for a
+# contribution that failed to arrive.
+api.COMMONS_LIMITER = api.RateLimiter(capacity=100000, refill_per_sec=100000)
+
+
+def public():
+    with urllib.request.urlopen(BASE + "/v1/commons/public", timeout=10) as r:
+        return json.loads(r.read())
+
+
+st = public()
+check("the collector is up and says so", st.get("collector") is True, st)
+check("and holds nothing yet", st["stats"]["contributors"] == 0, st["stats"])
+
+sent = pop.payload()
+ok, said = pop.send(BASE)
+check("it accepts the contribution over HTTP", ok, said)
+st = public()["stats"]
+check("and counts the contributor", st["contributors"] == 1, st)
+check("and stored the patterns rather than the request",
+      st["patterns"] == len(sent["patterns"]),
+      "%s vs %d sent" % (st, len(sent["patterns"])))
+
+# Sending twice is what a contributor does whose data grew. It must replace
+# their earlier counts rather than add a second contributor: two sends under
+# one id counting as two sources would defeat the requirement they exist for.
+pop.send(BASE)
+st = public()["stats"]
+check("a second send replaces rather than multiplies the contributor",
+      st["contributors"] == 1, st)
+
+# The tool prints this line after a successful send. A withdrawal instruction
+# that has never been run is a promise, so it is run.
+urllib.request.urlopen(urllib.request.Request(
+    BASE + "/v1/commons/" + sent["instance"], method="DELETE"),
+    timeout=10).read()
+st = public()["stats"]
+check("the withdrawal the tool prints actually withdraws",
+      st["contributors"] == 0, st)
+
+srv.shutdown()
+
 check("and a run leaves no contributor id beside the code",
       not os.path.exists(os.path.join(HERE, ".commons-instance"))
       and not os.path.exists(os.path.join(ROOT, ".commons-instance")),
