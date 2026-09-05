@@ -62,6 +62,10 @@ try:
     from ee import approval_policy as APPROVAL_POLICY
 except Exception:      # the ee/ directory is removable, and OMEM runs without it
     APPROVAL_POLICY = None
+try:
+    from ee import approval_queue as APPROVAL_QUEUE
+except Exception:      # same: absent means the open behaviour, not an error
+    APPROVAL_QUEUE = None
 import providers
 from omem_engine import __version__ as ENGINE_VERSION
 from omem_engine.engine import Engine, ACCEPTED  # the authoritative engine
@@ -1040,6 +1044,11 @@ def _admin_email_set():
 STORE.db.executescript(_cand_index.INDEX_SCHEMA)
 STORE.db.commit()
 STORE.db.executescript(_graph.GRAPH_SCHEMA)
+if APPROVAL_QUEUE is not None:
+    # The tables exist whenever the component is installed, licensed or not.
+    # Creating them on first licensed use would mean the schema appears at the
+    # least convenient moment, and an empty table costs nothing.
+    APPROVAL_QUEUE.ensure_schema(STORE.db)
 STORE.db.commit()
 INGEST.on_edge = lambda pid, aid, s, rel, d: _graph.record_edge(STORE.db, pid, aid, s, rel, d)
 STORE.db.executescript(_consol.P3_SCHEMA)
@@ -2066,7 +2075,14 @@ class Handler(BaseHTTPRequestHandler):
             # fixed behavior (unchanged); 'viewer' is read-only; 'admin'/'owner'
             # keys additionally manage keys/connectors within their project.
             READ = {"memory.read", "project.read", "usage.read", "heal.read"}
-            WRITE = READ | {"memory.write", "heal.report", "heal.execute.low"}
+            # heal.approve sits with heal.report rather than above it:
+            # separation of duties is enforced per item, where the queue
+            # refuses the proposer and refuses a second act by the same
+            # principal, and narrowed further by the paid policy. Putting
+            # it at admin would mean only admins approve anything, which
+            # is not how an organisation approves refunds.
+            WRITE = READ | {"memory.write", "heal.report", "heal.approve",
+                            "heal.execute.low"}
             MANAGE = WRITE | {"connector.manage", "key.create", "key.revoke",
                               "heal.execute.medium"}
             ADMIN = MANAGE | {"heal.execute.high"}
@@ -2101,6 +2117,23 @@ class Handler(BaseHTTPRequestHandler):
         if "user" in auth:
             return "user:" + str(auth["user"]["id"])
         return "unknown"
+
+    def _identity_source(self, auth) -> str:
+        """Where the approver's name came from, in the specification's words.
+
+        Reported rather than chosen: an approval carrying a name and no source
+        is an assertion about a person, and the census exists partly because
+        systems record the first without the second. The values are the ones
+        the Testimony Record defines, so a record OMEM emits is checkable by
+        somebody else's validator.
+        """
+        if "user" in auth:
+            return "auth-session"
+        if "key" in auth:
+            return "api-key"
+        # No third answer. An identity from nowhere is refused upstream rather
+        # than labelled with a word that would pass a validator.
+        return ""
 
     def _approval_principal(self, auth):
         """Who the authentication layer says is making this request, namespaced
@@ -2364,6 +2397,29 @@ class Handler(BaseHTTPRequestHandler):
             # GET /v1/healing/health
             if parts[2:] == ["health"]:
                 return self._send(200, self._healing_health(org_id, p.id))
+            # GET /v1/healing/queue - what is waiting, and for the
+            # caller specifically what they may actually settle. The filtered
+            # view is a courtesy: the decision is checked again on the way in,
+            # because a policy can change while somebody's page is open.
+            if parts[2:] == ["queue"]:
+                if APPROVAL_QUEUE is None:
+                    return self._err(404, "not_found",
+                                     "the approval queue component is not installed")
+                if not LICENCE.has("approval_queue"):
+                    return self._err(402, "licence_required",
+                                     "the approval queue requires a commercial "
+                                     "licence. The open gate still refuses agent "
+                                     "self-approval and records every refusal.")
+                mine = (qs.get("mine", ["1"])[0] or "1") not in ("0", "false", "no")
+                who = self._approval_principal(auth) if mine else ""
+                items = APPROVAL_QUEUE.pending(
+                    STORE.db, p.id, principal=who,
+                    policy_check=self._approval_policy_check(p.id))
+                STORE.db.commit()   # sweep() may have expired items into refusals
+                return self._send(200, {
+                    "pending": items, "principal": who or None,
+                    "note": ("what you may settle; add ?mine=0 for everything "
+                             "waiting" if who else "everything waiting")})
             # GET /v1/healing/policy -> who may approve what, if anyone has said.
             if parts[2:] == ["policy"]:
                 if APPROVAL_POLICY is None:
@@ -5232,6 +5288,73 @@ class Handler(BaseHTTPRequestHandler):
                                     "default": policy["default"]})
                 return self._send(200, {"policy": policy,
                                         "summary": APPROVAL_POLICY.describe(policy)})
+
+            # ── the approval queue: an action held for a person who is not
+            # here yet. POST /v1/healing/queue holds one; POST
+            # /v1/healing/queue/<id> settles it. Listing is on the GET side.
+            if parts[2:3] == ["queue"]:
+                if APPROVAL_QUEUE is None:
+                    return self._err(404, "not_found",
+                                     "the approval queue component is not installed")
+                if not LICENCE.has("approval_queue"):
+                    # Refused at the door rather than accepted and ignored. A
+                    # queue that holds nothing while appearing to hold things
+                    # is worse than no queue, because it reads as a control.
+                    return self._err(402, "licence_required",
+                                     "the approval queue requires a commercial "
+                                     "licence. The open gate still refuses agent "
+                                     "self-approval and records every refusal.")
+                b = body if isinstance(body, dict) else {}
+
+                if parts[3:]:                       # settle an existing item
+                    if not _bound_can("heal.approve"):
+                        return self._err(403, "permission",
+                                         "requires a key that may approve")
+                    try:
+                        item = APPROVAL_QUEUE.decide(
+                            STORE.db, parts[3],
+                            principal=self._approval_principal(auth),
+                            verdict=str(b.get("verdict") or ""),
+                            identity_source=self._identity_source(auth),
+                            reason=str(b.get("reason") or ""),
+                            policy_check=self._approval_policy_check(p.id))
+                    except APPROVAL_QUEUE.QueueError as e:
+                        # 409, not 403: the caller may well be entitled to
+                        # approve in general, and this is about this item.
+                        return self._err(409, "cannot_settle", str(e))
+                    STORE.db.commit()
+                    ENT.audit("healing.queue.settled", actor=actor, org_id=org_id,
+                              project_id=p.id, resource=item["id"],
+                              metadata={"verdict": b.get("verdict"),
+                                        "state": item["state"]})
+                    return self._send(200, {"item": item,
+                                            "acts": APPROVAL_QUEUE.acts(
+                                                STORE.db, item["id"])})
+
+                if not _bound_can("heal.report"):
+                    return self._err(403, "permission",
+                                     "requires a key that may propose actions")
+                try:
+                    item = APPROVAL_QUEUE.hold(
+                        STORE.db, p.id,
+                        action_type=str(b.get("action_type") or ""),
+                        risk_class=str(b.get("risk_class") or "high"),
+                        proposed_by=self._approval_principal(auth),
+                        risk_source=str(b.get("risk_source") or "registry"),
+                        payload=b.get("payload"),
+                        reason=str(b.get("reason") or ""),
+                        needs=int(b["needs"]) if b.get("needs") is not None else 1,
+                        ttl_seconds=(int(b["ttl_seconds"])
+                                     if b.get("ttl_seconds") is not None
+                                     else 86400))
+                except (APPROVAL_QUEUE.QueueError, TypeError, ValueError) as e:
+                    return self._err(422, "invalid_request", str(e))
+                STORE.db.commit()
+                ENT.audit("healing.queue.held", actor=actor, org_id=org_id,
+                          project_id=p.id, resource=item["id"],
+                          metadata={"action_type": item["action_type"],
+                                    "needs": item["needs"]})
+                return self._send(201, {"item": item})
 
             # POST /v1/healing/failures - report a failure, get prior memory back
             if parts[2:] == ["failures"]:

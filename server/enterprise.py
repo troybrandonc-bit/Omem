@@ -86,7 +86,12 @@ PERMISSIONS = {
     "erasure.execute": "admin",
     # ── self-healing subsystem ──
     "heal.read": "viewer",            # read failures / health / recovery history
-    "heal.report": "developer",       # report failures + health, record snapshots
+    "heal.report": "developer",
+    # Approving is a different authority from proposing, so it is a
+    # different permission even though both sit at developer. Which
+    # principal may approve WHICH action is the paid policy's job; this
+    # only says who may approve at all.
+    "heal.approve": "developer",       # report failures + health, record snapshots
     "heal.execute.low": "developer",  # run low-risk repairs (retry, clear cache, ...)
     "heal.execute.medium": "admin",   # run medium-risk repairs (config, rotate, ...)
     "heal.execute.high": "owner",     # run high-risk repairs (still needs explicit approval)
