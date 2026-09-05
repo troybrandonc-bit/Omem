@@ -4,7 +4,7 @@ import { Section, CodeBlock } from "@/components/marketing/ui";
 export const metadata = {
   title: "Contributing to the commons",
   description:
-    "The format for contributing counts to the OMEM commons, written so that any system can contribute rather than only OMEM. What a contribution contains, what it deliberately cannot contain, the closed vocabulary, the terms, and a worked example in forty lines.",
+    "The format for contributing counts to the OMEM commons, written so that any system can contribute rather than only OMEM. A one file tool that builds a contribution from a CSV, what a contribution contains, what it deliberately cannot contain, the closed vocabulary, the terms, and a worked example in forty lines.",
 };
 
 /* WHY THIS IS A SPECIFICATION AND NOT A PAGE OF PRODUCT DOCUMENTATION.
@@ -24,6 +24,33 @@ export const metadata = {
  * appears at the bottom as one implementation they can ignore.
  *
  * No em dashes. */
+
+const REPO = "https://github.com/troybrandonc-bit/Omem/blob/main/";
+
+const TOOL = `$ cat observations.csv
+subject,token
+c1,prefers_email
+c1,not:responds_phone
+c2,prefers_email
+...
+
+$ python3 commons_contribute.py observations.csv \\
+    --domain customer_support --region europe --send
+
+640 observations, 88 people, 14 behaviours.
+23 patterns cleared the bar.
+
+The strongest, so you can see what you are about to send:
+  prefers_email    -> not:responds_phone    41 of 47 people, 88 held the first
+  ...
+
+Terms, version 2026-09-03: Counts join the public commons and are
+published there under CC BY 4.0 ...
+
+accepted: {"stored": 23}
+
+To withdraw everything sent under this id:
+DELETE https://commons.omem-cloud.com/v1/commons/b1e5c8f2-...`;
 
 const SHAPE = `{
   "instance": "b1e5c8f2-6a4d-4a7e-9c31-8f0d2e7a5c14",
@@ -263,11 +290,58 @@ export default function CommonsContribution() {
             make a form easier to sign.
           </p>
 
-          <h2>Producing the counts</h2>
+          <h2>The short way</h2>
+          <p>
+            There is a tool that does everything below.{" "}
+            <a href={`${REPO}scripts/commons_contribute.py`}>
+              <span className="mono">commons_contribute.py</span></a> is one
+            file, standard library only, MIT, and needs nothing from OMEM. You
+            give it a two column CSV of subject and behaviour, it derives the
+            counts, refuses anything that could name somebody, and writes or
+            sends the payload.
+          </p>
+
+          <CodeBlock single={TOOL} filename="terminal"
+            label="A contribution in one command" />
+
+          <p>
+            It refuses where the mistake is rather than after the file is
+            written. A word outside the vocabulary is named as a word, not as a
+            token, because the word is the thing you have to change. A subject
+            recorded as both doing and not doing something is refused rather
+            than counted twice.
+          </p>
+
+          <h3 className="sub">The one thing the bank cannot check for you</h3>
+          <p>
+            The collector rejects identifying tokens, foreign words, malformed
+            counts and anything below the floor on{" "}
+            <span className="mono">support</span>. It cannot check the test that
+            matters most, and the reason is structural rather than an omission:
+            a pattern earns its place by beating what the population already
+            says about the consequent on its own, and the collector never sees
+            your population. Only you can compute that.
+          </p>
+          <p>
+            Which means a hand built contribution can be accepted in full and
+            still be mostly noise. If almost everyone in your data renews, then
+            every antecedent appears to predict renewal, and a bank filled with
+            that records what is popular rather than what follows from
+            anything. The tool applies the same three tests an OMEM
+            installation applies before it sends: at least three subjects
+            holding both, a rate of 60 per cent or better against the
+            refutations, and a lower confidence bound that clears the
+            consequent&rsquo;s own base rate by ten points. If you build the
+            payload by hand instead, apply them yourself.
+          </p>
+
+          <h2>Producing the counts by hand</h2>
           <p>
             The shape below is the general case. Substitute your own store; the
             only requirements are that you can group by subject and that you can
-            express the behaviour in the vocabulary.
+            express the behaviour in the vocabulary. It gives you support,
+            refutations and subjects; the rate and the lift test above are still
+            yours to apply on top.
           </p>
 
           <CodeBlock single={COUNTS} filename="counts.sql"
