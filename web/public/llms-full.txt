@@ -544,10 +544,12 @@ Your security team will want the supplier answers before you get that far. They 
 ### What exists today
 
 - Approval policy: rules for who may approve which action, or which risk class
+- Approval queue: an action waits for a person who is not here yet, and expires into a refusal rather than into silence
 - Refusals name the rule that refused, so an operator can answer for it
 - The licence verifies offline: no callback, no telemetry, nothing to phone home
 - Source-available under ee/LICENSE. Read it, audit it, run it in development free
-One component, because one is built. This list grows when code ships, not when it is planned, which is why it is shorter than you might expect a paid tier to be.
+Two components, because two are built. This list grows when code ships, not when it is planned, which is why it is shorter than you might expect a paid tier to be.
+There is no self-serve checkout. A licence is agreed in a conversation and paid on an invoice, which is a path that exists today. Write to hello@omem-cloud.com.
 
 ## When that changes
 
