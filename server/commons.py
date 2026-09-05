@@ -1234,3 +1234,175 @@ def analytics(rows: list, contribs: dict, db) -> dict:
         "categories": dict(sorted(cats.items(), key=lambda kv: -kv[1])),
         "timeline": [{"week": w, "contributions": n} for w, n in sorted(weeks.items())],
     }
+
+
+# ── releases: a corpus somebody else can recompute ───────────────────────────
+#
+# The dataset endpoint answers from the live bank, which means the file a
+# consumer downloaded last month cannot be reproduced or checked today. For a
+# corpus that asks to be trained on, that is the whole problem: a reader has no
+# way to tell a genuine aggregate from one edited afterwards, and this
+# project's answer to everybody else is that a claim nobody can check is an
+# adjective.
+#
+# A release fixes a corpus to a dated manifest naming the contributions that
+# went into it, the code that aggregated them, and the digest of the result.
+# Anyone holding the manifest and the contributions recomputes the same bytes
+# or does not, and verify_release is that arithmetic run backwards.
+#
+# It is publishable only because a contribution is counts over a population and
+# holds no fact about any person, so republishing contributions for
+# verification republishes nobody. That is what makes recomputability
+# affordable here and impossible for a corpus of records about people.
+#
+# Withdrawal stays forward-acting and is not weakened by this: counts leave the
+# bank and every release built afterwards. A release already downloaded cannot
+# be unpublished by anybody, and the terms say that rather than promising an
+# erasure nobody can perform.
+
+RELEASE_SPEC = "commons-release/1"
+
+
+def _digest_of(entries: list) -> str:
+    """The Testimony Record digest rule, over a list of JSON objects.
+
+    Imported rather than restated. On 5 September 2026 three separate copies of
+    this four-line rule were found across this repository and the
+    specification's, none of them agreeing, because each had been written out
+    again where it was needed. The published rule is the one in the
+    specification, and this is a use of it rather than a fourth version.
+    """
+    import os
+    import sys
+    scripts = os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), "scripts")
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    from testimony_validate import digest_of
+    return digest_of(entries)
+
+
+def _sha256_text(text: str) -> str:
+    import hashlib
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def aggregation_version() -> str:
+    """A digest of everything that decides what a release contains.
+
+    Not a version number somebody remembers to raise. If the merge changes, the
+    sentence template changes, the floor moves, or a word enters the lexicon,
+    then a rebuilt release legitimately differs from the old one, and this is
+    how a reader tells that apart from the corpus having been tampered with.
+    """
+    import inspect
+    parts = [inspect.getsource(f) for f in
+             (merged, dataset_jsonl, category_of, _sentence, lexicon_ok)]
+    parts.append("floor=%d" % PRIOR_FLOOR_N)
+    parts.append("lexicon=" + ",".join(sorted(COMMONS_LEXICON)))
+    return _digest_of([{"part": p} for p in parts])[:16]
+
+
+def _own_rows(db) -> list:
+    """The collector's own bank rows, if it has any.
+
+    A collector holding no bank of its own is the ordinary case and not an
+    error, so this returns nothing rather than raising.
+    """
+    try:
+        import hypotheses as _h
+        return _h.bank(db, [])
+    except Exception:                                        # noqa: BLE001
+        return []
+
+
+def contribution_rows(db, grant: str = "public_commons") -> list:
+    """Every contribution in this release, in a fixed order, with its digest.
+
+    Sorted by instance, and each instance's patterns sorted within it, so that
+    two people building a manifest from the same contributions produce the same
+    file whatever order their database returned.
+    """
+    out = []
+    for instance, (received, patterns) in sorted(
+            latest_per_instance(db, grant).items()):
+        rows = sorted(
+            ({"antecedent": p["antecedent"], "consequent": p["consequent"],
+              "support": int(p["support"]), "refute": int(p["refute"]),
+              "subjects": int(p["subjects"])} for p in patterns),
+            key=lambda p: (p["antecedent"], p["consequent"]))
+        out.append({"instance": instance, "received": received,
+                    "patterns": rows, "digest": "sha256:" + _digest_of(rows)})
+    return out
+
+
+def release(db, at: str = "", grant: str = "public_commons") -> dict:
+    """A dated corpus, its manifest, and the contributions behind it."""
+    contributions = contribution_rows(db, grant)
+    own = _own_rows(db)
+    rows = merged(own, {c["instance"]: (c["received"], c["patterns"])
+                        for c in contributions})
+    jsonl = dataset_jsonl(rows)
+    manifest = {
+        "spec": RELEASE_SPEC,
+        "built_at": at or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "license": DATASET_LICENSE,
+        "terms_version": TERMS_VERSION,
+        "aggregation": aggregation_version(),
+        "floor": PRIOR_FLOOR_N,
+        "lexicon_words": len(COMMONS_LEXICON),
+        "contributors": len(contributions),
+        "own_patterns": len(own),
+        "rows": len(rows),
+        "dataset_digest": "sha256:" + _sha256_text(jsonl),
+        "contributions": [{"instance": c["instance"],
+                           "patterns": len(c["patterns"]),
+                           "digest": c["digest"]} for c in contributions],
+    }
+    return {"manifest": manifest, "jsonl": jsonl,
+            "contributions": contributions, "rows": rows}
+
+
+def verify_release(manifest: dict, contributions: list, jsonl: str,
+                   own: list | None = None) -> tuple[bool, list]:
+    """Recompute the release from what the manifest names.
+
+    Returns (ok, problems), where a problem is a sentence rather than a code,
+    because the reader this is written for is somebody deciding whether to
+    believe a file they downloaded.
+    """
+    problems = []
+    if manifest.get("spec") != RELEASE_SPEC:
+        problems.append("this manifest is %r, not %s"
+                        % (manifest.get("spec"), RELEASE_SPEC))
+        return False, problems
+
+    named = {c["instance"]: c for c in manifest.get("contributions") or []}
+    have = {c["instance"]: c for c in contributions}
+    for missing in sorted(set(named) - set(have)):
+        problems.append("the manifest names contribution %s, which is not here"
+                        % missing)
+    for extra in sorted(set(have) - set(named)):
+        problems.append("contribution %s is here and not in the manifest" % extra)
+    for inst in sorted(set(named) & set(have)):
+        if "sha256:" + _digest_of(have[inst]["patterns"]) != named[inst].get("digest"):
+            problems.append("contribution %s does not match its digest" % inst)
+
+    if manifest.get("aggregation") != aggregation_version():
+        problems.append(
+            "this build aggregates differently from the one that made the "
+            "release (%s here, %s there), so a difference below follows from "
+            "that and is not evidence of tampering"
+            % (aggregation_version(), manifest.get("aggregation")))
+
+    rows = merged(list(own or []),
+                  {c["instance"]: (c["received"], c["patterns"])
+                   for c in contributions})
+    rebuilt = dataset_jsonl(rows)
+    if "sha256:" + _sha256_text(rebuilt) != manifest.get("dataset_digest"):
+        problems.append("the corpus rebuilt from these contributions is not "
+                        "the corpus the manifest describes")
+    elif _sha256_text(rebuilt) != _sha256_text(jsonl):
+        problems.append("the file supplied is not the corpus the manifest "
+                        "describes, though the contributions are")
+    return not problems, problems
