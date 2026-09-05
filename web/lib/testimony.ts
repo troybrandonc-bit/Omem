@@ -305,6 +305,24 @@ export function validate(text: string): Report {
     unnamed.length === 0,
     `${unnamed.length} replay entr(ies) that cannot be reproduced by a third party`);
 
+  /* An external anchor is the one scheme whose evidence somebody else holds,
+     which is the whole reason it is worth more than a digest the producer
+     computed. Saying "external-anchor" without naming who anchored it, or
+     without the token they returned, is the claim without the thing. */
+  const hollow: string[] = [];
+  for (const g of integrity) {
+    if (str(g.scheme) !== "external-anchor") continue;
+    const a = g.anchor as Record<string, unknown> | undefined;
+    if (!a || typeof a !== "object" || Array.isArray(a)) {
+      hollow.push(`line ${g._line}: no anchor object`);
+      continue;
+    }
+    for (const f of ["kind", "authority", "token"])
+      if (!a[f]) hollow.push(`line ${g._line}: anchor missing ${JSON.stringify(f)}`);
+  }
+  add("TR-4", "an external anchor names its authority and carries its token",
+    hollow.length === 0, hollow.slice(0, 3).join("; "));
+
   const stale: string[] = [];
   for (const g of integrity)
     for (const cid of arr(g.covers))
