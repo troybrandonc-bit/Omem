@@ -5,7 +5,7 @@ import { Check } from "lucide-react";
 
 export const metadata = {
   title: "Pricing",
-  description: "The core is free, self-hosted and MIT, permanently. One paid component exists: approval policy, which controls who may approve which class of action. Priced per year, bought by conversation.",
+  description: "The core is free, self-hosted and MIT, permanently. Two things are paid: an annual assessment of what your production records actually reach against the published rubric, and the two enterprise components it needs. No accreditation stands behind the assessment and the page says so.",
 };
 
 /* OMEM is free while it is in beta. This page used to advertise $25 and $299
@@ -30,6 +30,28 @@ export const metadata = {
  * conversation and paid on an invoice, which is a path that exists today, and
  * pretending otherwise is how the old $25 and $299 tiers came to advertise a
  * checkout that was never wired up. */
+/* The attested deployment, added 6 Sep 2026, and it is the headline rather
+ * than the components because of what the components are: 465 lines that a
+ * competent team builds in a week and knows it. Priced as software, they are
+ * argued about on substitution. What nobody builds in a week is evidence a
+ * third party will accept, and that is the thing being sold; the components are
+ * how it is reached, which is why they are included rather than sold beside it.
+ *
+ * The honesty rule this page learned the hard way applies double here, because
+ * an assessment is a claim about somebody else's system made to their insurer.
+ * So the panel says what it is not, in the panel, not in a footnote: no
+ * accreditation, no regulator, no certification. Overstating that would also
+ * cost the ForHumanity and BSI routes, which are the ones that would eventually
+ * make it worth more. */
+const ATTESTED = [
+  "Your production records read against the twenty published requirements, with the evidence for every verdict",
+  "The conformance level they actually reach, which is often not the one the vendor's page implies",
+  "A dated entry in the public register, if you want one. Declining is free and changes nothing else",
+  "The enterprise components below, included, because reaching TR-3 needs them",
+  "The rubric, the validator and the conformance corpus are free whether you buy this or not",
+  "OMEM is assessed by the same rubric and sits in the same register as the seven other systems",
+];
+
 const ENTERPRISE = [
   "Approval policy: rules for who may approve which action, or which risk class",
   "Approval queue: an action waits for a person who is not here yet, and expires into a refusal rather than into silence",
@@ -103,6 +125,55 @@ export default function Pricing() {
                   </li>
                 ))}
               </ul>
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      <Section className="pb-20 sm:pb-28">
+        <div className="panel overflow-hidden">
+          <div className="grid gap-x-12 gap-y-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
+            <div>
+              <h2 className="text-note font-semibold">Attested deployment</h2>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="display text-3xl">&euro;25,000</span>
+                <span className="text-note text-muted">a year, per deployment</span>
+              </div>
+              <p className="mt-4 max-w-[32ch] text-note text-muted">
+                For the organisation whose insurer, auditor or largest customer
+                has asked a question about its agents that it cannot currently
+                answer. Once a year, your production records are read against
+                the published rubric and you get back what they actually reach,
+                with the evidence, dated.
+              </p>
+              <ButtonLink href="/pilot" className="mt-6 w-full sm:w-auto">
+                Talk about an assessment
+              </ButtonLink>
+              <p className="mt-4 text-caption text-faint">
+                Annual because the finding has a date on it. A system that could
+                answer in March and cannot in November has changed, and last
+                year&rsquo;s assessment does not know that.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="tech-label mb-3">What that is, and is not</h3>
+              <ul className="grid gap-x-8">
+                {ATTESTED.map(f => (
+                  <li key={f} className="flex items-start gap-2.5 border-b border-dotted py-3 text-note last:border-b-0">
+                    <Check className="mt-[5px] h-4 w-4 shrink-0 text-believed" aria-hidden="true" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-5 text-caption text-faint">
+                <b>It is not a certification.</b> No accreditation body stands
+                behind it and no regulator recognises it. It is a dated,
+                evidenced assessment whose method is published, which means
+                anybody can repeat it and anybody can show it is wrong,
+                including about OMEM. That is the whole of what it claims and it
+                should not be bought as more.
+              </p>
             </div>
           </div>
         </div>

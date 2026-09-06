@@ -127,6 +127,27 @@ else:
               claim not in flat.lower())
     check("and it says how a licence is actually obtained",
           "invoice" in flat.lower() or "conversation" in flat.lower())
+# The assessment is a claim about somebody else's system, made to their insurer
+# or their auditor. Two sentences carry all of its honesty, and both are the
+# kind that go missing in a later edit by somebody trying to tighten the copy.
+check("the page says the assessment is not a certification",
+      "not a certification" in flat.lower(), "the disclaimer is gone")
+check("and that no accreditation stands behind it",
+      "no accreditation body stands behind it" in flat.lower(),
+      "the accreditation disclaimer is gone")
+check("and that the method is published so it can be disproved",
+      "method is published" in flat.lower() and "wrong" in flat.lower())
+# Selling an assessment while selling an assessed product is the conflict that
+# ends registries. It is survivable only while it is disclosed on the page that
+# takes the money, so that is where it is checked.
+check("the page discloses that OMEM is assessed by the same rubric",
+      "omem is assessed by the same rubric" in flat.lower(),
+      "the conflict disclosure is gone")
+check("and it does not call the assessment accredited or certified",
+      not any(w in flat.lower() for w in
+              ("accredited assessment", "certified deployment",
+               "iso certified", "officially recognised")))
+
 
 print("\n== a licence names what it unlocks and when it stops ==")
 st = LICENCE.status()
