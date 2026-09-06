@@ -14,7 +14,7 @@
  * Check names are identical to the Python, deliberately. They are what the two
  * are compared on.
  *
- * Copyright 2026 Michael Brandon Clifford. MIT licensed. */
+ * Copyright 2026 Garnet Taurus Ltd. MIT licensed. */
 
 export const SPEC = "testimony-record/0.2";
 export const SPECS = ["testimony-record/0.1", "testimony-record/0.2"];

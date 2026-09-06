@@ -20,7 +20,7 @@ and it is not part of the server or the wheel. That separation is deliberate:
 someone who reads all of the shipped product still cannot issue themselves a
 licence for it, and there is no key material anywhere near a running process.
 
-Copyright 2026 Michael Brandon Clifford. MIT licensed.
+Copyright 2026 Garnet Taurus Ltd. MIT licensed.
 """
 from __future__ import annotations
 

@@ -21,7 +21,7 @@ prove: that OMEM accumulates understanding of real people. That claim needs
 real longitudinal data, and this experiment is the thing that makes the result
 of THAT run interpretable rather than decorative.
 
-Copyright 2026 Michael Brandon Clifford. MIT licensed.
+Copyright 2026 Garnet Taurus Ltd. MIT licensed.
 """
 from __future__ import annotations
 

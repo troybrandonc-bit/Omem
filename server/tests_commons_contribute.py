@@ -29,7 +29,7 @@ and is not. The collector requires a pooled pattern to have been seen by more
 than one source, and a contributor who sends under a fresh id every run
 satisfies that alone.
 
-Copyright 2026 Michael Brandon Clifford. MIT licensed.
+Copyright 2026 Garnet Taurus Ltd. MIT licensed.
 """
 import io
 import json

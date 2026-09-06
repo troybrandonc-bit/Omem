@@ -65,7 +65,7 @@ The CSV is two columns, one observation per line, no header needed:
 The subject column never leaves this machine. It is used to count people and
 then discarded; nothing derived from it appears in the payload.
 
-Copyright 2026 Michael Brandon Clifford. MIT licensed.
+Copyright 2026 Garnet Taurus Ltd. MIT licensed.
 """
 from __future__ import annotations
 

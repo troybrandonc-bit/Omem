@@ -40,7 +40,7 @@ This module knows nothing about licensing and opens no sockets. The caller
 decides whether the queue applies at all, which keeps the commercial concern
 out of the mechanism and lets both be tested alone.
 
-Copyright 2026 Michael Brandon Clifford. Commercial licence required for
+Copyright 2026 Garnet Taurus Ltd. Commercial licence required for
 production use. See LICENSE.
 """
 from __future__ import annotations

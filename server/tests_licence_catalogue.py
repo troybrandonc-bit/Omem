@@ -15,7 +15,7 @@ that was never wired up, and the fix was to say only what is true. So a
 self-serve claim is allowed only when there is a link to serve it, and the test
 enforces that rather than trusting whoever edits the page next.
 
-Copyright 2026 Michael Brandon Clifford. MIT licensed.
+Copyright 2026 Garnet Taurus Ltd. MIT licensed.
 """
 import io
 import os

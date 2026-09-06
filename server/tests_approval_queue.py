@@ -13,7 +13,7 @@ change is that somebody's authority was revoked. And every rule the free gate
 enforces about who may approve has to survive the approval arriving an hour
 later instead of in the same request.
 
-Copyright 2026 Michael Brandon Clifford. Commercial licence required for
+Copyright 2026 Garnet Taurus Ltd. Commercial licence required for
 production use. See ee/LICENSE.
 """
 import os

@@ -6,7 +6,7 @@
  * Emits the same facts the Python validator's --json does, in the same shape,
  * so a test can diff them without either side knowing about the comparison.
  *
- * Copyright 2026 Michael Brandon Clifford. MIT licensed. */
+ * Copyright 2026 Garnet Taurus Ltd. MIT licensed. */
 import { readFileSync } from 'node:fs';
 import { validate } from '../web/lib/testimony.ts';
 

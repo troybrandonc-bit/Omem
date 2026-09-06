@@ -713,7 +713,7 @@ The draft expires on 8 March 2027 unless a new version is posted, which is how I
 
 The specification text is CC BY 4.0: copy it, quote it, translate it, build products on it, including commercially, with attribution. The JSON Schema and any reference code are MIT. Implementing this specification costs nothing and requires no permission.
 “Testimony Record” and the conformance level marks (TR-1 through TR-4) are trademarks of the author. You may state that a product “implements the Testimony Record Specification” or “conforms to TR-3” when it genuinely meets those requirements, and that claim is expected to survive being checked. What you may not do is publish a modified document under the same name, because a standard that anyone can redefine is not one.
-Copyright 2026 Michael Brandon Clifford. Specification text under CC BY 4.0; schema and reference code under MIT.
+Copyright 2026 Garnet Taurus Ltd. Specification text under CC BY 4.0; schema and reference code under MIT.
 
 ## Reference implementation
 

@@ -354,7 +354,7 @@ export default function Spec() {
             redefine is not one.
           </p>
           <p className="text-note text-muted">
-            Copyright 2026 Michael Brandon Clifford. Specification text under
+            Copyright 2026 Garnet Taurus Ltd. Specification text under
             CC BY 4.0; schema and reference code under MIT.
           </p>
 

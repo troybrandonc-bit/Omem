@@ -25,7 +25,7 @@ production use and whose auditors ask to see it. It is an instrument of honesty
 between adults, not a lock, and treating it as a lock would mean adding the
 telemetry we refuse to add.
 
-Copyright 2026 Michael Brandon Clifford. MIT licensed.
+Copyright 2026 Garnet Taurus Ltd. MIT licensed.
 """
 from __future__ import annotations
 

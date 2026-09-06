@@ -25,7 +25,7 @@ are not causal independence, because two Events can descend from one upstream
 source OMEM never saw. Read it as a LOWER BOUND on correlation. And distinct
 agent ids are not distinct models, which is the weakest term here.
 
-Copyright 2026 Michael Brandon Clifford. MIT licensed.
+Copyright 2026 Garnet Taurus Ltd. MIT licensed.
 """
 from __future__ import annotations
 
