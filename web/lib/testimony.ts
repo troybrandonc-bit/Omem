@@ -78,6 +78,13 @@ const ENUMS: [string, string, string[]][] = [
   ["evidence", "kind", ["document", "message", "event", "api", "human", "derived"]],
   ["decision", "risk_class", ["low", "medium", "high"]],
   ["decision", "verdict", ["permitted", "refused"]],
+  // `executed` answers whether the system observed the action run. It
+  // cannot answer what happened when the action was dispatched and the
+  // acknowledgement was lost, because a boolean has no room for "cannot
+  // say", and a reader who takes `executed: false` to mean the effect did
+  // not happen will retry an action that already ran. Optional, so every
+  // 0.2 record stays valid.
+  ["decision", "outcome", ["confirmed", "not_attempted", "unconfirmed"]],
   ["integrity", "scheme", ["replay", "hash-chain", "signature", "external-anchor"]],
 ];
 
@@ -440,6 +447,24 @@ export function validate(text: string): Report {
     (d) => str(d.verdict) === "refused" && d.executed === true);
   add("TR-3", "a refused action did not execute", ranAnyway.length === 0,
     `${ranAnyway.length} refused decision(s) recorded as executed`);
+
+  // A decision carrying `outcome` must not contradict the rest of itself.
+  // `executed` is what the system observed; `outcome` is what the record
+  // claims about the effect. Saying it ran and that it was never attempted,
+  // or that it ran and that the effect cannot be confirmed, are two claims
+  // that cannot both hold.
+  const contradicts: string[] = [];
+  for (const d of decisions) {
+    const out = d.outcome;
+    if (out === undefined || out === null) continue;
+    if (d.executed === true && out !== "confirmed") {
+      contradicts.push(`line ${d._line}: executed with outcome '${out}'`);
+    } else if (str(d.verdict) === "refused" && out !== "not_attempted") {
+      contradicts.push(`line ${d._line}: refused with outcome '${out}'`);
+    }
+  }
+  add("TR-3", "a decision does not contradict its own outcome",
+    contradicts.length === 0, contradicts.slice(0, 3).join("; "));
 
   const noReason = decisions.filter(
     (d) => str(d.verdict) === "refused" && !d.reason);
