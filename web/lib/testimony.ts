@@ -449,15 +449,15 @@ export function validate(text: string): Report {
     `${ranAnyway.length} refused decision(s) recorded as executed`);
 
   // A decision carrying `outcome` must not contradict the rest of itself.
-  // `executed` is what the system observed; `outcome` is what the record
-  // claims about the effect. Saying it ran and that it was never attempted,
-  // or that it ran and that the effect cannot be confirmed, are two claims
-  // that cannot both hold.
+  // Saying it ran and that it was never attempted cannot both hold. Saying it
+  // ran and that the effect is unconfirmed can: a provider returning 200 with
+  // settlement pending is observed-run and effect-unconfirmed. Reported by
+  // impartshadow, 6 September 2026.
   const contradicts: string[] = [];
   for (const d of decisions) {
     const out = d.outcome;
     if (out === undefined || out === null) continue;
-    if (d.executed === true && out !== "confirmed") {
+    if (d.executed === true && out === "not_attempted") {
       contradicts.push(`line ${d._line}: executed with outcome '${out}'`);
     } else if (str(d.verdict) === "refused" && out !== "not_attempted") {
       contradicts.push(`line ${d._line}: refused with outcome '${out}'`);

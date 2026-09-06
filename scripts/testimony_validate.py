@@ -483,16 +483,21 @@ def validate(text: str) -> Report:
 
     # A decision carrying `outcome` must not contradict the rest of itself.
     # `executed` is what the system observed; `outcome` is what the record
-    # claims about the effect. Saying it ran and that it was never attempted,
-    # or that it ran and that the effect cannot be confirmed, are two claims
-    # that cannot both hold, and a reader can settle either from the record
-    # alone.
+    # claims about the effect. Saying it ran and that it was never attempted
+    # cannot both hold.
+    #
+    # Saying it ran and that the effect is unconfirmed can. Reported by
+    # impartshadow on 6 September 2026: a provider returning 200 with
+    # settlement pending is observed-run and effect-unconfirmed, and the first
+    # version of this check refused that record, which forced the honest answer
+    # into `executed: false`. That is the field a naive retry policy keys on,
+    # so the check meant to protect the distinction was destroying it.
     contradicts = []
     for d in decisions:
         out = d.get("outcome")
         if out is None:
             continue
-        if d.get("executed") is True and out != "confirmed":
+        if d.get("executed") is True and out == "not_attempted":
             contradicts.append(
                 f"line {d['_line']}: executed with outcome {out!r}")
         elif d.get("verdict") == "refused" and out != "not_attempted":
