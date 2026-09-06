@@ -308,6 +308,7 @@ class Contribution:
         self.identity_path = identity
         self.held: dict[str, set] = {}       # token -> subjects holding it
         self.subjects: set = set()
+        self.dropped_words: dict = {}        # foreign word -> one example
 
     # ── in ──────────────────────────────────────────────────────────────────
     def observe(self, subject, *tokens, where: str = "") -> None:
@@ -332,6 +333,64 @@ class Contribution:
                                            else ""))
             self.held.setdefault(t, set()).add(s)
             self.subjects.add(s)
+
+    def read_record(self, path: str) -> tuple:
+        """Read observations out of a Testimony Record. Returns (kept, dropped).
+
+        A record already holds what this needs: a belief entry names a subject
+        and a proposition, and says whether the system held it or denied it. So
+        anything emitting Testimony Records can contribute without also keeping
+        a separate CSV, which is the point: the format and the bank stop being
+        two unrelated pieces of work.
+
+        Three rules, and the second is the one that matters:
+
+          `believed_true` is the token, `believed_false` is `not:` the token.
+          A belief with polarity `deny` flips it the same way.
+
+          `contradicted` and `unknown` are SKIPPED. A system that holds two
+          irreconcilable positions on a proposition, or none, has no stated
+          position, and a bank that resolved that silently would be inventing
+          an opinion the record deliberately declined to have. This is the
+          same reason the miner does not count absence.
+
+          A proposition outside the commons vocabulary is dropped and counted,
+          not translated. Guessing a mapping is how a shared resource gets
+          quietly polluted by somebody acting in good faith.
+        """
+        kept = dropped = 0
+        seen_bad: dict = {}
+        with open(path, encoding="utf-8") as f:
+            for i, line in enumerate(f, 1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    e = json.loads(line)
+                except ValueError:
+                    raise Refused("line %d of %s is not JSON. A Testimony "
+                                  "Record is one JSON object per line."
+                                  % (i, path))
+                if not isinstance(e, dict) or e.get("type") != "belief":
+                    continue
+                state = e.get("state")
+                if state not in ("believed_true", "believed_false"):
+                    continue          # no stated position; see the docstring
+                prop = str(e.get("proposition", "")).strip()
+                subject = str(e.get("subject", "")).strip()
+                if not prop or not subject:
+                    continue
+                negative = (state == "believed_false") ^ (e.get("polarity") == "deny")
+                token = ("not:" + prop) if negative else prop
+                fw = foreign_word(token)
+                if fw or _identifying(token):
+                    dropped += 1
+                    seen_bad.setdefault(fw or "not a plain token", prop)
+                    continue
+                self.observe(subject, token, where="line %d" % i)
+                kept += 1
+        self.dropped_words = seen_bad
+        return kept, dropped
 
     def read_csv(self, path: str) -> int:
         """subject,token per line. Returns the number of observations read."""
@@ -492,6 +551,9 @@ def main(argv=None) -> int:
                "leaves this machine.")
     ap.add_argument("observations", nargs="?",
                     help="CSV of subject,token observations")
+    ap.add_argument("--from-record", metavar="FILE", default="",
+                    help="read the observations out of a Testimony Record "
+                         "instead of a CSV")
     ap.add_argument("--domain", default="", help="one of: " +
                     ", ".join(FRAME_DOMAINS))
     ap.add_argument("--region", default="", help="one of: " +
@@ -508,13 +570,24 @@ def main(argv=None) -> int:
 
     if a.words is not None:
         return _words(a.words.strip().lower())
-    if not a.observations:
+    if not a.observations and not a.from_record:
         ap.print_help()
         return 2
 
     try:
         c = Contribution(a.domain, a.region, a.identity)
-        n = c.read_csv(a.observations)
+        if a.from_record:
+            n, dropped = c.read_record(a.from_record)
+            if dropped:
+                print("%d belief%s dropped: the proposition is not in the "
+                      "commons vocabulary." % (dropped, "" if dropped == 1 else "s"))
+                for word, example in sorted(c.dropped_words.items())[:6]:
+                    print("  %-18s e.g. %r" % (word, example[:40]))
+                print("  Nothing was translated or guessed. Run --words to see "
+                      "what is near a word, and if a behaviour genuinely has "
+                      "none, the lexicon is extended by a pull request.")
+        else:
+            n = c.read_csv(a.observations)
         body = c.payload()
     except Refused as e:
         print("refused: %s" % e, file=sys.stderr)

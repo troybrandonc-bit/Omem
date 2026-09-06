@@ -905,7 +905,22 @@ A malformed payload is refused with a reason rather than partially accepted. Con
 
 ## If you already emit a Testimony Record
 
-Then you have most of this already. A belief carries a subject and a proposition, and a pattern is a count over pairs of propositions across subjects. The mapping worth doing carefully is your propositions onto the vocabulary, and the same advice applies: conservative, and drop what you are unsure of.
+Then you are done, and the tool will read it directly:
+terminal
+Copy code
+1python3 commons_contribute.py \
+2 --from-record record.jsonl \
+3 --domain customer_support --region europe
+4
+540 beliefs dropped: the proposition is not in the commons vocabulary.
+6 smoke e.g. 'prefers_smoke_signals'
+7 Nothing was translated or guessed.
+8
+9120 observations, 40 people, 5 behaviours.
+104 patterns cleared the bar.
+
+A belief carries a subject and a proposition and says whether the system held it or denied it, which is exactly what a count needs. Three rules, and the middle one is the one that matters: believed_true is the token, believed_false is not: the token, and a belief marked contradicted or unknown is skipped. A system holding two irreconcilable positions has no stated position, and a bank that resolved that quietly would be inventing an opinion the record deliberately declined to have.
+A proposition outside the vocabulary is dropped and counted, never translated. Guessing a mapping is how a shared resource gets polluted by somebody acting in good faith.
 The two are separate things and neither requires the other. A record is about one system’s account of itself. A contribution is about a population, names nobody, and is one direction only.
 OMEM is one implementation of this and contributes through the same endpoint with the same payload. Its client is readable if you want a second example. You do not need it, and nothing on this page assumes it.
 

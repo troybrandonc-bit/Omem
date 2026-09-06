@@ -251,6 +251,104 @@ check("nor does any count reveal how many labels there were",
 check("the payload is counts and vocabulary only",
       commons.validate(leaky.payload())[1] is None)
 
+
+print("\na Testimony Record is a contribution, without a CSV in between")
+# The bank and the format were two unrelated pieces of work. A record already
+# holds what the commons needs -- a subject, a proposition, and whether the
+# system held it or denied it -- so anything emitting records can contribute,
+# which is what makes every adapter a potential contributor rather than just an
+# emitter.
+REC = os.path.join(tempfile.mkdtemp(prefix="commons-rec-"), "record.jsonl")
+_agent = {"id": "support-agent", "kind": "agent"}
+
+
+def _write_record():
+    spec_dir = os.path.join(ROOT, "..", "machine-testimony", "spec")
+    if not os.path.isdir(spec_dir):
+        return False
+    sys.path.insert(0, os.path.normpath(spec_dir))
+    import testimony_emit as em                                # noqa: E402
+    r = em.Record()
+    r.scope(acts=True)
+    ev = r.evidence(kind="api", source="crm://export/2026-09")
+    for i in range(40):
+        s = "customer:%d" % i
+        if i < 20:
+            r.belief(subject=s, proposition="prefers_email",
+                     asserted_by=_agent, evidence=[ev])
+            r.belief(subject=s, proposition="pays_monthly",
+                     asserted_by=_agent, evidence=[ev])
+        else:
+            r.belief(subject=s, proposition="prefers_email",
+                     asserted_by=_agent, evidence=[ev],
+                     state="believed_false")
+            r.belief(subject=s, proposition="pays_monthly",
+                     asserted_by=_agent, evidence=[ev],
+                     state="believed_true" if i < 24 else "believed_false")
+        r.belief(subject=s, proposition="renews", asserted_by=_agent,
+                 evidence=[ev])                       # popularity, not a rule
+        r.belief(subject=s, proposition="prefers_smoke_signals",
+                 asserted_by=_agent, evidence=[ev])   # not in the vocabulary
+        r.belief(subject=s, proposition="attends_weekly", asserted_by=_agent,
+                 evidence=[ev], state="contradicted") # no stated position
+    r.seal()
+    io.open(REC, "w", encoding="utf-8", newline="\n").write(r.jsonl())
+    return True
+
+
+if not _write_record():
+    check("the machine-testimony emitter is available to build a record",
+          False, "spec/ not found beside this checkout")
+else:
+    c = cc.Contribution("software", "europe", IDENT)
+    kept, dropped = c.read_record(REC)
+    check("beliefs became observations", kept == 120, kept)
+    check("and the ones outside the vocabulary were dropped, not translated",
+          dropped == 40, dropped)
+    check("with the offending WORD named, not the token",
+          "smoke" in c.dropped_words, c.dropped_words)
+    # The one that would be easiest to get wrong and hardest to notice.
+    check("a contradicted belief is not counted either way",
+          "attends_weekly" not in c.held
+          and "not:attends_weekly" not in c.held, sorted(c.held))
+    check("believed_false became the negation",
+          len(c.held.get("not:prefers_email", ())) == 20,
+          len(c.held.get("not:prefers_email", ())))
+    check("believed_true did not", len(c.held.get("prefers_email", ())) == 20,
+          len(c.held.get("prefers_email", ())))
+
+    pats = c.patterns()
+    by = {(p["antecedent"], p["consequent"]) for p in pats}
+    check("a real regularity survives", ("prefers_email", "pays_monthly") in by,
+          sorted(by))
+    check("and a consequent everybody holds does not",
+          not any(q == "renews" for _, q in by), sorted(by))
+    body = c.payload()
+    check("what comes out passes the collector's door",
+          commons.validate(body)[1] is None, commons.validate(body)[1])
+    blob = json.dumps(body)
+    check("no subject from the record travels",
+          "customer:" not in blob and "customer" not in blob)
+
+    # A record with a denied polarity flips the same way a false state does.
+    import testimony_emit as em                                # noqa: E402
+    r2 = em.Record()
+    r2.scope(acts=False)
+    e2 = r2.evidence(kind="api", source="x://1")
+    r2.belief(subject="s1", proposition="renews", asserted_by=_agent,
+              evidence=[e2], polarity="deny")
+    r2.seal()
+    p2 = os.path.join(os.path.dirname(REC), "deny.jsonl")
+    io.open(p2, "w", encoding="utf-8", newline="\n").write(r2.jsonl())
+    c2 = cc.Contribution("software", "europe", IDENT)
+    c2.read_record(p2)
+    check("polarity deny is a negation too",
+          "not:renews" in c2.held, sorted(c2.held))
+
+    bad = os.path.join(os.path.dirname(REC), "notjson.jsonl")
+    io.open(bad, "w", encoding="utf-8").write("this is not JSON\n")
+    refuses("a file that is not a record", lambda: cc.Contribution(
+        "software", "europe", IDENT).read_record(bad))
 print("\nthe contributor id is stable, and refuses to be otherwise")
 with tempfile.TemporaryDirectory() as d:
     p = os.path.join(d, ".commons-instance")
