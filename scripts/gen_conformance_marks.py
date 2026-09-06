@@ -13,7 +13,7 @@ specification without asking, but the name and these marks identify records
 that actually pass, which is why they live at a fixed address here rather than
 being redrawn by each implementer.
 
-Copyright 2026 Michael Brandon Clifford. MIT licensed.
+Copyright 2026 Garnet Taurus Ltd. MIT licensed.
 """
 import os
 

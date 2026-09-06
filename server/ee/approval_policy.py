@@ -32,7 +32,7 @@ This module knows nothing about licensing. The caller decides whether policy
 applies at all, which keeps the gate's own logic free of commercial concerns
 and makes both halves testable on their own.
 
-Copyright 2026 Michael Brandon Clifford. Commercial licence required for
+Copyright 2026 Garnet Taurus Ltd. Commercial licence required for
 production use. See LICENSE-enterprise.
 """
 from __future__ import annotations

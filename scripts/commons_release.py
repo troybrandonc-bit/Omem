@@ -40,7 +40,7 @@ recorded with its date. Releases already published are not withdrawn, because
 nobody can unpublish a file somebody else has downloaded, and the terms say
 that rather than promising an erasure no one can perform.
 
-Copyright 2026 Michael Brandon Clifford. MIT licensed.
+Copyright 2026 Garnet Taurus Ltd. MIT licensed.
 """
 from __future__ import annotations
 

@@ -11,7 +11,7 @@ The rest is the ordinary business of not trusting the caller. The approver is
 the principal the authentication layer resolved, never a name in the body, and
 the identity source is reported from how they authenticated rather than chosen.
 
-Copyright 2026 Michael Brandon Clifford. Commercial licence required for
+Copyright 2026 Garnet Taurus Ltd. Commercial licence required for
 production use. See ee/LICENSE.
 """
 import json

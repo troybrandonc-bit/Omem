@@ -18,7 +18,7 @@ evidence it cites exists, that both sides of a contradiction are still in the
 record, that the risk class did not come from the model proposing the action,
 and that the approver was a person the auth layer named.
 
-Copyright 2026 Michael Brandon Clifford. MIT licensed.
+Copyright 2026 Garnet Taurus Ltd. MIT licensed.
 """
 from __future__ import annotations
 

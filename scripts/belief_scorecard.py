@@ -27,7 +27,7 @@ much the system already knew when it formed them, and see whether agreement
 rises. That curve is the testable version of "it understands people better
 over time".
 
-Copyright 2026 Michael Brandon Clifford. MIT licensed.
+Copyright 2026 Garnet Taurus Ltd. MIT licensed.
 """
 from __future__ import annotations
 

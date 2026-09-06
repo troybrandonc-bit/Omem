@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://infrastructure.omem-cloud.com/testimony-record-v0.1.schema.json",
   "title": "Testimony Record, version 0.2",
-  "description": "One line of a Testimony Record: the append-only account of what an AI agent believed, what it was allowed to do, and who allowed it. At most one scope entry declares whether the system acts; absent, it is assumed to act, which is what every 0.1 record means. Specification: https://infrastructure.omem-cloud.com/spec/testimony-record/ . Copyright 2026 Michael Brandon Clifford. The specification text is licensed CC BY 4.0; this schema is licensed MIT.",
+  "description": "One line of a Testimony Record: the append-only account of what an AI agent believed, what it was allowed to do, and who allowed it. At most one scope entry declares whether the system acts; absent, it is assumed to act, which is what every 0.1 record means. Specification: https://infrastructure.omem-cloud.com/spec/testimony-record/ . Copyright 2026 Garnet Taurus Ltd. The specification text is licensed CC BY 4.0; this schema is licensed MIT.",
   "type": "object",
   "required": [
     "spec",

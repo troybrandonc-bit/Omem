@@ -20,7 +20,7 @@ cannot come back, since the cost is paid by whoever next runs the suite on a
 machine that happens to have something on that port, and they will have no idea
 why.
 
-Copyright 2026 Michael Brandon Clifford. MIT licensed.
+Copyright 2026 Garnet Taurus Ltd. MIT licensed.
 """
 import glob
 import io
