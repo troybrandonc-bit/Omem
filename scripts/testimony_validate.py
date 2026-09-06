@@ -287,6 +287,15 @@ ENUMS = {
     ("evidence", "kind"): {"document", "message", "event", "api", "human", "derived"},
     ("decision", "risk_class"): {"low", "medium", "high"},
     ("decision", "verdict"): {"permitted", "refused"},
+    # `executed` answers whether the system observed the action run. It cannot
+    # answer what happened when the action was dispatched and the
+    # acknowledgement was lost, because a boolean has no room for "cannot say".
+    # A reader who takes `executed: false` to mean the effect did not happen
+    # will retry an action that already ran. The record has always modelled that
+    # uncertainty for beliefs, where `state` carries `unknown`, and did not
+    # model it for actions. Optional, so every 0.2 record stays valid; the
+    # contradictions it makes expressible are checked below.
+    ("decision", "outcome"): {"confirmed", "not_attempted", "unconfirmed"},
     ("integrity", "scheme"): {"replay", "hash-chain", "signature", "external-anchor"},
 }
 
@@ -471,6 +480,26 @@ def validate(text: str) -> Report:
     r.add("TR-3", "a refused action did not execute", not ran_anyway,
           f"{len(ran_anyway)} refused decision(s) recorded as executed",
           basis="verified")
+
+    # A decision carrying `outcome` must not contradict the rest of itself.
+    # `executed` is what the system observed; `outcome` is what the record
+    # claims about the effect. Saying it ran and that it was never attempted,
+    # or that it ran and that the effect cannot be confirmed, are two claims
+    # that cannot both hold, and a reader can settle either from the record
+    # alone.
+    contradicts = []
+    for d in decisions:
+        out = d.get("outcome")
+        if out is None:
+            continue
+        if d.get("executed") is True and out != "confirmed":
+            contradicts.append(
+                f"line {d['_line']}: executed with outcome {out!r}")
+        elif d.get("verdict") == "refused" and out != "not_attempted":
+            contradicts.append(
+                f"line {d['_line']}: refused with outcome {out!r}")
+    r.add("TR-3", "a decision does not contradict its own outcome",
+          not contradicts, "; ".join(contradicts[:3]), basis="verified")
 
     no_reason = [d for d in decisions
                  if d.get("verdict") == "refused" and not d.get("reason")]
