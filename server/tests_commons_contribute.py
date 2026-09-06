@@ -251,6 +251,106 @@ check("nor does any count reveal how many labels there were",
 check("the payload is counts and vocabulary only",
       commons.validate(leaky.payload())[1] is None)
 
+
+print("\na Testimony Record is a contribution, without a CSV in between")
+# The bank and the format were two unrelated pieces of work. A record already
+# holds what the commons needs -- a subject, a proposition, and whether the
+# system held it or denied it -- so anything emitting records can contribute,
+# which is what makes every adapter a potential contributor rather than just an
+# emitter.
+REC = os.path.join(tempfile.mkdtemp(prefix="commons-rec-"), "record.jsonl")
+
+# Written here as literal JSON Lines rather than built with the emitter, which
+# lives in the machine-testimony repository. The first version of this file
+# imported it from ../machine-testimony/spec, which exists on the machine it was
+# written on and nowhere in CI, and turned its absence into a failing check.
+# That was wrong twice: OMEM must not depend on that repository at all, and a
+# test about READING a record should pin the shape it claims to read rather than
+# inherit whatever an emitter happens to produce this month.
+SPEC = "testimony-record/0.2"
+_AGENT = {"id": "support-agent", "kind": "agent"}
+
+
+def _belief(n, subject, proposition, state="believed_true", polarity="affirm"):
+    return {"spec": SPEC, "type": "belief", "id": "b_%d" % n,
+            "at": "2026-09-06T09:%02d:%02dZ" % (n // 60 % 60, n % 60),
+            "subject": subject, "proposition": proposition,
+            "polarity": polarity, "state": state,
+            "asserted_by": dict(_AGENT), "evidence": ["e_1"]}
+
+
+def _write_record(path):
+    lines = [
+        {"spec": SPEC, "type": "scope", "id": "s_1",
+         "at": "2026-09-06T09:00:00Z", "acts": True},
+        {"spec": SPEC, "type": "evidence", "id": "e_1",
+         "at": "2026-09-06T09:00:01Z", "kind": "api",
+         "source": "crm://export/2026-09"},
+    ]
+    n = 0
+    for i in range(40):
+        s = "customer:%d" % i
+        for prop, state in (
+                ("prefers_email",
+                 "believed_true" if i < 20 else "believed_false"),
+                ("pays_monthly",
+                 "believed_true" if i < 24 else "believed_false"),
+                ("renews", "believed_true"),           # popularity, not a rule
+                ("prefers_smoke_signals", "believed_true"),   # not in the lexicon
+                ("attends_weekly", "contradicted"),    # no stated position
+        ):
+            n += 1
+            lines.append(_belief(n, s, prop, state))
+    io.open(path, "w", encoding="utf-8", newline="\n").write(
+        "".join(json.dumps(x) + "\n" for x in lines))
+
+
+_write_record(REC)
+
+if True:
+    c = cc.Contribution("software", "europe", IDENT)
+    kept, dropped = c.read_record(REC)
+    check("beliefs became observations", kept == 120, kept)
+    check("and the ones outside the vocabulary were dropped, not translated",
+          dropped == 40, dropped)
+    check("with the offending WORD named, not the token",
+          "smoke" in c.dropped_words, c.dropped_words)
+    # The one that would be easiest to get wrong and hardest to notice.
+    check("a contradicted belief is not counted either way",
+          "attends_weekly" not in c.held
+          and "not:attends_weekly" not in c.held, sorted(c.held))
+    check("believed_false became the negation",
+          len(c.held.get("not:prefers_email", ())) == 20,
+          len(c.held.get("not:prefers_email", ())))
+    check("believed_true did not", len(c.held.get("prefers_email", ())) == 20,
+          len(c.held.get("prefers_email", ())))
+
+    pats = c.patterns()
+    by = {(p["antecedent"], p["consequent"]) for p in pats}
+    check("a real regularity survives", ("prefers_email", "pays_monthly") in by,
+          sorted(by))
+    check("and a consequent everybody holds does not",
+          not any(q == "renews" for _, q in by), sorted(by))
+    body = c.payload()
+    check("what comes out passes the collector's door",
+          commons.validate(body)[1] is None, commons.validate(body)[1])
+    blob = json.dumps(body)
+    check("no subject from the record travels",
+          "customer:" not in blob and "customer" not in blob)
+
+    # A denied polarity flips the same way a false state does.
+    p2 = os.path.join(os.path.dirname(REC), "deny.jsonl")
+    io.open(p2, "w", encoding="utf-8", newline="\n").write(
+        json.dumps(_belief(1, "s1", "renews", polarity="deny")) + "\n")
+    c2 = cc.Contribution("software", "europe", IDENT)
+    c2.read_record(p2)
+    check("polarity deny is a negation too",
+          "not:renews" in c2.held, sorted(c2.held))
+
+    bad = os.path.join(os.path.dirname(REC), "notjson.jsonl")
+    io.open(bad, "w", encoding="utf-8").write("this is not JSON\n")
+    refuses("a file that is not a record", lambda: cc.Contribution(
+        "software", "europe", IDENT).read_record(bad))
 print("\nthe contributor id is stable, and refuses to be otherwise")
 with tempfile.TemporaryDirectory() as d:
     p = os.path.join(d, ".commons-instance")

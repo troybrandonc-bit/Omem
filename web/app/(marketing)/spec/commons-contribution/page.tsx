@@ -371,11 +371,38 @@ export default function CommonsContribution() {
 
           <h2>If you already emit a Testimony Record</h2>
           <p>
-            Then you have most of this already. A belief carries a subject and a
-            proposition, and a pattern is a count over pairs of propositions
-            across subjects. The mapping worth doing carefully is your
-            propositions onto the vocabulary, and the same advice applies:
-            conservative, and drop what you are unsure of.
+            Then you are done, and the tool will read it directly:
+          </p>
+
+          <CodeBlock single={`python3 commons_contribute.py \\
+    --from-record record.jsonl \\
+    --domain customer_support --region europe
+
+40 beliefs dropped: the proposition is not in the commons vocabulary.
+  smoke              e.g. 'prefers_smoke_signals'
+  Nothing was translated or guessed.
+
+120 observations, 40 people, 5 behaviours.
+4 patterns cleared the bar.`} filename="terminal"
+            label="A record is already a contribution" />
+
+          <p>
+            A belief carries a subject and a proposition and says whether the
+            system held it or denied it, which is exactly what a count needs.
+            Three rules, and the middle one is the one that matters:{" "}
+            <span className="mono">believed_true</span> is the token,{" "}
+            <span className="mono">believed_false</span> is{" "}
+            <span className="mono">not:</span> the token, and a belief marked{" "}
+            <span className="mono">contradicted</span> or{" "}
+            <span className="mono">unknown</span> is <i>skipped</i>. A system
+            holding two irreconcilable positions has no stated position, and a
+            bank that resolved that quietly would be inventing an opinion the
+            record deliberately declined to have.
+          </p>
+          <p>
+            A proposition outside the vocabulary is dropped and counted, never
+            translated. Guessing a mapping is how a shared resource gets
+            polluted by somebody acting in good faith.
           </p>
           <p>
             The two are separate things and neither requires the other. A record
