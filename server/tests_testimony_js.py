@@ -175,12 +175,19 @@ for name, text in records().items():
         check(name, False, "the browser validator errored: " + err)
         continue
 
-    py_checks = [[c["level"], c["check"], c["ok"]] for c in py.checks]
+    py_checks = [[c["level"], c["check"], c["ok"], c["basis"]] for c in py.checks]
     js_checks = [list(c) for c in js["checks"]]
     py_levels = {lvl: not py.failures(lvl) for lvl in tv.LEVELS}
 
+    # The basis is compared with the rest. Two validators that agree a check
+    # passed and disagree about whether anybody could confirm it would report
+    # the same level for different reasons, which is the thing this pair exists
+    # to stop. This repository's copy of the comparison omitted the basis while
+    # the specification repository's included it, so the guarantee here was
+    # weaker than the one published there.
     same = (py.level == js["level"] and py.scope == js["scope"]
             and py.spec == js["spec"] and py_levels == js["levels_met"]
+            and py.as_dict()["basis"] == js["basis"]
             and sorted(map(str, py_checks)) == sorted(map(str, js_checks)))
     detail = ""
     if not same:

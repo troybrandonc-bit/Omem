@@ -17,6 +17,7 @@ console.log(
     scope: report.scope,
     level: report.level,
     levels_met: report.levelsMet,
-    checks: report.checks.map((c) => [c.level, c.check, c.ok]),
+    basis: report.basis,
+    checks: report.checks.map((c) => [c.level, c.check, c.ok, c.basis]),
   }),
 );
