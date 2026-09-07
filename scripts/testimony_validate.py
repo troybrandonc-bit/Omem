@@ -173,6 +173,27 @@ def digest_of(entries: list) -> str:
 # all was how a token over somebody else's record used to pass.
 _SHA256_OID = bytes.fromhex("0609608648016503040201")
 
+# The anchor kinds this validator can recompute for itself. `kind` has always
+# been required on an anchor and until 7 September 2026 nothing read it: every
+# token was parsed as an RFC 3161 TimeStampResp whatever the record said it
+# was. So an anchor committed to Bitcoin proof-of-work through OpenTimestamps
+# failed "the anchor's authority signed this record's digest" and could not
+# reach TR-4, marked down for carrying evidence that no operator and no key can
+# move, rather than a token from a single authority.
+#
+# That is the error the rubric's applies_to exists to prevent, committed inside
+# the validator: judging a system for not being the one thing the implementer
+# happened to build.
+#
+# An anchor of another kind is now reported as ATTESTED rather than failed. It
+# is the exact meaning of the word here. The record asserts that somebody else
+# holds evidence for this digest, the fields saying who and what are present
+# and checked, and this reader cannot confirm the claim. The level is still
+# reached and it rests on one fewer verified check, which the per-level basis
+# counts already report. A validator that could read the kind would report the
+# same anchor as verified, and that difference is the honest one.
+_CHECKABLE_KINDS = {"rfc3161"}
+
 
 def _imprints(token: bytes) -> list:
     """Every SHA-256 message imprint in a TimeStampResp."""
@@ -720,11 +741,16 @@ def validate(text: str) -> Report:
           "; ".join(wrong[:3]),
           basis="verified")
 
-    adrift = []
+    adrift, unread, checkable = [], [], 0
     for g in integrity:
         if g.get("scheme") != "external-anchor":
             continue
         a = g.get("anchor") if isinstance(g.get("anchor"), dict) else {}
+        kind = str(a.get("kind") or "").strip().lower()
+        if kind and kind not in _CHECKABLE_KINDS:
+            unread.append(kind)
+            continue      # not this validator's to judge, and not its to fail
+        checkable += 1
         tok, want = a.get("token"), str(g.get("digest") or "")
         if not tok or not want.startswith("sha256:"):
             continue                        # already reported as hollow, above
@@ -739,9 +765,15 @@ def validate(text: str) -> Report:
         elif bytes.fromhex(want[7:]) not in found:
             adrift.append(f"line {g['_line']}: the authority signed a different "
                           f"digest ({found[0].hex()[:16]}..)")
-    r.add("TR-4", "the anchor's authority signed this record's digest",
-          not adrift, "; ".join(adrift[:3]),
-          basis="verified")
+    if checkable:
+        r.add("TR-4", "the anchor's authority signed this record's digest",
+              not adrift, "; ".join(adrift[:3]),
+              basis="verified")
+    if unread:
+        r.add("TR-4", "an anchor of a kind this validator cannot recompute "
+              "rests on its authority", True,
+              "not checked here: " + ", ".join(sorted(set(unread))),
+              basis="attested")
 
     # ── the one bound on the record's own clock a reader can settle ──────────
     #
@@ -767,8 +799,9 @@ def validate(text: str) -> Report:
         if g.get("scheme") != "external-anchor" or not g.get("covers"):
             continue
         a = g.get("anchor") if isinstance(g.get("anchor"), dict) else {}
-        if not a.get("token"):
-            continue
+        kind = str(a.get("kind") or "").strip().lower()
+        if not a.get("token") or (kind and kind not in _CHECKABLE_KINDS):
+            continue      # genTime is an RFC 3161 field; another kind has none
         try:
             seen = _gen_time(base64.b64decode(a["token"], validate=True))
         except Exception:                                       # noqa: BLE001
