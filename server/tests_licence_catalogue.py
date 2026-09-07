@@ -111,22 +111,18 @@ if _price:
     check("and it is a flat number rather than an invitation to negotiate",
           "and up" not in flat, "the panel still says 'and up'")
 
-# The page once advertised tiers with a checkout that did not exist. A
-# self-serve claim is now allowed only when something can serve it.
-link = re.search(r'STRIPE_LINK\s*=\s*"([^"]*)"', page)
-check("the page declares where a checkout link would go", link is not None,
-      "no STRIPE_LINK constant")
-has_link = bool(link and link.group(1).strip())
-if has_link:
-    check("the link is a real URL", link.group(1).startswith("https://"),
-          link.group(1))
-else:
-    # No link, so nothing on the page may imply one can be used.
-    for claim in ("buy now", "subscribe", "start free trial", "checkout now"):
-        check("with no link, the page does not say %r" % claim,
-              claim not in flat.lower())
-    check("and it says how a licence is actually obtained",
-          "invoice" in flat.lower() or "conversation" in flat.lower())
+# The page once advertised tiers with a checkout that did not exist, and the
+# guard here required it to declare where a checkout would go. On 7 September
+# 2026 the components stopped being sold at all, so that requirement inverted:
+# the party that assesses a deployment cannot also sell it the thing the
+# assessment asks for, and a purchase path for the components is the failure
+# rather than the fix. The assessment is the only paid thing on this page.
+for claim in ("buy now", "subscribe", "start free trial", "checkout now",
+              "buy a licence", "talk about a licence"):
+    check("the components are not for sale: no %r" % claim,
+          claim not in flat.lower())
+check("and the page says so rather than leaving it to be inferred",
+      "not sold" in flat.lower() or "nothing to buy" in flat.lower())
 # The assessment is a claim about somebody else's system, made to their insurer
 # or their auditor. Two sentences carry all of its honesty, and both are the
 # kind that go missing in a later edit by somebody trying to tighten the copy.

@@ -70,20 +70,6 @@ const ENTERPRISE = [
   "Source-available under ee/LICENSE. Read it, audit it, run it in development free",
 ];
 
-/* Where a checkout link goes when there is one to put here.
- *
- * Empty means there is no self-serve path, and the page says invoice, because
- * this page's whole history is the lesson: it once advertised $25 and $299
- * tiers whose checkout endpoint never created a Stripe session, so there was no
- * way to pay for what was being sold. A link that does not work is worse than
- * no link.
- *
- * Paste a real Stripe payment link here and the panel switches to offering it.
- * tests_licence_catalogue.py holds the page to whichever of the two is true:
- * with no link it may not use the language of self-serve, and with a link it
- * has to be a real URL. */
-const STRIPE_LINK = "";
-
 const INCLUDED = [
   "The full memory model: belief state, contradiction, provenance, recall",
   "Unlimited memories and sources",
@@ -195,26 +181,23 @@ export default function Pricing() {
             <div>
               <h2 className="text-note font-semibold">Enterprise components</h2>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="display text-3xl">&euro;6,000</span>
-                <span className="text-note text-muted">a year, per organisation</span>
+                <span className="display text-3xl">Free</span>
+                <span className="text-note text-muted">part of the reference implementation</span>
               </div>
               <p className="mt-4 max-w-[32ch] text-note text-muted">
                 For the organisation that has to say who is allowed to approve
-                what, and show the rule afterwards. Flat, per organisation, no
-                seat count and no metering: the licence verifies offline and
-                this product does not phone home, so there is nothing here that
-                could count your users. Everything above stays free whether you
-                buy this or not.
+                what, and show the rule afterwards. These were licensed at
+                &euro;6,000 a year until 7 September 2026 and are not sold any
+                more. The same hands run the assessment, and charging for the
+                thing a deployment needs in order to reach TR-3, having been
+                paid to report that it has not, is the conflict that ends an
+                assessor. The assessment is the product. This is not.
               </p>
-              <ButtonLink href="/pilot" className="mt-6 w-full sm:w-auto">
-                Talk about a licence
-              </ButtonLink>
               <p className="mt-4 text-caption text-faint">
-                No checkout. A licence is agreed in a conversation and paid on an
-                invoice, because at this size that is what actually happens.
+                Nothing to buy. It installs with the rest of it.
               </p>
               <p className="mt-3 text-caption text-faint">
-                Your security team will want{" "}
+                Your security team may still want{" "}
                 <Link href="/vendor-review" className="link-underline text-fg">
                   the supplier answers
                 </Link>{" "}
@@ -237,24 +220,11 @@ export default function Pricing() {
                 ships, not when it is planned, which is why it is shorter than
                 you might expect a paid tier to be.
               </p>
-              {STRIPE_LINK ? (
-                <a
-                  href={STRIPE_LINK}
-                  className="mt-5 inline-flex items-center gap-2 text-note font-semibold underline underline-offset-4"
-                >
-                  Buy a licence
-                </a>
-              ) : (
-                <p className="mt-5 text-caption text-faint">
-                  There is no self-serve checkout. A licence is agreed in a
-                  conversation and paid on an invoice, which is a path that
-                  exists today. Write to{" "}
-                  <a href="mailto:hello@omem-cloud.com" className="underline underline-offset-4">
-                    hello@omem-cloud.com
-                  </a>
-                  .
-                </p>
-              )}
+              <p className="mt-5 text-caption text-faint">
+                Nothing to buy. These ship with the reference implementation and
+                always will, because the party that assesses a deployment cannot
+                also sell it the thing the assessment asks for.
+              </p>
             </div>
           </div>
         </div>

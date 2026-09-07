@@ -85,8 +85,8 @@ const FEATURES = [
    "“Mornings work best for me” attaches to the person who wrote it, grounded in their own sentence, extracted offline with no LLM. The priors tier then learns what people are like in general, as counts that name nobody."],
   ["The right to be forgotten, executed",
    "One request rewrites the record for real: the person's data, the cascade behind it, and their sentences quoted under surviving beliefs. Replay-verified before anything is touched; what remains is a hash, counts, and a date."],
-  ["A bank that teaches AI what people are like",
-   "The priors OMEM learns collect in an intelligence bank on your own machine, anonymous counts about how people behave, exportable as a training set. The rule that fills it has been tested against 19,668 real respondents rather than a world we invented. Our objective is to give AI a real understanding of our nature while holding no fact about anyone."],
+  ["Regularities, and no record of anyone",
+   "What the system learns about people in general stays on your own machine as counts over a closed vocabulary, with no field a sentence could travel in. The rule deciding what earns a place was tested against 19,668 real respondents, and the paper reporting it also reports the defect that testing found and the correction."],
   ["The dashboard is included",
    "One pip install serves the API and the UI on the same port. No Node at runtime, no second process."],
 ];
@@ -163,13 +163,12 @@ export default function Home() {
               against what is actually known before you act on it.
               <span className="mt-4 block text-body text-muted">
                 <b className="text-[color:var(--fg)]">And the reason it exists
-                is bigger than that.</b> AI learns what people are like from
-                text nobody agreed to hand over. OMEM learns the same kind of
-                thing from people who chose to contribute, as counts that name
-                nobody, with the consent recorded and the withdrawal real
-                &mdash; and installs that opt in pool what they learn, so a new
-                agent borrows that intuition on day one instead of spending
-                months earning it.
+                is bigger than that.</b> A system that acts on what it believes
+                about a person should be able to show what it believed, on what
+                evidence, and who allowed it to act. That is a record problem
+                before it is a memory problem, and the format for it is
+                published, free, and specified somewhere this product does not
+                control.
               </span>
             </p>
             <div className="lg:pt-1">
