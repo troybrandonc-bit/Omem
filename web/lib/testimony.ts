@@ -256,6 +256,64 @@ export function imprints(token: Uint8Array): string[] {
   return out;
 }
 
+/* The moment the authority says it saw the imprint, as an RFC 3339 string.
+ * In TSTInfo the genTime follows the messageImprint, so the search starts at
+ * the imprint and not at the front of the token: a SignerInfo can carry its
+ * own signing-time attribute, and a scan from byte zero could return the
+ * signer's clock in place of the authority's. Anything that is not a DER
+ * GeneralizedTime holding exactly the digits RFC 3161 requires is skipped
+ * rather than guessed at, and a token this cannot read yields no check at all
+ * rather than a failure. */
+export function genTime(token: Uint8Array): string | null {
+  let start = -1;
+  for (let i = 0; i + SHA256_OID.length < token.length && start < 0; i++) {
+    let hit = true;
+    for (let k = 0; k < SHA256_OID.length; k++)
+      if (token[i + k] !== SHA256_OID[k]) { hit = false; break; }
+    if (hit) start = i;
+  }
+  if (start < 0) return null;
+  for (let i = start + 1; i + 1 < token.length; i++) {
+    if (token[i] !== 0x18) continue;
+    const ln = token[i + 1];
+    if (ln < 15 || ln > 24 || i + 2 + ln > token.length) continue;
+    let text = "";
+    for (let k = i + 2; k < i + 2 + ln; k++) {
+      const c = token[k];
+      if (c < 0x20 || c > 0x7e) { text = ""; break; }
+      text += String.fromCharCode(c);
+    }
+    const m = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\.\d+)?Z$/.exec(text);
+    if (!m) continue;
+    return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}${m[7] || ""}Z`;
+  }
+  return null;
+}
+
+/* An RFC 3339 timestamp as seconds, or null if it is not one. Two timestamps
+ * are compared here rather than sorted, and comparing the strings would be
+ * wrong: `at` may carry an offset while a genTime is always Z, so
+ * "2026-09-05T16:31:54+02:00" sorts after a Z time it actually precedes. */
+const TS =
+  /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(\.\d+)?([Zz]|([+-])(\d{2}):(\d{2}))$/;
+
+export function utcSeconds(text: string): number | null {
+  const m = TS.exec(text || "");
+  if (!m) return null;
+  const y = +m[1], mo = +m[2], d = +m[3];
+  const cum = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+  let days = y * 365 + Math.floor(y / 4) - Math.floor(y / 100)
+    + Math.floor(y / 400) + cum[mo - 1] + d;
+  if (mo <= 2 && (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0))) days -= 1;
+  let total = days * 86400 + (+m[4]) * 3600 + (+m[5]) * 60 + (+m[6])
+    + (m[7] ? parseFloat(m[7]) : 0);
+  if (m[9]) {
+    const off = (+m[10]) * 3600 + (+m[11]) * 60;
+    total += m[9] === "+" ? -off : off;
+  }
+  return total;
+}
+
 function parse(text: string): { entries: Entry[]; errors: string[] } {
   const entries: Entry[] = [];
   const errors: string[] = [];
@@ -601,6 +659,40 @@ export function validate(text: string): Report {
   }
   add("TR-4", "the anchor's authority signed this record's digest",
     adrift.length === 0, adrift.slice(0, 3).join("; "));
+
+  /* The one bound on the record's own clock a reader can settle. Every `at` is
+   * written by the emitter, and nothing above checks one against anything
+   * outside the emitter: RFC 3339 shape and non-decreasing order are both
+   * verified and both establish only that its numbers are well formed and
+   * monotone. A TimeStampResp carries the moment a third party saw the digest,
+   * and this validator was reading the token far enough to check the imprint
+   * and then throwing that moment away. One-sided by nature: it catches
+   * forward dating past the anchor and nothing back-dated. Raised in #49. */
+  const late: string[] = [];
+  let bounded = false;
+  for (const g of integrity) {
+    if (str(g.scheme) !== "external-anchor" || !Array.isArray(g.covers)) continue;
+    const a = obj(g.anchor);
+    const tok = str(a.token);
+    if (!tok) continue;
+    const raw = b64(tok);
+    if (!raw) continue;                       /* reported as adrift, above */
+    const seen = genTime(raw);
+    const bound = seen === null ? null : utcSeconds(seen);
+    if (bound === null) continue;   /* unreadable yields no check, not a fail */
+    bounded = true;
+    for (const cid of g.covers as unknown[]) {
+      const e = byId.get(String(cid));
+      if (!e) continue;                        /* reported as stale, above */
+      const when = utcSeconds(str(e.at));
+      if (when !== null && when > bound)
+        late.push(`line ${e._line}: written ${str(e.at)}, after the ${seen} ` +
+          `the authority saw it`);
+    }
+  }
+  if (bounded)
+    add("TR-4", "no entry claims a write time later than the anchor saw it",
+      late.length === 0, late.slice(0, 3).join("; "));
 
   /* The level reached is the highest with nothing failing below it. */
   const failed = (lvl: Level) => checks.some((c) => c.level === lvl && !c.ok);

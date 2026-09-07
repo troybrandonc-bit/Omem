@@ -189,6 +189,78 @@ def _imprints(token: bytes) -> list:
         i = j
 
 
+def _gen_time(token: bytes):
+    """The moment the authority says it saw the imprint, as an RFC 3339 string.
+
+    A TimeStampResp is not parsed here in general: this reads the one field a
+    record can be checked against, on the same terms as _imprints, so that
+    checking a timestamp still needs no certificate library.
+
+    In TSTInfo the genTime follows the messageImprint, so the search starts at
+    the imprint rather than at the front of the token. That matters because a
+    SignerInfo can carry its own signing-time attribute, and a scan from byte
+    zero could return the signer's clock in place of the authority's. Anything
+    that is not a DER GeneralizedTime holding exactly the digits RFC 3161
+    requires is skipped rather than guessed at, and a token this cannot read
+    yields no check at all rather than a failure: telling a reader nothing is
+    honest, telling them the record is wrong would not be.
+    """
+    start = token.find(_SHA256_OID)
+    if start < 0:
+        return None
+    i = start
+    while True:
+        i = token.find(b"\x18", i + 1)
+        if i < 0:
+            return None
+        if i + 1 >= len(token):
+            return None
+        ln = token[i + 1]
+        if not 15 <= ln <= 24:              # YYYYMMDDHHMMSSZ, plus fractions
+            continue
+        raw = token[i + 2:i + 2 + ln]
+        if len(raw) != ln:
+            continue
+        try:
+            text = raw.decode("ascii")
+        except UnicodeDecodeError:
+            continue
+        m = re.fullmatch(r"(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})"
+                         r"(\.\d+)?Z", text)
+        if not m:
+            continue
+        return "%s-%s-%sT%s:%s:%s%sZ" % (
+            m.group(1), m.group(2), m.group(3), m.group(4), m.group(5),
+            m.group(6), m.group(7) or "")
+
+
+_TS = re.compile(r"^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})"
+                 r"(\.\d+)?([Zz]|([+-])(\d{2}):(\d{2}))$")
+
+
+def _utc_seconds(text: str):
+    """An RFC 3339 timestamp as seconds, or None if it is not one.
+
+    Two timestamps are compared here, not sorted, and comparing the strings
+    would be wrong: `at` may carry an offset while a genTime is always Z, so
+    "2026-09-05T16:31:54+02:00" sorts after a Z time it actually precedes.
+    """
+    m = _TS.match(text or "")
+    if not m:
+        return None
+    y, mo, d, h, mi, s = (int(m.group(i)) for i in range(1, 7))
+    days = (y * 365 + y // 4 - y // 100 + y // 400
+            + [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334][mo - 1]
+            + d)
+    if mo <= 2 and (y % 4 == 0 and (y % 100 != 0 or y % 400 == 0)):
+        days -= 1
+    total = days * 86400 + h * 3600 + mi * 60 + s + float(m.group(7) or 0)
+    if m.group(9):                          # an explicit offset, not Z
+        off = int(m.group(10)) * 3600 + int(m.group(11)) * 60
+        total += -off if m.group(9) == "+" else off
+    return total
+
+
 def _declared(value: object, allowed: set) -> str:
     """Empty, an extension, a known source, or none of these.
 
@@ -670,6 +742,54 @@ def validate(text: str) -> Report:
     r.add("TR-4", "the anchor's authority signed this record's digest",
           not adrift, "; ".join(adrift[:3]),
           basis="verified")
+
+    # ── the one bound on the record's own clock a reader can settle ──────────
+    #
+    # Every `at` is written by the emitter, and nothing above checks one
+    # against anything outside the emitter. The two that touch it, RFC 3339
+    # shape and non-decreasing order, are correctly marked verified and
+    # establish only that its numbers are well formed and monotone; an emitter
+    # that back-dates consistently passes both without effort.
+    #
+    # A TimeStampResp carries the moment a third party saw the digest, and the
+    # validator was parsing the token far enough to check the imprint and then
+    # throwing that moment away. An entry the anchor covers existed when the
+    # authority saw it, so one claiming to have been written AFTER that moment
+    # is contradicted by a party with no stake in the record.
+    #
+    # The bound is one-sided, and saying so is the point: it catches forward
+    # dating past the anchor and nothing back-dated, because "no later than" is
+    # satisfied by any earlier claim too. Closing the other side needs a stamp
+    # taken BEFORE the fact, which is a different requirement and not this one.
+    # Raised by babyblueviper1 in #49, the second of its three parts.
+    late, bounded = [], False
+    for g in integrity:
+        if g.get("scheme") != "external-anchor" or not g.get("covers"):
+            continue
+        a = g.get("anchor") if isinstance(g.get("anchor"), dict) else {}
+        if not a.get("token"):
+            continue
+        try:
+            seen = _gen_time(base64.b64decode(a["token"], validate=True))
+        except Exception:                                       # noqa: BLE001
+            continue                        # already reported as adrift, above
+        bound = _utc_seconds(seen) if seen else None
+        if bound is None:
+            continue      # a token this cannot read produces no check, not one
+        bounded = True    # that fails a record for the validator's own limits
+        for cid in g["covers"]:
+            e = by_id.get(cid)
+            if not e:
+                continue                    # already reported as stale, above
+            when = _utc_seconds(str(e.get("at") or ""))
+            if when is not None and when > bound:
+                late.append("line %d: written %s, after the %s the authority "
+                            "saw it" % (e["_line"], e.get("at"), seen))
+    if bounded:
+        r.add("TR-4", "no entry claims a write time later than the anchor saw it",
+              not late, "; ".join(late[:3]),
+              basis="verified")
+
 
     # ── the level reached is the highest with nothing failing below it ───────
     reached = None
