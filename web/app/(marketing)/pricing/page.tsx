@@ -40,14 +40,24 @@ export const metadata = {
  * The honesty rule this page learned the hard way applies double here, because
  * an assessment is a claim about somebody else's system made to their insurer.
  * So the panel says what it is not, in the panel, not in a footnote: no
- * accreditation, no regulator, no certification. Overstating that would also
- * cost the ForHumanity and BSI routes, which are the ones that would eventually
- * make it worth more. */
+ * accreditation, no regulator, no certification.
+ *
+ * It also no longer bundles the enterprise components, which it did until
+ * 7 Sep 2026 with the line "included, because reaching TR-3 needs them". That
+ * was two faults in one sentence. It was untrue: TR-3 asks for decisions with
+ * verdicts and approvals that name a person and where the identity came from,
+ * which is an approval mechanism rather than ours, and a deployment running
+ * none of our software can reach it. And it was the conflict that ends an
+ * assessor: selling the remedy for the deficiency you were paid to find. An
+ * auditor who does that is not an auditor, whatever the rubric says.
+ *
+ * Overstating any of it would also cost the ForHumanity and BSI routes, which
+ * are the ones that would eventually make it worth more. */
 const ATTESTED = [
   "Your production records read against the twenty published requirements, with the evidence for every verdict",
   "The conformance level they actually reach, which is often not the one the vendor's page implies",
   "A dated entry in the public register, if you want one. Declining is free and changes nothing else",
-  "The enterprise components below, included, because reaching TR-3 needs them",
+  "Nothing of ours is bundled with it. A deployment running none of our software gets the same assessment at the same price, and one that reaches TR-3 without us reaches TR-3",
   "The rubric, the validator and the conformance corpus are free whether you buy this or not",
   "OMEM is assessed by the same rubric and sits in the same register as the seven other systems",
 ];
