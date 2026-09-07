@@ -553,10 +553,10 @@ It is not a certification. No accreditation body stands behind it and no regulat
 
 ## Enterprise components
 
-€6,000a year, per organisation
-For the organisation that has to say who is allowed to approve what, and show the rule afterwards. Flat, per organisation, no seat count and no metering: the licence verifies offline and this product does not phone home, so there is nothing here that could count your users. Everything above stays free whether you buy this or not.
-Talk about a licenceNo checkout. A licence is agreed in a conversation and paid on an invoice, because at this size that is what actually happens.
-Your security team will want the supplier answers before you get that far. They are written to be forwarded.
+Freepart of the reference implementation
+For the organisation that has to say who is allowed to approve what, and show the rule afterwards. These were licensed at €6,000 a year until 7 September 2026 and are not sold any more. The same hands run the assessment, and charging for the thing a deployment needs in order to reach TR-3, having been paid to report that it has not, is the conflict that ends an assessor. The assessment is the product. This is not.
+Nothing to buy. It installs with the rest of it.
+Your security team may still want the supplier answers before you get that far. They are written to be forwarded.
 
 ### What exists today
 
@@ -566,7 +566,7 @@ Your security team will want the supplier answers before you get that far. They 
 - The licence verifies offline: no callback, no telemetry, nothing to phone home
 - Source-available under ee/LICENSE. Read it, audit it, run it in development free
 Two components, because two are built. This list grows when code ships, not when it is planned, which is why it is shorter than you might expect a paid tier to be.
-There is no self-serve checkout. A licence is agreed in a conversation and paid on an invoice, which is a path that exists today. Write to hello@omem-cloud.com.
+Nothing to buy. These ship with the reference implementation and always will, because the party that assesses a deployment cannot also sell it the thing the assessment asks for.
 
 ## When that changes
 
