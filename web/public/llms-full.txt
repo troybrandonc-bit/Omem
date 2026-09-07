@@ -764,19 +764,20 @@ Copy code
 3
 4 "patterns": [
 5 {"antecedent": "prefers_email", "consequent": "responds_slowly",
-6 "support": 41, "refute": 6, "subjects": 88}
-7 ],
-8
-9 "calibration": [
-10 {"scope": "generator_class", "name": "association",
-11 "supported": 128, "refuted": 24}
-12 ],
-13
-14 "terms": {"version": "2026-09-03", "granted": ["public_commons"]},
-15
-16 "frame": {"domain": "customer_support", "region": "europe",
-17 "subjects": "200-999"}
-18}
+6 "support": 41, "refute": 6, "subjects": 88,
+7 "consequent_base": 0.31}
+8 ],
+9
+10 "calibration": [
+11 {"scope": "generator_class", "name": "association",
+12 "supported": 128, "refuted": 24}
+13 ],
+14
+15 "terms": {"version": "2026-09-03", "granted": ["public_commons"]},
+16
+17 "frame": {"domain": "customer_support", "region": "europe",
+18 "subjects": "200-999"}
+19}
 
 Field
 instanceA uuid4 you mint once and reuse. It carries nothing about you or your machine, and exists only so a later withdrawal can find the counts it should remove.
@@ -793,6 +794,7 @@ consequentA behaviour token from the vocabulary. The thing that may follow.
 supportHow many subjects held both.
 refuteHow many held the first and opposed the second. Counting this is not optional: without it, a bank records what is common rather than what is associated.
 subjectsHow many held the first at all, which is what makes the other two a rate rather than a tally.
+consequent_baseHow often the consequent held across your WHOLE population, as a rate between 0 and 1 and never a count. Required. It is the number the lift test is measured against, and it is the only field here that nobody but you can compute.
 A pattern whose subjects count is very small is discarded rather than trusted. Twenty is a reasonable floor to apply on your own side before sending, and the bank applies its own regardless.
 
 ## The vocabulary
@@ -846,14 +848,15 @@ Copy code
 
 It refuses where the mistake is rather than after the file is written. A word outside the vocabulary is named as a word, not as a token, because the word is the thing you have to change. A subject recorded as both doing and not doing something is refused rather than counted twice.
 
-### The one thing the bank cannot check for you
+### The one number the bank has to take on trust
 
-The collector rejects identifying tokens, foreign words, malformed counts and anything below the floor on support. It cannot check the test that matters most, and the reason is structural rather than an omission: a pattern earns its place by beating what the population already says about the consequent on its own, and the collector never sees your population. Only you can compute that.
-Which means a hand built contribution can be accepted in full and still be mostly noise. If almost everyone in your data renews, then every antecedent appears to predict renewal, and a bank filled with that records what is popular rather than what follows from anything. The tool applies the same three tests an OMEM installation applies before it sends: at least three subjects holding both, a rate of 60 per cent or better against the refutations, and a lower confidence bound that clears the consequent’s own base rate by ten points. If you build the payload by hand instead, apply them yourself.
+The collector rejects identifying tokens, foreign words and malformed counts, and it applies all three of the tests an OMEM installation applies before it sends: at least three subjects holding both, a rate of 60 per cent or better against the refutations, and a lower confidence bound that clears the consequent’s own base rate by ten points. A pattern that fails any of them is dropped whether you applied the tests or not, so a hand built payload does not get an easier ride than an installation.
+The third test is why consequent_base is required. A pattern earns its place by beating what your population already says about the consequent on its own, and the collector never sees your population, so it cannot derive that number and will not assume one. If almost everyone in your data renews then every antecedent appears to predict renewal, and a bank filled with that records what is popular rather than what follows from anything.
+What the collector still cannot do is confirm the number you send. It re-runs the test against your figure and refuses what fails; a figure that is simply wrong will pass. That is a real limit and the dataset card states it, next to the counts, which any reader can check for themselves. It is worth asking for anyway, because a contributor who states a base rate can be contradicted by anyone who knows the population, and a contributor who states nothing cannot be contradicted at all.
 
 ## Producing the counts by hand
 
-The shape below is the general case. Substitute your own store; the only requirements are that you can group by subject and that you can express the behaviour in the vocabulary. It gives you support, refutations and subjects; the rate and the lift test above are still yours to apply on top.
+The shape below is the general case. Substitute your own store; the only requirements are that you can group by subject and that you can express the behaviour in the vocabulary. It gives you support, refutations, subjects and the consequent’s base rate, which is everything the collector needs to apply all three tests itself.
 counts.sql
 Copy code
 1-- what you need from your own store, whatever it is
@@ -867,12 +870,18 @@ Copy code
 9 b.token AS consequent,
 10 COUNT(DISTINCT CASE WHEN b.holds THEN a.subject_id END) AS support,
 11 COUNT(DISTINCT CASE WHEN NOT b.holds THEN a.subject_id END) AS refute,
-12 COUNT(DISTINCT a.subject_id) AS subjects
-13FROM facts a
-14JOIN facts b USING (subject_id)
-15WHERE a.holds AND a.token <> b.token
-16GROUP BY a.token, b.token
-17HAVING COUNT(DISTINCT a.subject_id) >= 20;
+12 COUNT(DISTINCT a.subject_id) AS subjects,
+13 -- consequent_base: how often b held across EVERYONE, not just the people
+14 -- who held a. This is the comparison the pattern has to beat, so it is
+15 -- measured over the whole population and never over the matched group.
+16 (SELECT CAST(COUNT(DISTINCT CASE WHEN c.holds THEN c.subject_id END) AS REAL)
+17 / NULLIF(COUNT(DISTINCT c.subject_id), 0)
+18 FROM facts c WHERE c.token = b.token) AS consequent_base
+19FROM facts a
+20JOIN facts b USING (subject_id)
+21WHERE a.holds AND a.token <> b.token
+22GROUP BY a.token, b.token
+23HAVING COUNT(DISTINCT a.subject_id) >= 20;
 
 Note the refute column. Counting only co-occurrence produces a bank that records what is common, which is not the same as what is associated, and a system built on the first will confidently tell you that most people do the most popular thing. That defect was measured and published: recovery of a known structure at 0.185 against a chance rate of 0.184, before the rule was changed.
 
