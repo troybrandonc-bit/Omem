@@ -55,7 +55,9 @@ def fresh():
 
 
 def local(db, ant, con, support, refute, subjects, pid="proj"):
-    db.execute("INSERT INTO priors VALUES(?,?,?,?,'default',?,?,?,0)",
+    db.execute("INSERT INTO priors(id,project_id,antecedent,consequent,context,"
+               "support,refute,subjects,updated,base_q) "
+               "VALUES(?,?,?,?,'default',?,?,?,0,0.1)",
                ("pr_%s_%s" % (ant, con), pid, ant, con, support, refute, subjects))
     db.commit()
 

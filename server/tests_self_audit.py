@@ -171,8 +171,9 @@ for who in profiles:
         n += 1
 
 db = fresh()
-db.execute("INSERT INTO priors VALUES('pr_easy','proj','p000','p003',"
-           "'default',300,10,310,0)")
+db.execute("INSERT INTO priors(id,project_id,antecedent,consequent,context,"
+           "support,refute,subjects,updated,base_q) "
+           "VALUES('pr_easy','proj','p000','p003','default',300,10,310,0,0.1)")
 db.commit()
 op, pf = _h._declared_opposites, _h._profiles
 _h._profiles = lambda d_, p_, T_: profiles

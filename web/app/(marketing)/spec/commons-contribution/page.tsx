@@ -57,7 +57,8 @@ const SHAPE = `{
 
   "patterns": [
     {"antecedent": "prefers_email", "consequent": "responds_slowly",
-     "support": 41, "refute": 6, "subjects": 88}
+     "support": 41, "refute": 6, "subjects": 88,
+     "consequent_base": 0.31}
   ],
 
   "calibration": [
@@ -82,7 +83,13 @@ SELECT
   b.token                       AS consequent,
   COUNT(DISTINCT CASE WHEN b.holds THEN a.subject_id END)      AS support,
   COUNT(DISTINCT CASE WHEN NOT b.holds THEN a.subject_id END)  AS refute,
-  COUNT(DISTINCT a.subject_id)                                 AS subjects
+  COUNT(DISTINCT a.subject_id)                                 AS subjects,
+  -- consequent_base: how often b held across EVERYONE, not just the people
+  -- who held a. This is the comparison the pattern has to beat, so it is
+  -- measured over the whole population and never over the matched group.
+  (SELECT CAST(COUNT(DISTINCT CASE WHEN c.holds THEN c.subject_id END) AS REAL)
+        / NULLIF(COUNT(DISTINCT c.subject_id), 0)
+     FROM facts c WHERE c.token = b.token)                     AS consequent_base
 FROM facts a
 JOIN facts b USING (subject_id)
 WHERE a.holds AND a.token <> b.token
@@ -126,6 +133,7 @@ const PATTERN: Row[] = [
   ["support", "How many subjects held both."],
   ["refute", "How many held the first and opposed the second. Counting this is not optional: without it, a bank records what is common rather than what is associated."],
   ["subjects", "How many held the first at all, which is what makes the other two a rate rather than a tally."],
+  ["consequent_base", "How often the consequent held across your WHOLE population, as a rate between 0 and 1 and never a count. Required. It is the number the lift test is measured against, and it is the only field here that nobody but you can compute."],
 ];
 
 export default function CommonsContribution() {
@@ -312,27 +320,37 @@ export default function CommonsContribution() {
             than counted twice.
           </p>
 
-          <h3 className="sub">The one thing the bank cannot check for you</h3>
+          <h3 className="sub">The one number the bank has to take on trust</h3>
           <p>
-            The collector rejects identifying tokens, foreign words, malformed
-            counts and anything below the floor on{" "}
-            <span className="mono">support</span>. It cannot check the test that
-            matters most, and the reason is structural rather than an omission:
-            a pattern earns its place by beating what the population already
-            says about the consequent on its own, and the collector never sees
-            your population. Only you can compute that.
-          </p>
-          <p>
-            Which means a hand built contribution can be accepted in full and
-            still be mostly noise. If almost everyone in your data renews, then
-            every antecedent appears to predict renewal, and a bank filled with
-            that records what is popular rather than what follows from
-            anything. The tool applies the same three tests an OMEM
+            The collector rejects identifying tokens, foreign words and
+            malformed counts, and it applies all three of the tests an OMEM
             installation applies before it sends: at least three subjects
             holding both, a rate of 60 per cent or better against the
             refutations, and a lower confidence bound that clears the
-            consequent&rsquo;s own base rate by ten points. If you build the
-            payload by hand instead, apply them yourself.
+            consequent&rsquo;s own base rate by ten points. A pattern that
+            fails any of them is dropped whether you applied the tests or not,
+            so a hand built payload does not get an easier ride than an
+            installation.
+          </p>
+          <p>
+            The third test is why{" "}
+            <span className="mono">consequent_base</span> is required. A
+            pattern earns its place by beating what your population already
+            says about the consequent on its own, and the collector never sees
+            your population, so it cannot derive that number and will not
+            assume one. If almost everyone in your data renews then every
+            antecedent appears to predict renewal, and a bank filled with that
+            records what is popular rather than what follows from anything.
+          </p>
+          <p>
+            What the collector still cannot do is confirm the number you send.
+            It re-runs the test against your figure and refuses what fails; a
+            figure that is simply wrong will pass. That is a real limit and the
+            dataset card states it, next to the counts, which any reader can
+            check for themselves. It is worth asking for anyway, because a
+            contributor who states a base rate can be contradicted by anyone
+            who knows the population, and a contributor who states nothing
+            cannot be contradicted at all.
           </p>
 
           <h2>Producing the counts by hand</h2>
@@ -340,8 +358,8 @@ export default function CommonsContribution() {
             The shape below is the general case. Substitute your own store; the
             only requirements are that you can group by subject and that you can
             express the behaviour in the vocabulary. It gives you support,
-            refutations and subjects; the rate and the lift test above are still
-            yours to apply on top.
+            refutations, subjects and the consequent&rsquo;s base rate, which is
+            everything the collector needs to apply all three tests itself.
           </p>
 
           <CodeBlock single={COUNTS} filename="counts.sql"

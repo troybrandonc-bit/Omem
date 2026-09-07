@@ -21,6 +21,7 @@ if os.path.exists(DB):
 os.environ["OMEM_DB"] = DB
 
 import commons  # noqa: E402
+import hypotheses as _h  # noqa: E402
 
 PASS = FAIL = 0
 
@@ -42,7 +43,7 @@ con.executescript(commons.COMMONS_SCHEMA)
 print("== validation at the door ==")
 GOOD = {"instance": "a" * 16, "patterns": [
     {"antecedent": "prefers_morning_meetings", "consequent": "prefers_email_contact",
-     "support": 5, "refute": 1, "subjects": 8}]}
+     "support": 5, "refute": 1, "subjects": 8, "consequent_base": 0.2}]}
 clean, err = commons.validate(GOOD)
 check("a clean contribution passes", err is None and len(clean) == 1, err)
 for name, bad in [
@@ -106,6 +107,138 @@ clean, err = commons.validate({**GOOD, "patterns": [
 check("below-floor pattern skipped quietly, not an error",
       err is None and clean == [])
 
+
+print("== the lift test, which nobody but the contributor can measure ==")
+# The bar a pattern has to clear is not "most P-holders hold Q". It is "more of
+# them hold Q than hold Q anyway", and the base rate that answers that is
+# measured over a population the collector deliberately never sees. Before
+# `consequent_base` the door could not ask, so a hand-assembled contribution
+# could clear every other test and still be the consequent's popularity wearing
+# the antecedent as a hat. Measured on 19,719 respondents, the rate test alone
+# recovered a known latent structure at 0.185 against a chance line of 0.184.
+_P = GOOD["patterns"][0]
+_wl = _h._wilson_lower(_P["support"], _P["support"] + _P["refute"])
+
+clean, err = commons.validate(
+    {**GOOD, "patterns": [{k: v for k, v in _P.items() if k != "consequent_base"}]})
+check("a pattern that will not say what it beats is refused, not skipped",
+      clean == [] and err is not None and "consequent_base" in err, (clean, err))
+
+for name, base in (("a rate above one", 1.5), ("a negative rate", -0.1),
+                   ("a rate that is not a number", "most")):
+    clean, err = commons.validate(
+        {**GOOD, "patterns": [{**_P, "consequent_base": base}]})
+    check("%s is refused" % name,
+          clean == [] and err is not None and "between 0 and 1" in err, err)
+
+# The line itself, checked from both sides so a change to either constant moves
+# the test rather than leaving it passing for the wrong reason.
+_just_under = round(_wl - _h.PRIOR_MIN_LIFT - 0.01, 4)
+_just_over = round(_wl - _h.PRIOR_MIN_LIFT + 0.01, 4)
+clean, err = commons.validate(
+    {**GOOD, "patterns": [{**_P, "consequent_base": _just_under}]})
+check("a pattern that beats the consequent's base rate is kept",
+      err is None and len(clean) == 1, (clean, err))
+clean, err = commons.validate(
+    {**GOOD, "patterns": [{**_P, "consequent_base": _just_over}]})
+check("one that does not is skipped quietly, the way the floor is",
+      err is None and clean == [], (clean, err))
+
+# A consequent almost everybody holds cannot be predicted by anything: there is
+# no headroom above its own popularity, whatever the antecedent is.
+clean, err = commons.validate(
+    {**GOOD, "patterns": [{**_P, "consequent_base": 0.95}]})
+check("a near-universal consequent is predicted by nothing",
+      err is None and clean == [], (clean, err))
+
+# The rate floor was in hypotheses.py and never at the door either, so a
+# contribution could carry a pattern its own author's install would refuse.
+clean, err = commons.validate({**GOOD, "patterns": [
+    {**_P, "support": 5, "refute": 5, "consequent_base": 0.0}]})
+check("and the minimum rate is enforced at the door too",
+      err is None and clean == [], (clean, err))
+
+check("the surviving pattern carries the rate it was judged against",
+      commons.validate(GOOD)[0][0].get("consequent_base") == 0.2,
+      commons.validate(GOOD)[0])
+
+# The three tests are one vocabulary shared by hypotheses.py, the door and the
+# standalone contributor script. A copy that drifts is a door that enforces a
+# different bar from the one the dataset card describes.
+check("the door judges by the same constants the bank learns with",
+      (commons.PRIOR_FLOOR_N, commons.PRIOR_MIN_RATE, commons.PRIOR_MIN_LIFT)
+      == (_h.PRIOR_FLOOR_N, _h.PRIOR_MIN_RATE, _h.PRIOR_MIN_LIFT))
+
+print("== the dataset says which of its checks a reader can settle ==")
+_card = commons.dataset_card([], {"stances": 0, "contributors": 0})
+check("the card separates what a reader can check from what it cannot",
+      "cannot settle" in _card and "contributor's word" in _card, None)
+check("and names the field that carries the unverifiable half",
+      "consequent_base" in _card, None)
+
+
+print("== a prior learned before the base rate was kept cannot be published ==")
+# priors.base_q was added after the fact, so an install that has been running
+# has rows with nothing in it. Those rows are still perfectly good LOCALLY:
+# they were checked against the lift test when they were learned, and the
+# column is missing because nobody wrote it down, not because the test was
+# skipped. They cannot go into the commons, because a reader of the dataset
+# has only what the file says and the file would have nothing to say.
+_lg = sqlite3.connect(":memory:")
+_lg.row_factory = sqlite3.Row
+_h.ensure_schema(_lg)
+
+
+def _prior(pid, proj, a, c, s, r, n, base):
+    _lg.execute("INSERT INTO priors(id,project_id,antecedent,consequent,context,"
+                "support,refute,subjects,updated,base_q) "
+                "VALUES(?,?,?,?,'default',?,?,?,0,?)",
+                (pid, proj, a, c, s, r, n, base))
+
+
+_prior("p1", "projA", "prefers_async", "works_remotely", 9, 1, 10, 0.2)
+_prior("p2", "projA", "likes_alpha", "likes_beta", 9, 1, 10, None)
+_lg.commit()
+_rows = {(b["antecedent"], b["consequent"]): b
+         for b in _h.bank(_lg, ["projA"])}
+check("a prior that recorded the base rate carries it into the bank",
+      _rows[("prefers_async", "works_remotely")]["consequent_base"] == 0.2,
+      _rows[("prefers_async", "works_remotely")])
+check("one that predates the column carries None rather than a guess",
+      _rows[("likes_alpha", "likes_beta")]["consequent_base"] is None,
+      _rows[("likes_alpha", "likes_beta")])
+
+# And the same pair from two projects. The merged row answers with ONE base
+# rate, and it has to be the one that makes the pattern hardest to justify,
+# because lift is measured against it: taking the mean or the lower would let a
+# pattern that is pure popularity in one population be rescued by another where
+# the consequent happened to be rare.
+_prior("p3", "projB", "prefers_async", "works_remotely", 5, 0, 5, 0.45)
+_lg.commit()
+_merged = {(b["antecedent"], b["consequent"]): b
+           for b in _h.bank(_lg, ["projA", "projB"])}
+check("the merge of two populations keeps the least flattering base rate",
+      _merged[("prefers_async", "works_remotely")]["consequent_base"] == 0.45,
+      _merged[("prefers_async", "works_remotely")])
+
+# One unknown poisons the merge. Dropping the None so the known rates could
+# answer for it would launder exactly the rows whose lift was never recorded.
+_prior("p4", "projB", "likes_alpha", "likes_beta", 5, 0, 5, 0.1)
+_lg.commit()
+_merged = {(b["antecedent"], b["consequent"]): b
+           for b in _h.bank(_lg, ["projA", "projB"])}
+check("a known rate cannot answer for an unknown one beside it",
+      _merged[("likes_alpha", "likes_beta")]["consequent_base"] is None,
+      _merged[("likes_alpha", "likes_beta")])
+
+# Which is what the sender acts on: the row is dropped rather than sent to be
+# refused, because a pattern that cannot state its base rate is refused at the
+# door and would take the whole contribution down with it.
+check("the door refuses what the bank could not describe",
+      commons.validate({**GOOD, "patterns": [
+          {k: v for k, v in _merged[("likes_alpha", "likes_beta")].items()
+           if k in commons.PATTERN_FIELDS}]})[1] is not None)
+
 print("== one snapshot per instance, never cumulative ==")
 commons.store(con, "instA", [{"antecedent": "likes_alpha", "consequent": "likes_beta",
                               "support": 5, "refute": 0, "subjects": 5}])
@@ -164,7 +297,6 @@ commons.set_choice(con, False)
 check("consent is revocable", commons.get_choice(con) == "no")
 
 print("== calibration: the half that says what a guess is worth ==")
-import hypotheses as _h  # noqa: E402
 
 # The leak this feature nearly shipped. `leap()` sets generator = the
 # NEIGHBOUR'S SUBJECT ID, so the raw column is people. Only the class travels.

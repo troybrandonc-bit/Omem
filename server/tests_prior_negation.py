@@ -137,7 +137,9 @@ def leap_with(priors, held, denied, props=8):
     db.row_factory = sqlite3.Row
     db.executescript(_h.HYPOTHESES_SCHEMA)
     for i, (ant, cons, sup, ref) in enumerate(priors):
-        db.execute("INSERT INTO priors VALUES(?,'proj',?,?,'default',?,?,?,0)",
+        db.execute("INSERT INTO priors(id,project_id,antecedent,consequent,"
+                   "context,support,refute,subjects,updated,base_q) "
+                   "VALUES(?,'proj',?,?,'default',?,?,?,0,0.1)",
                    ("pr_%d" % i, ant, cons, sup, ref, sup + ref))
     db.commit()
     op, pf = _h._declared_opposites, _h._profiles

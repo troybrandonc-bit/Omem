@@ -174,6 +174,7 @@ CREATE TABLE IF NOT EXISTS priors(
   antecedent TEXT NOT NULL, consequent TEXT NOT NULL, context TEXT NOT NULL,
   support INTEGER NOT NULL, refute INTEGER NOT NULL, subjects INTEGER NOT NULL,
   updated REAL NOT NULL,
+  base_q REAL,
   PRIMARY KEY(project_id, id));
 """
 
@@ -189,6 +190,18 @@ def ensure_schema(db):
             db.execute("ALTER TABLE leap_generators ADD COLUMN %s REAL" % col)
         except Exception:
             pass  # already there
+    # `priors.base_q` is the consequent's base rate in THIS population at the
+    # moment the prior was learned. It was always computed and always thrown
+    # away, which meant a prior could be published without carrying the one
+    # number that says it is not the consequent's popularity wearing the
+    # antecedent as a hat. A row predating this column reads NULL, and a NULL
+    # is refused at the commons door rather than assumed to be zero: assuming
+    # zero would let every legacy row through unchecked, which is the failure
+    # the column exists to prevent.
+    try:
+        db.execute("ALTER TABLE priors ADD COLUMN base_q REAL")
+    except Exception:
+        pass  # already there
     db.commit()
 
 
@@ -1021,10 +1034,10 @@ def learn_priors(p, db) -> dict:
                 f"{p.id}|{context}|{P}|{Q}".encode()).hexdigest()[:12]
             db.execute(
                 "INSERT OR REPLACE INTO priors(id,project_id,antecedent,"
-                "consequent,context,support,refute,subjects,updated) "
-                "VALUES(?,?,?,?,?,?,?,?,?)",
+                "consequent,context,support,refute,subjects,updated,base_q) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?)",
                 (pid_, p.id, P, Q, context, support, refute, len(base),
-                 time.time()))
+                 time.time(), base_q))
             kept += 1
             result["learned"] += 1
     result["kept"] = kept
@@ -1647,27 +1660,44 @@ def bank(db, project_ids: list[str]) -> list[dict]:
     agg: dict = {}
     for pid in project_ids:
         for r in db.execute(
-                "SELECT antecedent, consequent, support, refute, subjects "
-                "FROM priors WHERE project_id=?", (pid,)):
+                "SELECT antecedent, consequent, support, refute, subjects, "
+                "base_q FROM priors WHERE project_id=?", (pid,)):
             a, c = r["antecedent"], r["consequent"]
             if _identifying(a) or _identifying(c):
                 continue
             e = agg.setdefault((a, c), {
                 "antecedent": a, "consequent": c,
-                "support": 0, "refute": 0, "subjects": 0, "projects": 0})
+                "support": 0, "refute": 0, "subjects": 0, "projects": 0,
+                "_bases": []})
             e["support"] += r["support"]
             e["refute"] += r["refute"]
             e["subjects"] += r["subjects"]
             e["projects"] += 1
+            e["_bases"].append(None if r["base_q"] is None
+                               else float(r["base_q"]))
     out = []
     for e in agg.values():
         total = e["support"] + e["refute"]
         if total == 0 or e["support"] < PRIOR_FLOOR_N:
             continue
         rate = e["support"] / total
+        # The same pair learned in two projects arrives with two base rates and
+        # the merged row has to answer with one. The HIGHEST is kept, because
+        # lift is measured against it and a higher base rate is the one that
+        # makes this pattern hardest to justify. A mean, or the lower, would let
+        # a pattern that is pure popularity in one population be rescued by
+        # another where the consequent happened to be rare.
+        #
+        # One unknown poisons the whole merge. A prior learned before this
+        # column existed carries None, and a None must not be quietly dropped
+        # so the known rates can answer for it: that would launder exactly the
+        # rows whose lift was never recorded.
+        bases = e.pop("_bases")
+        base = None if any(b is None for b in bases) else max(bases)
         out.append({**e,
                     "pattern": f'holds {e["antecedent"]} -> holds {e["consequent"]}',
                     "rate": round(rate, 3),
+                    "consequent_base": None if base is None else round(base, 4),
                     "fires": rate >= PRIOR_MIN_RATE})
     out.sort(key=lambda x: (-x["rate"], -x["support"], x["pattern"]))
     return out
