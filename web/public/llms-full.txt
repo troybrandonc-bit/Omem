@@ -546,7 +546,7 @@ Talk about an assessmentAnnual because the finding has a date on it. A system th
 - Your production records read against the twenty published requirements, with the evidence for every verdict
 - The conformance level they actually reach, which is often not the one the vendor's page implies
 - A dated entry in the public register, if you want one. Declining is free and changes nothing else
-- The enterprise components below, included, because reaching TR-3 needs them
+- Nothing of ours is bundled with it. A deployment running none of our software gets the same assessment at the same price, and one that reaches TR-3 without us reaches TR-3
 - The rubric, the validator and the conformance corpus are free whether you buy this or not
 - OMEM is assessed by the same rubric and sits in the same register as the seven other systems
 It is not a certification. No accreditation body stands behind it and no regulator recognises it. It is a dated, evidenced assessment whose method is published, which means anybody can repeat it and anybody can show it is wrong, including about OMEM. That is the whole of what it claims and it should not be bought as more.
