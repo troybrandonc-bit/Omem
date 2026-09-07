@@ -49,16 +49,15 @@ export const metadata = {
  * which is an approval mechanism rather than ours, and a deployment running
  * none of our software can reach it. And it was the conflict that ends an
  * assessor: selling the remedy for the deficiency you were paid to find. An
- * auditor who does that is not an auditor, whatever the rubric says. Overstating that would also
- * cost the ForHumanity and BSI routes, which are the ones that would eventually
- * make it worth more. */
+ * auditor who does that is not an auditor, whatever the rubric says.
+ *
+ * Overstating any of it would also cost the ForHumanity and BSI routes, which
+ * are the ones that would eventually make it worth more. */
 const ATTESTED = [
   "Your production records read against the twenty published requirements, with the evidence for every verdict",
   "The conformance level they actually reach, which is often not the one the vendor's page implies",
   "A dated entry in the public register, if you want one. Declining is free and changes nothing else",
-  "Nothing of ours is bundled with it. An assessment of a deployment running "
-    + "none of our software is the same assessment at the same price, and a "
-    + "deployment that reaches TR-3 without us reaches TR-3",
+  "Nothing of ours is bundled with it. A deployment running none of our software gets the same assessment at the same price, and one that reaches TR-3 without us reaches TR-3",
   "The rubric, the validator and the conformance corpus are free whether you buy this or not",
   "OMEM is assessed by the same rubric and sits in the same register as the seven other systems",
 ];
