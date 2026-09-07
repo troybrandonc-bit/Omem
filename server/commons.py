@@ -23,7 +23,8 @@ import json
 import time
 import uuid
 
-from hypotheses import _identifying, PRIOR_FLOOR_N
+from hypotheses import (_identifying, _wilson_lower, PRIOR_FLOOR_N,
+                        PRIOR_MIN_RATE, PRIOR_MIN_LIFT)
 
 COMMONS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS commons_contributions(
@@ -443,6 +444,10 @@ PATTERN_FIELDS = {
     "support": "how many subjects held both",
     "refute": "how many held the first and opposed the second",
     "subjects": "how many held the first at all",
+    "consequent_base": "how often the consequent held in the CONTRIBUTOR'S OWN "
+                       "population, as a rate and never a count, so the door "
+                       "can measure lift instead of trusting that somebody "
+                       "else measured it",
 }
 
 FRAME_FIELDS = {
@@ -681,8 +686,39 @@ def validate(payload) -> tuple[list, str | None]:
             return [], "counts out of range"
         if s < PRIOR_FLOOR_N:
             continue  # below the floor it is not a pattern, skip quietly
+        # A pattern earns its place by beating what the contributor's own
+        # population already says about the consequent. Until this field
+        # existed the door could not ask: the base rate is measured over a
+        # population the collector never sees, so it was neither sent nor
+        # checked, and a contribution assembled by hand could clear every
+        # other test and still be the consequent's popularity wearing the
+        # antecedent as a hat. Measured on 19,719 respondents, the rate test
+        # alone recovered a known latent structure at 0.185 against a chance
+        # line of 0.184, which is to say not at all.
+        #
+        # The rate is the contributor's word and the collector cannot confirm
+        # it, which is why the dataset card says so. That is not a reason to
+        # stop asking: a contributor that states a number can be contradicted,
+        # and one that states nothing cannot.
+        base = p.get("consequent_base")
+        if base is None:
+            return [], ("consequent_base is required: a pattern must say how "
+                        "often the consequent held in the contributor's own "
+                        "population, or its lift cannot be checked by anyone")
+        try:
+            base = float(base)
+        except (TypeError, ValueError):
+            return [], "consequent_base must be a rate between 0 and 1"
+        if not 0.0 <= base <= 1.0:
+            return [], "consequent_base must be a rate between 0 and 1"
+        total = s + r
+        if total == 0 or s / total < PRIOR_MIN_RATE:
+            continue  # below the rate it is not a pattern, skip quietly
+        if _wilson_lower(s, total) < base + PRIOR_MIN_LIFT:
+            continue  # it does not beat the consequent's own popularity
         clean.append({"antecedent": a, "consequent": c,
-                      "support": s, "refute": r, "subjects": n})
+                      "support": s, "refute": r, "subjects": n,
+                      "consequent_base": base})
     return clean, None
 
 
@@ -1176,11 +1212,41 @@ def dataset_card(rows: list, stats: dict) -> str:
         "reader and their own counsel to reach, and this project does not make",
         "claims it cannot hand you a way to test.",
         "",
+        "## Which of these checks a reader can settle, and which they cannot",
+        "",
+        "Three tests decide whether a pattern belongs here, and they are not",
+        "all of one kind. A reader who cannot tell them apart is reading a",
+        "number that stands on an unknown mixture.",
+        "",
+        f"The floor on support ({PRIOR_FLOOR_N} subjects) and the minimum rate",
+        f"({PRIOR_MIN_RATE}) are settled from the line itself. The counts are",
+        "in the file, and anyone who disagrees with the collector about either",
+        "can do the arithmetic and be right.",
+        "",
+        f"The lift test ({PRIOR_MIN_LIFT} over the consequent's own base rate,",
+        "measured on the lower end of a Wilson interval so a clean three of",
+        "three is not mistaken for three hundred of three hundred) is the test",
+        "that makes a line a regularity rather than a popularity contest, and",
+        "it is the one a reader cannot settle. It is measured against how often",
+        "the consequent held across the contributor's whole population, and",
+        "that population is precisely what the commons refuses to collect. The",
+        "contributing installation states the rate; the collector re-runs the",
+        "test against the stated number and refuses a line that fails it, and",
+        "cannot confirm the number itself.",
+        "",
+        "So the lift on every line rests on its contributor's word. That is",
+        "worth requiring rather than dropping, because an installation that",
+        "states a rate can be contradicted and one that states nothing cannot,",
+        "but it is not the same kind of fact as the counts beside it and this",
+        "file will not present it as though it were.",
+        "",
         "## Schema",
         "",
         "One JSON object per line: antecedent, consequent, support, refute,",
-        "subjects, rate, sources (independent installations), category, and",
-        "text (a natural-language rendering of the same numbers).",
+        "subjects, rate, consequent_base (the contributor's stated base rate",
+        "for the consequent, the one field above that nobody else can check),",
+        "sources (independent installations), category, and text (a",
+        "natural-language rendering of the same numbers).",
         "",
         "## Scale",
         "",
@@ -1260,7 +1326,11 @@ def analytics(rows: list, contribs: dict, db) -> dict:
 # be unpublished by anybody, and the terms say that rather than promising an
 # erasure nobody can perform.
 
-RELEASE_SPEC = "commons-release/1"
+# Raised from /1 when a contribution row gained `consequent_base`. A digest
+# over a row is a digest over its fields, so a reader holding a /1 manifest and
+# a /2 corpus must be told the shapes differ rather than left to conclude the
+# digest disagrees because somebody edited the file.
+RELEASE_SPEC = "commons-release/2"
 
 
 def _digest_of(entries: list) -> str:
@@ -1297,8 +1367,17 @@ def aggregation_version() -> str:
     """
     import inspect
     parts = [inspect.getsource(f) for f in
-             (merged, dataset_jsonl, category_of, _sentence, lexicon_ok)]
+             (merged, dataset_jsonl, category_of, _sentence, lexicon_ok,
+              # The door decides what a release CAN contain, so a change to it
+              # is exactly the case this digest exists to distinguish from
+              # tampering. It was missing: the floor was covered by the
+              # constant below and the rate and lift tests were covered by
+              # nothing, so tightening either would have left a rebuilt
+              # release legitimately smaller with no way for a reader to tell
+              # that from rows having been removed.
+              validate)]
     parts.append("floor=%d" % PRIOR_FLOOR_N)
+    parts.append("rate=%s lift=%s" % (PRIOR_MIN_RATE, PRIOR_MIN_LIFT))
     parts.append("lexicon=" + ",".join(sorted(COMMONS_LEXICON)))
     return _digest_of([{"part": p} for p in parts])[:16]
 
@@ -1329,7 +1408,14 @@ def contribution_rows(db, grant: str = "public_commons") -> list:
         rows = sorted(
             ({"antecedent": p["antecedent"], "consequent": p["consequent"],
               "support": int(p["support"]), "refute": int(p["refute"]),
-              "subjects": int(p["subjects"])} for p in patterns),
+              "subjects": int(p["subjects"]),
+              # Published because the dataset card says this is the one number
+              # in a line that nobody but its contributor can check. A reader
+              # told that cannot act on it unless the number is in front of
+              # them, and a projection that dropped it would make the card a
+              # claim about a field the file does not contain.
+              "consequent_base": float(p["consequent_base"])}
+             for p in patterns),
             key=lambda p: (p["antecedent"], p["consequent"]))
         out.append({"instance": instance, "received": received,
                     "patterns": rows, "digest": "sha256:" + _digest_of(rows)})

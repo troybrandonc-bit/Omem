@@ -94,7 +94,7 @@ check("the public commons page still answers (200)", code == 200 and body.get("c
 
 code, body = post("/v1/commons", {"instance": "a" * 16, "patterns": [
     {"antecedent": "prefers_morning_meetings", "consequent": "prefers_email_contact",
-     "support": 5, "refute": 1, "subjects": 8}]})
+     "support": 5, "refute": 1, "subjects": 8, "consequent_base": 0.2}]})
 check("a contribution needs no account and is accepted (2xx)", code in (200, 201), code)
 
 print("\n%d passed, %d failed" % (PASS, FAIL))

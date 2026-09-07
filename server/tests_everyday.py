@@ -91,20 +91,20 @@ check("plain habit props are not", not hypotheses._identifying("prefers_morning_
 
 con = sqlite3.connect(DB)
 con.row_factory = sqlite3.Row
-con.executescript(hypotheses.PRIORS_SCHEMA if hasattr(hypotheses, "PRIORS_SCHEMA") else
-                  """CREATE TABLE IF NOT EXISTS priors(
-  id TEXT PRIMARY KEY, project_id TEXT NOT NULL,
-  antecedent TEXT NOT NULL, consequent TEXT NOT NULL, context TEXT NOT NULL,
-  support INTEGER NOT NULL, refute INTEGER NOT NULL, subjects INTEGER NOT NULL,
-  updated REAL NOT NULL);""")
+# The schema is taken from hypotheses rather than restated here. The copy that
+# used to sit at this line was written before priors gained base_q and quietly
+# built a table one column short of the real one.
+hypotheses.ensure_schema(con)
 rows = [
-    ("p1", "projA", "prefers_morning_meetings", "prefers_email_contact", "default", 5, 2, 9, 0.0),
-    ("p2", "projB", "prefers_morning_meetings", "prefers_email_contact", "default", 4, 0, 6, 0.0),
-    ("p3", "projA", "rel_works_at_acme", "prefers_email_contact", "default", 6, 0, 6, 0.0),
-    ("p4", "projA", "payment_terms_net30", "prefers_email_contact", "default", 6, 0, 6, 0.0),
-    ("p5", "projB", "prefers_async", "prefers_email_contact", "default", 2, 0, 2, 0.0),
+    ("p1", "projA", "prefers_morning_meetings", "prefers_email_contact", "default", 5, 2, 9, 0.0, 0.1),
+    ("p2", "projB", "prefers_morning_meetings", "prefers_email_contact", "default", 4, 0, 6, 0.0, 0.1),
+    ("p3", "projA", "rel_works_at_acme", "prefers_email_contact", "default", 6, 0, 6, 0.0, 0.1),
+    ("p4", "projA", "payment_terms_net30", "prefers_email_contact", "default", 6, 0, 6, 0.0, 0.1),
+    ("p5", "projB", "prefers_async", "prefers_email_contact", "default", 2, 0, 2, 0.0, 0.1),
 ]
-con.executemany("INSERT INTO priors VALUES(?,?,?,?,?,?,?,?,?)", rows)
+con.executemany("INSERT INTO priors(id,project_id,antecedent,consequent,context,"
+                "support,refute,subjects,updated,base_q) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?)", rows)
 con.commit()
 bank = hypotheses.bank(con, ["projA", "projB"])
 pats = {(b["antecedent"], b["consequent"]): b for b in bank}

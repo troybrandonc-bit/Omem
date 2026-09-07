@@ -111,7 +111,9 @@ def run(entities: int, props: int, priors: int = 0, seed: int = 1,
     db.executescript(_h.HYPOTHESES_SCHEMA)
     names = ["p%03d" % i for i in range(props)]
     for i in range(priors):
-        db.execute("INSERT INTO priors VALUES(?,'proj',?,?,'default',9,1,10,0)",
+        db.execute("INSERT INTO priors(id,project_id,antecedent,consequent,"
+                   "context,support,refute,subjects,updated,base_q) "
+                   "VALUES(?,'proj',?,?,'default',9,1,10,0,0.1)",
                    ("pr_%d" % i, names[i % props], names[(i + 7) % props]))
     db.commit()
 

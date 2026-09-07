@@ -110,7 +110,9 @@ db.row_factory = sqlite3.Row
 db.executescript(_h.HYPOTHESES_SCHEMA)
 for i, (a, c) in enumerate((("prefers_async", "works_remotely"),
                             ("works_remotely", "wants_pdf_invoices"))):
-    db.execute("INSERT INTO priors VALUES(?,'proj',?,?,'ctx',9,1,10,0)",
+    db.execute("INSERT INTO priors(id,project_id,antecedent,consequent,context,"
+               "support,refute,subjects,updated,base_q) "
+               "VALUES(?,'proj',?,?,'ctx',9,1,10,0,0.3)",
                ("pr_%d" % i, a, c))
 db.execute("INSERT INTO leap_generators(project_id, generator, wins, losses) "
            "VALUES('proj','prior:pr_0',4,1)")

@@ -47,9 +47,12 @@ con.row_factory = sqlite3.Row
 con.executescript(commons.COMMONS_SCHEMA)
 
 
-def pat(a, c, s, r, n):
+def pat(a, c, s, r, n, base=0.1):
+    # `base` is what the consequent did in this fixture's own population. The
+    # door refuses a pattern that will not state one, because lift cannot be
+    # measured against a number nobody sent.
     return {"antecedent": a, "consequent": c, "support": s, "refute": r,
-            "subjects": n}
+            "subjects": n, "consequent_base": base}
 
 
 # Two installs that have seen overlapping behaviour, so the merge has something
@@ -69,7 +72,8 @@ con.commit()
 print("== a release describes itself ==")
 rel = commons.release(con, at="2026-09-05T00:00:00Z")
 m = rel["manifest"]
-check("it names the specification it follows", m["spec"] == "commons-release/1")
+check("it names the specification it follows",
+      m["spec"] == commons.RELEASE_SPEC, m["spec"])
 check("it is dated", m["built_at"] == "2026-09-05T00:00:00Z")
 check("it counts its contributors", m["contributors"] == 2, m["contributors"])
 check("it carries a digest of the corpus",
@@ -126,7 +130,7 @@ check("a contribution supplied that the manifest does not name is caught",
 wrong_spec = dict(m, spec="something-else/9")
 ok, why = commons.verify_release(wrong_spec, rel["contributions"], rel["jsonl"])
 check("a manifest of some other kind is refused rather than guessed at",
-      not ok and any("not commons-release/1" in p for p in why), why)
+      not ok and any("not " + commons.RELEASE_SPEC in p for p in why), why)
 
 print("\n== a changed build says so, instead of crying tamper ==")
 # The most dangerous failure here is a true difference reported as fraud. If
@@ -177,7 +181,8 @@ check("every word in every published token is in the fixed vocabulary",
       all(w in commons.COMMONS_LEXICON for w in words),
       sorted(w for w in words if w not in commons.COMMONS_LEXICON))
 check("a contribution carries counts and tokens and nothing else",
-      all(set(p) == {"antecedent", "consequent", "support", "refute", "subjects"}
+      all(set(p) == {"antecedent", "consequent", "support", "refute", "subjects",
+                     "consequent_base"}
           for c in after["contributions"] for p in c["patterns"]))
 check("the manifest publishes digests rather than the contributions",
       all(set(c) == {"instance", "patterns", "digest"}

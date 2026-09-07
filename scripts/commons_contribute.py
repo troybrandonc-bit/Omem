@@ -455,12 +455,24 @@ class Contribution:
                 total = support + refute
                 if total == 0 or support / total < PRIOR_MIN_RATE:
                     continue
-                if base_q is not None and \
+                # No base rate, no publication. A consequent nobody was ever
+                # observed to hold or oppose has no popularity to beat, so
+                # there is nothing to measure lift against and the collector
+                # would have to take the pattern on trust. It is skipped here
+                # rather than sent, because the door refuses a pattern that
+                # cannot state its base rate.
+                if base_q is None or \
                         wilson_lower(support, total) < base_q + PRIOR_MIN_LIFT:
                     continue
                 out.append({"antecedent": p, "consequent": q,
                             "support": support, "refute": refute,
-                            "subjects": len(holders)})
+                            "subjects": len(holders),
+                            # Sent so the collector can re-run the lift test
+                            # rather than take it on trust that this script
+                            # ran it. It cannot confirm the number, and a
+                            # contributor that states one can at least be
+                            # contradicted.
+                            "consequent_base": round(base_q, 4)})
         # Strongest first, then capped. The collector takes at most MAX_PATTERNS
         # and a truncation in arrival order would silently drop the best ones.
         out.sort(key=lambda r: (-r["support"], r["antecedent"], r["consequent"]))

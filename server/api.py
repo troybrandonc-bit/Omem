@@ -1520,9 +1520,17 @@ def _write_bank_export(dest_dir):
     # open, and a long-tail local token never travels. No answer, or no: no
     # network call exists. A collector never contributes to itself.
     consented = _commons.should_contribute(STORE.db, COMMONS_URL, BANK_COLLECTOR)
+    # ...and whose lift can be shown. A prior learned before priors.base_q
+    # existed cannot say what the consequent's base rate was, so the collector
+    # cannot check that the pattern beats it, so it is not publishable and is
+    # dropped here rather than sent to be refused. Dropping it costs this
+    # install the row; sending it would cost the whole contribution, since a
+    # pattern that cannot be checked is refused at the door rather than
+    # skipped. Re-learning repopulates the column.
     sendable = [r for r in rows
                 if _commons.lexicon_ok(r["antecedent"])
-                and _commons.lexicon_ok(r["consequent"])]
+                and _commons.lexicon_ok(r["consequent"])
+                and r.get("consequent_base") is not None]
     # The other half of the bank: not what people are like, but how much a
     # guess about a person turned out to be worth. Same consent, same floor,
     # same vocabulary filter on the family names -- and the generator CLASS

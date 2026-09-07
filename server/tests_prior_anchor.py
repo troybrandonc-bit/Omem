@@ -178,7 +178,9 @@ else:
     # Two priors race for one silence: one thin, one strong.
     for i2, (ant, cons, sup, ref) in enumerate(
             [("p000", "p005", 8, 6), ("p001", "p005", 400, 20)]):
-        db.execute("INSERT INTO priors VALUES(?,'proj',?,?,'default',?,?,?,0)",
+        db.execute("INSERT INTO priors(id,project_id,antecedent,consequent,"
+                   "context,support,refute,subjects,updated,base_q) "
+                   "VALUES(?,'proj',?,?,'default',?,?,?,0,0.1)",
                    ("pr_%d" % i2, ant, cons, sup, ref, sup + ref))
     db.commit()
     op, pf = _h._declared_opposites, _h._profiles
