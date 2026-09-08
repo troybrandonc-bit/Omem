@@ -177,8 +177,9 @@ _SHA256_OID = bytes.fromhex("0609608648016503040201")
 # been required on an anchor and until 7 September 2026 nothing read it: every
 # token was parsed as an RFC 3161 TimeStampResp whatever the record said it
 # was. So an anchor committed to Bitcoin proof-of-work through OpenTimestamps
-# failed "the anchor's authority signed this record's digest" and could not
-# reach TR-4, marked down for carrying evidence that no operator and no key can
+# failed the anchor check ("the anchor's authority signed this record's
+# digest", as it was then called) and could not reach TR-4, marked down for
+# carrying evidence that no operator and no key can
 # move, rather than a token from a single authority.
 #
 # That is the error the rubric's applies_to exists to prevent, committed inside
@@ -804,12 +805,31 @@ def validate(text: str) -> Report:
         if not found:
             adrift.append(f"line {g['_line']}: no SHA-256 imprint in the token")
         elif bytes.fromhex(want[7:]) not in found:
-            adrift.append(f"line {g['_line']}: the authority signed a different "
+            adrift.append(f"line {g['_line']}: the token is over a different "
                           f"digest ({found[0].hex()[:16]}..)")
     if checkable:
-        r.add("TR-4", "the anchor's authority signed this record's digest",
+        # Two claims, and until 8 September 2026 they were reported as one.
+        #
+        # This check used to read "the anchor's authority signed this record's
+        # digest", marked verified. Nothing in it verifies a signature. It
+        # decodes the token, finds the SHA-256 imprints and asks whether this
+        # record's digest is among them, which is arithmetic over bytes in the
+        # file and correctly verified. That the authority issued the token is a
+        # different claim, it needs a certificate this file does not carry, and
+        # it was riding on the word "signed" without a check behind it.
+        #
+        # Splitting them costs a reader nothing and gains the thing the basis
+        # counts exist for: TR-4 now says how much of itself is settled and how
+        # much is taken on trust, instead of presenting both as settled. It is
+        # the same error the format was built to expose, made in the file that
+        # does the exposing.
+        r.add("TR-4", "the anchor's token is over this record's digest",
               not adrift, "; ".join(adrift[:3]),
               basis="verified")
+        r.add("TR-4", "and the authority named in it issued that token",
+              True, "no signature is checked here: that would need a "
+              "certificate this validator does not carry",
+              basis="attested")
     if unread:
         r.add("TR-4", "an anchor of a kind this validator cannot recompute "
               "rests on its authority", True,
