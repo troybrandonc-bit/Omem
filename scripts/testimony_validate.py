@@ -193,7 +193,144 @@ _SHA256_OID = bytes.fromhex("0609608648016503040201")
 # reached and it rests on one fewer verified check, which the per-level basis
 # counts already report. A validator that could read the kind would report the
 # same anchor as verified, and that difference is the honest one.
-_CHECKABLE_KINDS = {"rfc3161"}
+_CHECKABLE_KINDS = {"rfc3161", "scitt"}
+
+# Narrower than the set above, and the difference matters. A genTime is an
+# RFC 3161 field. When `scitt` joined the checkable kinds the clock check
+# inherited it from the same constant and began handing COSE receipts to a
+# TimeStampResp parser, which is the bug that refusing unknown kinds already
+# was: one kind's format applied to another because it was the one implemented.
+_TIMESTAMPED_KINDS = {"rfc3161"}
+
+# ── RFC 9162 inclusion proofs, and enough CBOR to read a COSE receipt ────────
+#
+# Inlined rather than imported. This file is copied whole into other
+# repositories and into every adapter wheel, so an import would make the
+# reference validator behave differently depending on what sits beside it, and
+# two copies calling themselves the reference would reach different verdicts.
+# One file, no dependencies, is the property that makes a conformance claim
+# mean the same thing everywhere.
+#
+# What this settles about a SCITT anchor is that the proof is over THIS
+# record's digest and lands on the tree head the anchor declares. What it does
+# not settle is that the declared head is the log's, which needs the log's
+# signature and a key this file does not carry. Same shape as RFC 3161: the
+# binding is arithmetic, the authority is trust.
+
+def load(b, i=0):
+    """One CBOR item from b at i. Returns (value, next_index)."""
+    ib = b[i]; mt, ai = ib >> 5, ib & 0x1f; i += 1
+    if ai < 24:
+        val = ai
+    elif ai == 24:
+        val = b[i]; i += 1
+    elif ai == 25:
+        val = int.from_bytes(b[i:i+2], "big"); i += 2
+    elif ai == 26:
+        val = int.from_bytes(b[i:i+4], "big"); i += 4
+    elif ai == 27:
+        val = int.from_bytes(b[i:i+8], "big"); i += 8
+    elif ai == 31:
+        val = None                      # indefinite length
+    else:
+        raise ValueError("reserved additional info %d" % ai)
+
+    if mt == 0:
+        return val, i
+    if mt == 1:
+        return -1 - val, i
+    if mt in (2, 3):
+        if val is None:
+            raise ValueError("indefinite strings not supported")
+        raw = b[i:i+val]; i += val
+        return (raw if mt == 2 else raw.decode("utf-8")), i
+    if mt == 4:
+        out = []
+        if val is None:
+            while b[i] != 0xff:
+                v, i = load(b, i); out.append(v)
+            return out, i + 1
+        for _ in range(val):
+            v, i = load(b, i); out.append(v)
+        return out, i
+    if mt == 5:
+        out = {}
+        if val is None:
+            while b[i] != 0xff:
+                k, i = load(b, i); v, i = load(b, i); out[k] = v
+            return out, i + 1
+        for _ in range(val):
+            k, i = load(b, i); v, i = load(b, i); out[k] = v
+        return out, i
+    if mt == 6:
+        v, i = load(b, i)               # tag: keep the content
+        return v, i
+    if mt == 7:
+        if ai == 20: return False, i
+        if ai == 21: return True, i
+        if ai == 22: return None, i
+        return ("simple", val), i
+    raise ValueError("major type %d" % mt)
+
+VDS_RFC9162_SHA256 = 1
+LABEL_VDS = 395
+LABEL_PROOFS = 396
+
+
+def _sha(*parts):
+    h = hashlib.sha256()
+    for p in parts:
+        h.update(p)
+    return h.digest()
+
+
+def reconstruct_root(leaf_digest, index, size, path):
+    """RFC 9162 inclusion proof: leaf and audit path back to a root.
+
+    Arithmetic over bytes, so a reader who disagrees can settle it alone.
+    What it does NOT establish is that this root is the log's root; that is
+    the detached payload the log's signature covers, and checking it needs a
+    key and a curve this reader does not have.
+    """
+    if index >= size:
+        raise ValueError("leaf index %d outside a tree of %d" % (index, size))
+    fn, sn, r = index, size - 1, _sha(b"\x00", leaf_digest)
+    for p in path:
+        if sn == 0:
+            raise ValueError("audit path longer than the tree is deep")
+        if (fn & 1) or (fn == sn):
+            r = _sha(b"\x01", p, r)
+            while (fn & 1) == 0 and fn != 0:
+                fn >>= 1
+                sn >>= 1
+        else:
+            r = _sha(b"\x01", r, p)
+        fn >>= 1
+        sn >>= 1
+    if sn != 0:
+        raise ValueError("audit path too short for a tree of %d" % size)
+    return r
+
+
+def read_receipt(raw):
+    """A COSE_Sign1 SCITT receipt, as far as bytes alone can be read."""
+    body, _ = load(raw)
+    if not isinstance(body, list) or len(body) != 4:
+        raise ValueError("not a COSE_Sign1")
+    protected, _ = load(body[0]) if body[0] else ({}, 0)
+    unprotected = body[1] or {}
+    proofs = unprotected.get(LABEL_PROOFS) or {}
+    inclusion = (proofs.get(-1) or [None])[0]
+    size = index = None
+    path = []
+    if inclusion is not None:
+        parsed, _ = load(inclusion)
+        if isinstance(parsed, list) and len(parsed) == 3:
+            size, index, path = parsed
+    return {"vds": protected.get(LABEL_VDS), "alg": protected.get(1),
+            "tree_size": size, "leaf_index": index, "path": path,
+            "detached": body[2] is None}
+
 
 
 def _imprints(token: bytes) -> list:
@@ -801,6 +938,47 @@ def validate(text: str) -> Report:
         except Exception:                                       # noqa: BLE001
             adrift.append(f"line {g['_line']}: the token is not base64")
             continue
+
+        if kind == "scitt":
+            # An RFC 9942 receipt over an RFC 9162 log. What binds it to this
+            # record is that the inclusion proof, taken over THIS record's
+            # digest, lands on the tree head the anchor declares. A receipt
+            # minted for some other record reconstructs perfectly well and
+            # lands somewhere else, which is the whole reason the head has to
+            # be declared rather than inferred: without it there is nothing to
+            # land on and nothing is checked.
+            head = str(a.get("root") or "").strip().lower()
+            if not head:
+                adrift.append(f"line {g['_line']}: a scitt anchor declares the "
+                              "tree head its proof lands on, and this one "
+                              "does not")
+                continue
+            try:
+                rec = read_receipt(raw)
+            except Exception as e:                              # noqa: BLE001
+                adrift.append(f"line {g['_line']}: the receipt does not parse "
+                              f"({str(e)[:40]})")
+                continue
+            if rec["vds"] != VDS_RFC9162_SHA256:
+                # Another verifiable data structure, not a bad one. Refusing it
+                # would repeat the mistake that refusing an unknown kind was.
+                checkable -= 1
+                unread.append("scitt with vds %s" % rec["vds"])
+                continue
+            try:
+                got = reconstruct_root(bytes.fromhex(want[7:]),
+                                       rec["leaf_index"], rec["tree_size"],
+                                       rec["path"])
+            except Exception as e:                              # noqa: BLE001
+                adrift.append(f"line {g['_line']}: the inclusion proof does "
+                              f"not reconstruct ({str(e)[:40]})")
+                continue
+            if got.hex() != head:
+                adrift.append(f"line {g['_line']}: the proof over this "
+                              f"record's digest lands on {got.hex()[:16]}.., "
+                              f"not the declared head")
+            continue
+
         found = _imprints(raw)
         if not found:
             adrift.append(f"line {g['_line']}: no SHA-256 imprint in the token")
@@ -861,7 +1039,7 @@ def validate(text: str) -> Report:
             continue
         a = g.get("anchor") if isinstance(g.get("anchor"), dict) else {}
         kind = str(a.get("kind") or "").strip().lower()
-        if not a.get("token") or (kind and kind not in _CHECKABLE_KINDS):
+        if not a.get("token") or kind not in _TIMESTAMPED_KINDS:
             continue      # genTime is an RFC 3161 field; another kind has none
         try:
             seen = _gen_time(base64.b64decode(a["token"], validate=True))

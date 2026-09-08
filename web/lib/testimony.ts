@@ -120,6 +120,7 @@ const ATTESTED = new Set([
   "the approver's name is declared to come from authentication",
   "a replay scheme names the engine and its version",
   "an anchor of a kind this validator cannot recompute rests on its authority",
+  "and the authority named in it issued that token",
 ]);
 
 export type Report = {
@@ -260,7 +261,8 @@ const SHA256_OID = [0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04,
  * been required on an anchor and until 7 September 2026 nothing read it: every
  * token was parsed as an RFC 3161 TimeStampResp whatever the record said it
  * was. So an anchor committed to Bitcoin proof-of-work through OpenTimestamps
- * failed "the anchor's authority signed this record's digest" and could not
+ * failed the anchor check ("the anchor's authority signed this record's
+ * digest", as it was then called) and could not
  * reach TR-4, marked down for carrying evidence no operator and no key can
  * move rather than a token from a single authority. That is the error the
  * rubric's applies_to exists to prevent, committed inside the validator.
@@ -270,7 +272,135 @@ const SHA256_OID = [0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04,
  * evidence, the fields saying who and what are present and checked, and this
  * reader cannot confirm it. The level is still reached and rests on one fewer
  * verified check, which the per-level basis counts already report. */
-const CHECKABLE_KINDS = new Set(["rfc3161"]);
+const CHECKABLE_KINDS = new Set(["rfc3161", "scitt"]);
+
+/* Narrower than the set above, and the difference matters. A genTime is an
+ * RFC 3161 field. When scitt joined the checkable kinds the clock check
+ * inherited it from the same constant and began handing COSE receipts to a
+ * TimeStampResp parser, which is the bug that refusing unknown kinds already
+ * was: one kind's format applied to another because it was the one built. */
+const TIMESTAMPED_KINDS = new Set(["rfc3161"]);
+const VDS_RFC9162_SHA256 = 1;
+
+/* Enough CBOR to read a COSE_Sign1 receipt, and the RFC 9162 inclusion proof.
+ * The port of the same code in testimony_validate.py; the two are compared on
+ * every record by CI, so they have to reach the same verdict here too. */
+export function cborLoad(b: Uint8Array, i = 0): [any, number] {
+  const ib = b[i], mt = ib >> 5, ai = ib & 0x1f;
+  i += 1;
+  let val: number | null;
+  if (ai < 24) val = ai;
+  else if (ai === 24) { val = b[i]; i += 1; }
+  else if (ai === 25) { val = (b[i] << 8) | b[i + 1]; i += 2; }
+  else if (ai === 26) {
+    val = ((b[i] << 24) >>> 0) + (b[i + 1] << 16) + (b[i + 2] << 8) + b[i + 3];
+    i += 4;
+  } else if (ai === 27) {
+    val = 0;
+    for (let k = 0; k < 8; k++) val = val * 256 + b[i + k];
+    i += 8;
+  } else if (ai === 31) val = null;
+  else throw new Error("reserved additional info " + ai);
+
+  if (mt === 0) return [val, i];
+  if (mt === 1) return [-1 - (val as number), i];
+  if (mt === 2 || mt === 3) {
+    if (val === null) throw new Error("indefinite strings not supported");
+    const raw = b.slice(i, i + val);
+    i += val;
+    return [mt === 2 ? raw : new TextDecoder().decode(raw), i];
+  }
+  if (mt === 4) {
+    const out: any[] = [];
+    if (val === null) {
+      while (b[i] !== 0xff) { const [v, j] = cborLoad(b, i); out.push(v); i = j; }
+      return [out, i + 1];
+    }
+    for (let n = 0; n < val; n++) { const [v, j] = cborLoad(b, i); out.push(v); i = j; }
+    return [out, i];
+  }
+  if (mt === 5) {
+    const out = new Map<any, any>();
+    if (val === null) {
+      while (b[i] !== 0xff) {
+        const [k, j] = cborLoad(b, i); const [v, j2] = cborLoad(b, j);
+        out.set(k, v); i = j2;
+      }
+      return [out, i + 1];
+    }
+    for (let n = 0; n < val; n++) {
+      const [k, j] = cborLoad(b, i); const [v, j2] = cborLoad(b, j);
+      out.set(k, v); i = j2;
+    }
+    return [out, i];
+  }
+  if (mt === 6) return cborLoad(b, i);
+  if (mt === 7) {
+    if (ai === 20) return [false, i];
+    if (ai === 21) return [true, i];
+    return [null, i];
+  }
+  throw new Error("major type " + mt);
+}
+
+function bytesOfHex(h: string): Uint8Array {
+  const out = new Uint8Array(h.length / 2);
+  for (let i = 0; i < out.length; i++)
+    out[i] = parseInt(h.substr(i * 2, 2), 16);
+  return out;
+}
+
+function shaBytes(...parts: Uint8Array[]): Uint8Array {
+  let n = 0;
+  for (const p of parts) n += p.length;
+  const all = new Uint8Array(n);
+  let at = 0;
+  for (const p of parts) { all.set(p, at); at += p.length; }
+  return bytesOfHex(sha256Hex(all));
+}
+
+export function reconstructRoot(leaf: Uint8Array, index: number, size: number,
+                                path: Uint8Array[]): Uint8Array {
+  if (index >= size)
+    throw new Error(`leaf index ${index} outside a tree of ${size}`);
+  let fn = index, sn = size - 1;
+  let r = shaBytes(new Uint8Array([0]), leaf);
+  for (const p of path) {
+    if (sn === 0) throw new Error("audit path longer than the tree is deep");
+    if ((fn & 1) !== 0 || fn === sn) {
+      r = shaBytes(new Uint8Array([1]), p, r);
+      while ((fn & 1) === 0 && fn !== 0) { fn >>= 1; sn >>= 1; }
+    } else {
+      r = shaBytes(new Uint8Array([1]), r, p);
+    }
+    fn >>= 1; sn >>= 1;
+  }
+  if (sn !== 0) throw new Error(`audit path too short for a tree of ${size}`);
+  return r;
+}
+
+export function readReceipt(raw: Uint8Array) {
+  const [body] = cborLoad(raw);
+  if (!Array.isArray(body) || body.length !== 4)
+    throw new Error("not a COSE_Sign1");
+  const [protectedHdr] = body[0] && body[0].length
+    ? cborLoad(body[0]) : [new Map()];
+  const unprotected: Map<any, any> = body[1] instanceof Map ? body[1] : new Map();
+  const proofs = unprotected.get(396);
+  const list = proofs instanceof Map ? proofs.get(-1) : null;
+  const inclusion = Array.isArray(list) ? list[0] : null;
+  let size: number | null = null, index: number | null = null;
+  let path: Uint8Array[] = [];
+  if (inclusion) {
+    const [parsed] = cborLoad(inclusion);
+    if (Array.isArray(parsed) && parsed.length === 3) {
+      size = parsed[0]; index = parsed[1]; path = parsed[2];
+    }
+  }
+  const hdr: Map<any, any> = protectedHdr instanceof Map ? protectedHdr : new Map();
+  return { vds: hdr.get(395), alg: hdr.get(1), treeSize: size,
+           leafIndex: index, path, detached: body[2] === null };
+}
 
 export function imprints(token: Uint8Array): string[] {
   const out: string[] = [];
@@ -714,16 +844,66 @@ export function validate(text: string): Report {
       adrift.push(`line ${g._line}: the token is not base64`);
       continue;
     }
+    if (kind === "scitt") {
+      /* What binds a receipt to this record is that the inclusion proof, taken
+       * over THIS record's digest, lands on the tree head the anchor declares.
+       * A receipt minted for another record reconstructs perfectly well and
+       * lands somewhere else, which is why the head has to be declared. */
+      const head = str(a.root).trim().toLowerCase();
+      if (!head) {
+        adrift.push(`line ${g._line}: a scitt anchor declares the tree head ` +
+          `its proof lands on, and this one does not`);
+        continue;
+      }
+      let rec;
+      try {
+        rec = readReceipt(raw);
+      } catch (e) {
+        adrift.push(`line ${g._line}: the receipt does not parse ` +
+          `(${String(e).slice(0, 40)})`);
+        continue;
+      }
+      if (rec.vds !== VDS_RFC9162_SHA256) {
+        checkable -= 1;
+        unread.push("scitt with vds " + rec.vds);
+        continue;
+      }
+      let got: Uint8Array | null = null;
+      try {
+        got = reconstructRoot(bytesOfHex(want.slice(7)),
+          rec.leafIndex as number, rec.treeSize as number, rec.path);
+      } catch (e) {
+        adrift.push(`line ${g._line}: the inclusion proof does not ` +
+          `reconstruct (${String(e).slice(0, 40)})`);
+        continue;
+      }
+      if (!got) continue;
+      const gotHex = Array.from(got)
+        .map((x: number) => x.toString(16).padStart(2, "0")).join("");
+      if (gotHex !== head)
+        adrift.push(`line ${g._line}: the proof over this record's digest ` +
+          `lands on ${gotHex.slice(0, 16)}.., not the declared head`);
+      continue;
+    }
+
     const found = imprints(raw);
     if (!found.length)
       adrift.push(`line ${g._line}: no SHA-256 imprint in the token`);
     else if (!found.includes(want.slice(7).toLowerCase()))
-      adrift.push(`line ${g._line}: the authority signed a different digest ` +
+      adrift.push(`line ${g._line}: the token is over a different digest ` +
         `(${found[0].slice(0, 16)}..)`);
   }
-  if (checkable)
-    add("TR-4", "the anchor's authority signed this record's digest",
+  // Two claims, and until 8 September 2026 they were reported as one. See
+  // the note in the Python reference: nothing here verifies a signature, so
+  // the imprint comparison keeps the verified mark it has earned and the
+  // authority's issuance becomes the attested claim it always was.
+  if (checkable) {
+    add("TR-4", "the anchor's token is over this record's digest",
       adrift.length === 0, adrift.slice(0, 3).join("; "));
+    add("TR-4", "and the authority named in it issued that token", true,
+      "no signature is checked here: that would need a certificate this " +
+      "validator does not carry");
+  }
   if (unread.length)
     add("TR-4", "an anchor of a kind this validator cannot recompute rests " +
       "on its authority", true,
@@ -744,7 +924,7 @@ export function validate(text: string): Report {
     const a = obj(g.anchor);
     const tok = str(a.token);
     const kind = str(a.kind).trim().toLowerCase();
-    if (!tok || (kind && !CHECKABLE_KINDS.has(kind))) continue;
+    if (!tok || !TIMESTAMPED_KINDS.has(kind)) continue;
     const raw = b64(tok);   /* genTime is RFC 3161's; another kind has none */
     if (!raw) continue;                       /* reported as adrift, above */
     const seen = genTime(raw);
