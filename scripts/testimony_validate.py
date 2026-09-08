@@ -365,6 +365,23 @@ def _parse(text: str) -> tuple[list[dict], list[str]]:
     return entries, errors
 
 
+# Three members are declared to be an Actor: a belief's `asserted_by`, a
+# decision's `proposed_by`, and an approval's `approver`. The Conventions
+# section defines one as an object carrying at least `id` and `kind`, and
+# until 8 September 2026 nothing here checked that. Presence was required and
+# shape was not, so `asserted_by: "review.v4"` passed TR-1 and TR-2 without
+# complaint.
+#
+# Found by babyblueviper1, who built a validator from the draft's prose alone
+# and ran it against the corpus. It disagreed on exactly one of fifty-four
+# cases, and it was right: the fixture was wrong AND this was why the fixture
+# could be wrong. That is what a second implementation is for, and it is a
+# defect no port of this file could ever have found, because a port inherits
+# the reading rather than the text.
+ACTOR_FIELDS = {"belief": "asserted_by", "decision": "proposed_by",
+                "approval": "approver"}
+ACTOR_KINDS = {"agent", "human", "system", "connector"}
+
 REQUIRED = {
     "scope": ("acts",),
     "belief": ("subject", "proposition", "polarity", "state", "asserted_by"),
@@ -430,6 +447,30 @@ def validate(text: str) -> Report:
                 missing.append(f"line {e['_line']}: {e.get('type')} missing '{f}'")
     r.add("TR-1", "required fields are present for each type", not missing,
           "; ".join(missing[:3]),
+          basis="verified")
+
+    # A name is not an actor. "review.v4" says something produced the belief and
+    # nothing about what kind of thing, which is the distinction the format
+    # exists to keep: a claim asserted by a model and one asserted by a person
+    # are different claims, and a string cannot tell them apart.
+    shapeless = []
+    for e in entries:
+        f = ACTOR_FIELDS.get(e.get("type"))
+        if not f or f not in e:
+            continue                    # absence is the required-fields check
+        who = e[f]
+        if not isinstance(who, dict):
+            shapeless.append(f"line {e['_line']}: {e['type']}.{f} is "
+                             f"{type(who).__name__}, not an object")
+            continue
+        if not str(who.get("id") or "").strip():
+            shapeless.append(f"line {e['_line']}: {e['type']}.{f} has no id")
+        if who.get("kind") not in ACTOR_KINDS:
+            shapeless.append(f"line {e['_line']}: {e['type']}.{f} kind "
+                             f"{who.get('kind')!r} is not one of "
+                             f"{sorted(ACTOR_KINDS)}")
+    r.add("TR-1", "every actor is an object naming an id and a kind",
+          not shapeless, "; ".join(shapeless[:3]),
           basis="verified")
 
     bad_enum = []
