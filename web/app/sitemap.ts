@@ -45,7 +45,6 @@ const ROUTES = [
   "/compare/mem0",
   "/compare/zep",
   "/compare/letta",
-  "/pricing",
   "/security",
   "/changelog",
   "/privacy",

@@ -51,7 +51,6 @@ const NAV = [
   { label: "Docs", href: "/docs" },
   { label: "Guides", href: "/guides" },
   { label: "Compare", href: "/compare" },
-  { label: "Pricing", href: "/pricing" },
   { label: "Security", href: "/security" },
   { label: "Changelog", href: "/changelog" },
 ];
@@ -196,7 +195,6 @@ const FOOTER = [
   ]},
   { group: "Product", items: [
     { label: "Accountability", href: "/accountability" },
-    { label: "Pricing", href: "/pricing" },
     { label: "Security", href: "/security" },
     { label: "Guides", href: "/guides" },
     { label: "Compare", href: "/compare" },

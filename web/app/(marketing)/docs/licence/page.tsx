@@ -129,7 +129,6 @@ export default function LicenceDocs() {
       </p>
 
       <div className="mt-10 flex flex-wrap gap-3">
-        <ButtonLink href="/pricing">What a licence costs</ButtonLink>
         <ButtonLink href="/pilot" variant="secondary">Talk about one</ButtonLink>
       </div>
     </article>
