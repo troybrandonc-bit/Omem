@@ -516,8 +516,20 @@ def _parse(text: str) -> tuple[list[dict], list[str]]:
 # could be wrong. That is what a second implementation is for, and it is a
 # defect no port of this file could ever have found, because a port inherits
 # the reading rather than the text.
+# `scope` is here because of machine-testimony#86. The draft defines its
+# `declared_by` as an Actor and this map had three keys, so the TR-1 actor
+# shape check never reached a fourth entry type that carries one. A scope
+# entry could say `declared_by: "the ops team"` and pass every check in the
+# file. Found by spec/sweep_promises.py rather than by anybody noticing,
+# which is the whole argument for the sweep.
+#
+# Adding a key does NOT make the member required: the dispatch below skips a
+# field that is absent, so an OPTIONAL member stays optional and only a
+# present one is shape-checked. babyblueviper1 confirmed both branches
+# against the dispatch before this was written.
 ACTOR_FIELDS = {"belief": "asserted_by", "decision": "proposed_by",
-                "approval": "approver"}
+                "approval": "approver",
+                "scope": "declared_by"}
 ACTOR_KINDS = {"agent", "human", "system", "connector"}
 
 REQUIRED = {
@@ -658,6 +670,26 @@ def validate(text: str) -> Report:
                 dangling.append(f"line {e['_line']}: cites {ev!r}")
     r.add("TR-2", "cited evidence exists in the record", not dangling,
           "; ".join(dangling[:3]),
+          basis="verified")
+
+    # machine-testimony#87. `inputs` on a decision is defined as "identifiers
+    # of the beliefs the decision rested on" and nothing read it, while the
+    # other three reference-shaped members were all resolved: cited evidence
+    # above, a conflict's sides below, and an integrity entry's `covers` at
+    # TR-4. Three resolved and one not, with nothing in the draft saying the
+    # difference was deliberate.
+    #
+    # It matters more than the others because it is the only member that says
+    # what a decision RESTED ON. The rest are structural; this one is the
+    # reasoning, and it is what an assessor reads to ask whether the thing
+    # approved was decided on the evidence in front of it.
+    stray = []
+    for d in by_type["decision"]:
+        for b in d.get("inputs", []) or []:
+            if by_id.get(b, {}).get("type") != "belief":
+                stray.append(f"line {d['_line']}: inputs cites {b!r}")
+    r.add("TR-2", "a decision's inputs name beliefs in the record",
+          not stray, "; ".join(stray[:3]),
           basis="verified")
 
     conflicts = by_type["conflict"]
