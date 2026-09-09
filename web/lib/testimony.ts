@@ -931,8 +931,18 @@ export function validate(text: string): Report {
    * and this validator was reading the token far enough to check the imprint
    * and then throwing that moment away. One-sided by nature: it catches
    * forward dating past the anchor and nothing back-dated. Raised in #49. */
+  /* Shipped 7 September with no allowance, and the first record anchored
+   * moments after being written failed it: the emitter's clock was two seconds
+   * ahead of DigiCert's, so entries were, by the authority's clock, from the
+   * future. RFC 3161 has an Accuracy field for this and DigiCert omits it
+   * ("Accuracy: unspecified"), so no principled tolerance can be derived from
+   * the token and five minutes is the judgement Kerberos, SAML and OIDC use.
+   * The measured offset is reported either way: it is the only outside reading
+   * of the emitter's clock the record contains, which is the whole of #44. */
+  const SKEW_ALLOWANCE = 300;
   const late: string[] = [];
   let bounded = false;
+  let skew = 0;
   for (const g of integrity) {
     if (str(g.scheme) !== "external-anchor" || !Array.isArray(g.covers)) continue;
     const a = obj(g.anchor);
@@ -949,14 +959,26 @@ export function validate(text: string): Report {
       const e = byId.get(String(cid));
       if (!e) continue;                        /* reported as stale, above */
       const when = utcSeconds(str(e.at));
-      if (when !== null && when > bound)
-        late.push(`line ${e._line}: written ${str(e.at)}, after the ${seen} ` +
-          `the authority saw it`);
+      if (when === null || when <= bound) continue;
+      const ahead = when - bound;
+      if (ahead > skew) skew = ahead;
+      if (ahead > SKEW_ALLOWANCE)
+        late.push(`line ${e._line}: written ${str(e.at)}, ${ahead} seconds ` +
+          `after the ${seen} the authority saw it, which is longer than a ` +
+          `clock is wrong`);
     }
   }
-  if (bounded)
-    add("TR-4", "no entry claims a write time later than the anchor saw it",
-      late.length === 0, late.slice(0, 3).join("; "));
+  if (bounded) {
+    let detail = late.slice(0, 3).join("; ");
+    if (late.length === 0 && skew)
+      detail = `measured: the emitter's clock reads ${skew} second` +
+        `${skew === 1 ? "" : "s"} ahead of the authority's. Within the ` +
+        `${SKEW_ALLOWANCE}s allowed for clock error, and reported rather ` +
+        `than hidden because it is the only outside reading of the emitter's ` +
+        `clock in the record.`;
+    add("TR-4", "no entry post-dates the anchor by more than a clock " +
+      "could be wrong", late.length === 0, detail);
+  }
 
   /* The level reached is the highest with nothing failing below it. */
   const failed = (lvl: Level) => checks.some((c) => c.level === lvl && !c.ok);

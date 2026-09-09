@@ -1065,7 +1065,31 @@ def validate(text: str) -> Report:
     # satisfied by any earlier claim too. Closing the other side needs a stamp
     # taken BEFORE the fact, which is a different requirement and not this one.
     # Raised by babyblueviper1 in #49, the second of its three parts.
-    late, bounded = [], False
+    # HOW MUCH LATER IS A CLOCK, AND HOW MUCH LATER IS A LIE.
+    #
+    # This shipped on 7 September with no allowance at all, and the first time
+    # anybody anchored a record they had just written, it failed. The emitter's
+    # clock was two seconds ahead of DigiCert's, so entries written moments
+    # before the request were, by the authority's clock, from the future. It is
+    # intermittent, which is worse than a consistent failure: the same example
+    # passed on one run and failed on the next.
+    #
+    # RFC 3161 has a field for exactly this. Accuracy is OPTIONAL, and DigiCert
+    # omits it: `openssl ts -reply -text` on a token fetched 9 September 2026
+    # prints "Accuracy: unspecified". So a verifier CANNOT derive a principled
+    # tolerance from the token, and the choice below is a judgement rather than
+    # a reading of the authority's own statement. Five minutes is the allowance
+    # Kerberos, SAML and OIDC have long used for the same problem.
+    #
+    # The number is not thrown away. A binary check computes the one figure
+    # that matters and discards it, and that figure is the closest a record
+    # comes to answering #44: `at` is authored by the emitter and nothing
+    # checks it against anything outside, EXCEPT here, where a third party's
+    # clock sits beside it. Two seconds is every machine. Two hundred is worth
+    # a reader's attention even though it passes. So the measured offset is
+    # reported whether it passes or fails.
+    SKEW_ALLOWANCE = 300
+    late, bounded, skew = [], False, 0
     for g in integrity:
         if g.get("scheme") != "external-anchor" or not g.get("covers"):
             continue
@@ -1086,13 +1110,25 @@ def validate(text: str) -> Report:
             if not e:
                 continue                    # already reported as stale, above
             when = _utc_seconds(str(e.get("at") or ""))
-            if when is not None and when > bound:
-                late.append("line %d: written %s, after the %s the authority "
-                            "saw it" % (e["_line"], e.get("at"), seen))
+            if when is None or when <= bound:
+                continue
+            ahead = when - bound
+            skew = max(skew, ahead)
+            if ahead > SKEW_ALLOWANCE:
+                late.append("line %d: written %s, %d seconds after the %s the "
+                            "authority saw it, which is longer than a clock is "
+                            "wrong" % (e["_line"], e.get("at"), ahead, seen))
     if bounded:
-        r.add("TR-4", "no entry claims a write time later than the anchor saw it",
-              not late, "; ".join(late[:3]),
-              basis="verified")
+        detail = "; ".join(late[:3])
+        if not late and skew:
+            detail = ("measured: the emitter's clock reads %d second%s ahead "
+                      "of the authority's. Within the %ds allowed for clock "
+                      "error, and reported rather than hidden because it is "
+                      "the only outside reading of the emitter's clock in the "
+                      "record." % (skew, "" if skew == 1 else "s",
+                                   SKEW_ALLOWANCE))
+        r.add("TR-4", "no entry post-dates the anchor by more than a clock "
+                      "could be wrong", not late, detail, basis="verified")
 
 
     # ── the level reached is the highest with nothing failing below it ───────
@@ -1133,7 +1169,12 @@ def main() -> int:
             for c in here:
                 mark = "ok  " if c["ok"] else "FAIL"
                 print(f"  {mark} {c['check']}")
-                if not c["ok"] and c["detail"]:
+                # Detail on a PASSING check too, when there is any. Almost
+                # every check leaves it empty when it passes, so this is quiet
+                # by default. The one that does not is the anchor skew, which
+                # computes the only outside reading of the emitter's clock in
+                # the record and would otherwise compute it and throw it away.
+                if c["detail"]:
                     print(f"       {c['detail']}")
         scope = "" if r.scope == "acts" else f", {r.scope}"
         print("\nConformance: " + (r.level or "none, TR-1 not met") + scope)
