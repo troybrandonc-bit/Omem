@@ -17,13 +17,23 @@
  * Copyright 2026 Garnet Taurus Ltd. MIT licensed. */
 
 export const SPEC = "testimony-record/0.2";
-export const SPECS = ["testimony-record/0.1", "testimony-record/0.2"];
+export const SPECS = ["testimony-record/0.1", "testimony-record/0.2",
+  "testimony-record/0.3"];
 export const LEVELS = ["TR-1", "TR-2", "TR-3", "TR-4"] as const;
 export type Level = (typeof LEVELS)[number];
 
 const TYPES = new Set([
   "belief", "evidence", "conflict", "decision", "approval", "integrity", "scope",
+  "observation",
 ]);
+
+/* `observation` is new in 0.3 and is NOT a known type before it. Adding a
+ * type to the global set would otherwise change what an 0.2 record means:
+ * one carrying an observation would start passing checks written for a
+ * version that had never heard of it. machine-testimony#91. */
+const TYPES_FROM: Record<string, string> = {
+  observation: "testimony-record/0.3",
+};
 
 const RFC3339 =
   /^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+-]\d{2}:\d{2})$/;
@@ -70,6 +80,10 @@ const REQUIRED: Record<string, string[]> = {
   decision: ["action_type", "risk_class", "proposed_by", "verdict", "executed"],
   approval: ["decision", "approver"],
   integrity: ["scheme", "digest"],
+  // `basis` is deliberately NOT required. An omitted basis is unknown,
+  // never `asserted`: absence does not distinguish an observation that was
+  // made and left out from one that never happened. @HarperZ9 on #90.
+  observation: ["decision", "claim"],
 };
 
 const ENUMS: [string, string, string[]][] = [
@@ -86,6 +100,19 @@ const ENUMS: [string, string, string[]][] = [
   // 0.2 record stays valid.
   ["decision", "outcome", ["confirmed", "not_attempted", "unconfirmed"]],
   ["integrity", "scheme", ["replay", "hash-chain", "signature", "external-anchor"]],
+  // Three descriptions of what was observed, NOT three trust levels and
+  // not a ladder. A forged target-state read claims `effect-observed`
+  // while establishing less than an honest `response-received`, so these
+  // must never be mapped onto TR-1..TR-4. @HarperZ9 corrected this.
+  ["observation", "basis",
+    ["effect-observed", "response-received", "asserted"]],
+  ["observation", "result", ["supports", "contradicts", "inconclusive"]],
+  // Colorado's proposed Rule 7.7 asks TWICE whether a reviewer approved,
+  // MODIFIED or overrode, and makes it evidentiary. `decision.verdict` is
+  // the SYSTEM's gate and has no room for the middle value, so a reviewer
+  // who changed an action before allowing it was recorded as approving it
+  // unchanged. machine-testimony#88. New in 0.3.
+  ["approval", "disposition", ["approved", "modified", "overrode"]],
 ];
 
 export type Entry = Record<string, unknown> & { _line?: number };
@@ -113,7 +140,7 @@ const ACTOR_FIELDS: Record<string, string> = {
   // machine-testimony#86: `scope` carries `declared_by`, defined as an Actor,
   // and this map had three keys so the shape check never reached it.
   belief: "asserted_by", decision: "proposed_by", approval: "approver",
-  scope: "declared_by",
+  scope: "declared_by", observation: "observer",
 };
 const ACTOR_KINDS = new Set(["agent", "human", "system", "connector"]);
 
@@ -761,6 +788,67 @@ export function validate(text: string): Report {
     "an approval names a person, other than the proposer, for a decision in " +
     "the record",
     badApprover.length === 0, badApprover.slice(0, 3).join("; "));
+
+  /* A modification that does not say what it modified is not a record of a
+   * modification. `approved` owes nothing, which is the point: the vocabulary
+   * exists so the two cases stop producing the same entry. */
+  const CHANGED_DISPOSITIONS = new Set(["modified"]);
+  const changedSilent: string[] = [];
+  for (const a of approvals)
+    if (CHANGED_DISPOSITIONS.has(str(a.disposition)) && !str(a.changed).trim())
+      changedSilent.push(`line ${a._line}: disposition ${JSON.stringify(str(a.disposition))} without \`changed\``);
+  add("TR-3", "an approval that modified the action says what it changed",
+    changedSilent.length === 0, changedSilent.slice(0, 3).join("; "));
+
+  /* ── observation: on what basis the record claims an effect (0.3) ───────
+   *
+   * `observation` is to `outcome` what `approval` is to `verdict`: a separate
+   * entry referencing the thing it concerns, carrying an Actor, keeping the
+   * provenance of a claim beside the claim rather than inside it. It is not a
+   * member on `decision` because a later observation written back onto one
+   * would rewrite an entry and whatever digest covers it.
+   *
+   * What these CANNOT establish: that the source is authentic, that the
+   * observer observed anything, or that the observer is independent of the
+   * proposer. A different Actor id is not independence. */
+  const observations = of("observation");
+
+  const obsEarly = observations.filter(
+    (o) => (str(o.spec) || report.spec) !== TYPES_FROM.observation);
+  add("TR-1", "an observation appears only in a version that defines it",
+    obsEarly.length === 0,
+    obsEarly.slice(0, 3).map((o) =>
+      `line ${o._line}: observation in ${JSON.stringify(str(o.spec) || report.spec)}`)
+      .join("; "));
+
+  const obsDangling: string[] = [];
+  for (const o of observations) {
+    if (str((byId.get(str(o.decision)) ?? {}).type) !== "decision")
+      obsDangling.push(`line ${o._line}: observes a decision not in the record`);
+    for (const ev of (Array.isArray(o.evidence) ? o.evidence : []))
+      if (str((byId.get(str(ev)) ?? {}).type) !== "evidence")
+        obsDangling.push(`line ${o._line}: evidence ${JSON.stringify(str(ev))} does not resolve`);
+  }
+  add("TR-1", "an observation resolves to a decision and to its evidence",
+    obsDangling.length === 0, obsDangling.slice(0, 3).join("; "));
+
+  /* An observation-based basis is a claim to have looked at something, so it
+   * owes both the thing looked at and who looked. `asserted` owes neither, and
+   * an empty evidence array stays expressible for it: an assertion with
+   * nothing behind it is a legitimate state, and the point of the vocabulary
+   * is that it has to say so. */
+  const OBSERVED = new Set(["effect-observed", "response-received"]);
+  const obsUnbacked: string[] = [];
+  for (const o of observations) {
+    if (!OBSERVED.has(str(o.basis))) continue;
+    if (!(Array.isArray(o.evidence) && o.evidence.length))
+      obsUnbacked.push(`line ${o._line}: basis ${JSON.stringify(str(o.basis))} with no evidence`);
+    if (!str(obj(o.observer).id).trim())
+      obsUnbacked.push(`line ${o._line}: basis ${JSON.stringify(str(o.basis))} names no observer`);
+  }
+  add("TR-1",
+    "an observation that claims to have looked says what at, and who looked",
+    obsUnbacked.length === 0, obsUnbacked.slice(0, 3).join("; "));
 
   const unsourced: string[] = [];
   for (const a of approvals) {

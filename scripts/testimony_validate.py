@@ -30,10 +30,39 @@ import re
 import sys
 
 SPEC = "testimony-record/0.2"
-SPECS = ("testimony-record/0.1", "testimony-record/0.2")
+SPECS = ("testimony-record/0.1", "testimony-record/0.2",
+         "testimony-record/0.3")
 LEVELS = ["TR-1", "TR-2", "TR-3", "TR-4"]
 TYPES = {"belief", "evidence", "conflict", "decision", "approval", "integrity",
-         "scope"}
+         "scope", "observation"}
+
+# `observation` is new in 0.3 and is NOT a known type before it. Adding a
+# type to the global set would otherwise change what an 0.2 record means:
+# one carrying an observation would start passing checks written for a
+# version that had never heard of it. machine-testimony#91 says no old
+# record may be silently upgraded or demoted, and this is the half of that
+# rule the validator can enforce.
+TYPES_FROM = {"observation": "testimony-record/0.3"}
+
+# Which of SPECS the published specification actually documents. The validator
+# is allowed to run ahead of the draft, because a draft on the IETF datatracker
+# is a slower and more public thing to change than a check, and publishing an
+# unsettled design as normative text is worse than lagging. Everything a
+# released type gets, an unreleased one also gets: shape, enums, the version
+# gate, and the drift comparison between the two validators. The only thing it
+# does not get is a promise, and RELEASED is where that line is drawn so it is
+# a fact the tests can read rather than something somebody remembers.
+RELEASED = ("testimony-record/0.1", "testimony-record/0.2")
+UNRELEASED_TYPES = frozenset(
+    t for t, v in TYPES_FROM.items() if v not in RELEASED)
+
+# The same thing one level down. `approval` is released and
+# `approval.disposition` is not, which the type-level set above cannot express.
+# Without this the draft asks for an enum the specification has not published
+# and the check that holds them to each other is right to fail.
+MEMBERS_FROM = {("approval", "disposition"): "testimony-record/0.3"}
+UNRELEASED_MEMBERS = frozenset(
+    k for k, v in MEMBERS_FROM.items() if v not in RELEASED)
 
 # `scope` exists because this validator was refusing a level to systems that
 # had earned it. TR-3 required at least one decision entry, on the reasoning
@@ -440,13 +469,14 @@ def _declared(value: object, allowed: set) -> str:
 
 class Report:
     def __init__(self):
+        self.unreleased: set = set()
         self.checks: list[dict] = []
         self.level: str | None = None
         self.spec: str = SPEC
         self.scope: str = "acts"
 
     def add(self, level: str, name: str, ok: bool, detail: str = "", *,
-            basis: str):
+            basis: str, since: str | None = None):
         """Record a check and, as importantly, what kind of check it was.
 
         `verified` means a reader can confirm it from the record alone:
@@ -460,6 +490,12 @@ class Report:
         """
         if basis not in ("verified", "attested"):
             raise ValueError("basis must be 'verified' or 'attested'")
+        # A check introduced in a version the specification has not published
+        # is not a requirement of the published one. Kept off `checks` so the
+        # JSON report stays byte-identical to the TypeScript port's, and read
+        # by build_profile instead.
+        if since is not None and since not in RELEASED:
+            self.unreleased.add(name)
         self.checks.append({"level": level, "check": name, "ok": ok,
                             "detail": detail, "basis": basis})
 
@@ -529,7 +565,8 @@ def _parse(text: str) -> tuple[list[dict], list[str]]:
 # against the dispatch before this was written.
 ACTOR_FIELDS = {"belief": "asserted_by", "decision": "proposed_by",
                 "approval": "approver",
-                "scope": "declared_by"}
+                "scope": "declared_by",
+                "observation": "observer"}
 ACTOR_KINDS = {"agent", "human", "system", "connector"}
 
 REQUIRED = {
@@ -540,6 +577,10 @@ REQUIRED = {
     "decision": ("action_type", "risk_class", "proposed_by", "verdict", "executed"),
     "approval": ("decision", "approver"),
     "integrity": ("scheme", "digest"),
+    # `basis` is deliberately NOT required. An omitted basis is unknown,
+    # never `asserted`: absence does not distinguish an observation that
+    # was made and left out from one that never happened. @HarperZ9 on #90.
+    "observation": ("decision", "claim"),
 }
 ENUMS = {
     ("belief", "polarity"): {"affirm", "deny"},
@@ -557,7 +598,33 @@ ENUMS = {
     # contradictions it makes expressible are checked below.
     ("decision", "outcome"): {"confirmed", "not_attempted", "unconfirmed"},
     ("integrity", "scheme"): {"replay", "hash-chain", "signature", "external-anchor"},
+    # Three descriptions of what was observed, NOT three trust levels and
+    # not a ladder. A forged target-state read claims `effect-observed`
+    # while establishing less than an honest `response-received`, so these
+    # must never be mapped onto TR-1..TR-4. @HarperZ9 corrected me on this.
+    ("observation", "basis"): {"effect-observed", "response-received",
+                               "asserted"},
+    ("observation", "result"): {"supports", "contradicts", "inconclusive"},
+    # Colorado's proposed Rule 7.7 asks TWICE whether a reviewer approved,
+    # MODIFIED or overrode the output, and then makes it evidentiary: an
+    # override that fully reverses a decision "indicates that human review was
+    # meaningful". `decision.verdict` is permitted or refused, which is the
+    # SYSTEM's gate and has no room for the middle value, so a reviewer who
+    # changed an action before allowing it was recorded as having approved it
+    # unchanged. That was machine-testimony#88, disclosed in the Colorado
+    # comment and in the testimony before it was fixed, and three of five agent
+    # frameworks read still cannot emit it. New in 0.3 with `observation`.
+    ("approval", "disposition"): {"approved", "modified", "overrode"},
 }
+
+# `modified` owes what it changed. The other two do not, and the reason is not
+# leniency. `approved` changed nothing. `overrode` reversed the decision, and
+# the reversal is already recorded as `verdict: refused` on the decision it
+# points at, so demanding a prose restatement of it would add a field whose
+# only possible content is a worse copy of a fact already there. Narrowed after
+# the LangGraph adapter test refused a refusal for failing to say what it had
+# changed, which was the check being wrong rather than the record.
+CHANGED = {"modified"}
 
 
 def validate(text: str) -> Report:
@@ -855,6 +922,75 @@ def validate(text: str) -> Report:
                   "decision in the record", not bad_approver,
           "; ".join(bad_approver[:3]),
           basis="verified")
+
+    # ── observation: on what basis the record claims an effect (0.3) ─────
+    #
+    # `observation` is to `outcome` what `approval` is to `verdict`: a separate
+    # entry that references the thing it concerns, carries an Actor, and keeps
+    # the provenance of a claim beside the claim rather than inside it. The
+    # reason it is not a member on `decision` is @HarperZ9's: a later
+    # observation written back onto a decision would rewrite an entry and
+    # whatever digest covers it, so the format would be asking an emitter to
+    # break its own integrity claim in order to become more honest.
+    #
+    # What these checks CANNOT establish, and the draft has to say so out loud:
+    # that the source is authentic, that the observer observed anything, or
+    # that the observer is independent of the proposer. A different Actor id is
+    # not independence. Shape is all that is verified here.
+    observations = by_type["observation"]
+
+    early = [o for o in observations
+             if (o.get("spec") or r.spec) != TYPES_FROM["observation"]]
+    r.add("TR-1", "an observation appears only in a version that defines it",
+          not early,
+          "; ".join(f"line {o['_line']}: observation in "
+                    f"{o.get('spec') or r.spec!r}" for o in early[:3]),
+          basis="verified")
+
+    dangling = []
+    for o in observations:
+        if by_id.get(o.get("decision") or "", {}).get("type") != "decision":
+            dangling.append(f"line {o['_line']}: observes a decision not in "
+                            f"the record")
+        for ev in o.get("evidence") or []:
+            if by_id.get(ev, {}).get("type") != "evidence":
+                dangling.append(f"line {o['_line']}: evidence {ev!r} does not "
+                                f"resolve")
+    r.add("TR-1", "an observation resolves to a decision and to its evidence",
+          not dangling, "; ".join(dangling[:3]), basis="verified")
+
+    # An observation-based basis is a claim to have looked at something, so it
+    # owes both the thing looked at and who looked. `asserted` owes neither,
+    # and an empty evidence array stays expressible for it: an assertion with
+    # nothing behind it is a legitimate state, and the point of the vocabulary
+    # is that it has to say so.
+    OBSERVED = {"effect-observed", "response-received"}
+    unbacked = []
+    for o in observations:
+        if o.get("basis") not in OBSERVED:
+            continue
+        if not (o.get("evidence") or []):
+            unbacked.append(f"line {o['_line']}: basis {o['basis']!r} with no "
+                            f"evidence")
+        if not str((o.get("observer") or {}).get("id") or "").strip():
+            unbacked.append(f"line {o['_line']}: basis {o['basis']!r} names no "
+                            f"observer")
+    r.add("TR-1", "an observation that claims to have looked says what at, and "
+                  "who looked", not unbacked,
+          "; ".join(unbacked[:3]), basis="verified")
+
+    # A modification that does not say what it modified is not a record of a
+    # modification. `approved` owes nothing, which is the point: the vocabulary
+    # exists so that the two cases stop producing the same entry.
+    silent = []
+    for a in approvals:
+        if a.get("disposition") in CHANGED and not str(
+                a.get("changed") or "").strip():
+            silent.append(f"line {a['_line']}: disposition "
+                          f"{a['disposition']!r} without `changed`")
+    r.add("TR-3", "an approval that modified the action says what it changed",
+          not silent, "; ".join(silent[:3]), basis="verified",
+          since="testimony-record/0.3")
 
     unsourced = []
     for a in approvals:

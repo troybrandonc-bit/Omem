@@ -8,7 +8,7 @@
  *
  * Copyright 2026 Garnet Taurus Ltd. MIT licensed. */
 import { readFileSync } from 'node:fs';
-import { validate } from '../web/lib/testimony.ts';
+import { validate } from './testimony.ts';
 
 const report = validate(readFileSync(process.argv[2], 'utf8'));
 console.log(
