@@ -31,10 +31,10 @@ import sys
 
 SPEC = "testimony-record/0.2"
 SPECS = ("testimony-record/0.1", "testimony-record/0.2",
-         "testimony-record/0.3")
+         "testimony-record/0.3", "testimony-record/0.4")
 LEVELS = ["TR-1", "TR-2", "TR-3", "TR-4"]
 TYPES = {"belief", "evidence", "conflict", "decision", "approval", "integrity",
-         "scope", "observation"}
+         "scope", "observation", "shown"}
 
 # `observation` is new in 0.3 and is NOT a known type before it. Adding a
 # type to the global set would otherwise change what an 0.2 record means:
@@ -42,7 +42,8 @@ TYPES = {"belief", "evidence", "conflict", "decision", "approval", "integrity",
 # version that had never heard of it. machine-testimony#91 says no old
 # record may be silently upgraded or demoted, and this is the half of that
 # rule the validator can enforce.
-TYPES_FROM = {"observation": "testimony-record/0.3"}
+TYPES_FROM = {"observation": "testimony-record/0.3",
+              "shown": "testimony-record/0.4"}
 
 # Which of SPECS the published specification actually documents. The validator
 # is allowed to run ahead of the draft, because a draft on the IETF datatracker
@@ -52,7 +53,8 @@ TYPES_FROM = {"observation": "testimony-record/0.3"}
 # gate, and the drift comparison between the two validators. The only thing it
 # does not get is a promise, and RELEASED is where that line is drawn so it is
 # a fact the tests can read rather than something somebody remembers.
-RELEASED = ("testimony-record/0.1", "testimony-record/0.2")
+RELEASED = ("testimony-record/0.1", "testimony-record/0.2",
+            "testimony-record/0.3")
 UNRELEASED_TYPES = frozenset(
     t for t, v in TYPES_FROM.items() if v not in RELEASED)
 
@@ -581,6 +583,23 @@ REQUIRED = {
     # never `asserted`: absence does not distinguish an observation that
     # was made and left out from one that never happened. @HarperZ9 on #90.
     "observation": ("decision", "claim"),
+    # `shown` is what was put in front of the reviewer, which is the one thing
+    # in Colorado's proposed Rule 7.7 that no framework read for the census can
+    # produce, and the one the record has been silent about. `inputs` names the
+    # beliefs a DECISION rested on, which is the system's reasoning and not the
+    # rendering: a reviewer sees a summary while the decision rested on forty
+    # beliefs, or is shown a rendering that omits the belief that mattered, and
+    # both produce an accurate record of the system and a silent one about the
+    # review.
+    #
+    # The digest is REQUIRED and the reason is the whole design. Naming
+    # identifiers establishes only which things were ELIGIBLE to be shown. Two
+    # renderers can both cite belief b17 while one displays a one-line summary
+    # and the other the full text: same reference set, materially different
+    # review. Without a hash of the literal rendered bytes the entry proves
+    # eligibility while letting a reader hear attention, which is worse than
+    # not having it, because the false version is more convincing than silence.
+    "shown": ("decision", "digest", "shown_to"),
 }
 ENUMS = {
     ("belief", "polarity"): {"affirm", "deny"},
@@ -979,6 +998,60 @@ def validate(text: str) -> Report:
                   "who looked", not unbacked,
           "; ".join(unbacked[:3]), basis="verified")
 
+    # ── shown: what was put in front of the reviewer (0.4) ───────────────
+    #
+    # A separate entry rather than a member on the decision, and the reason is
+    # the adversary rather than tidiness. A bad `inputs` lies about the
+    # system's own reasoning. A bad `shown` lies about a UI event outside the
+    # system entirely: a component that truncates, a scroll position, a stale
+    # cache. One check cannot distinguish "the reasoning was wrong" from "the
+    # reasoning was right and nobody saw it", and merging the members
+    # relocates that ambiguity rather than removing it.
+    #
+    # WHAT THIS CANNOT ESTABLISH, and it is most of what a reader wants. That
+    # the rendering was displayed. That the person looked at it, or read it,
+    # or understood it. That the digest is of what a screen actually drew
+    # rather than of what a server meant to send. Every check below is about
+    # shape, and the entry is an attested claim about an event this format
+    # cannot reach. It is worth recording for the reason every attestation
+    # here is worth recording: a system that records nothing cannot be
+    # contradicted, and one that records a specific claim can be.
+    shown_entries = by_type["shown"]
+
+    early_shown = [s for s in shown_entries
+                   if (s.get("spec") or r.spec) != TYPES_FROM["shown"]]
+    r.add("TR-1", "a shown entry appears only in a version that defines it",
+          not early_shown,
+          "; ".join(f"line {s['_line']}: shown in "
+                    f"{s.get('spec') or r.spec!r}" for s in early_shown[:3]),
+          basis="verified", since=TYPES_FROM["shown"])
+
+    loose = []
+    for s in shown_entries:
+        if by_id.get(s.get("decision") or "", {}).get("type") != "decision":
+            loose.append(f"line {s['_line']}: names a decision not in the "
+                         f"record")
+        for cited in s.get("cites") or []:
+            if cited not in by_id:
+                loose.append(f"line {s['_line']}: cites {cited!r}, which does "
+                             f"not resolve")
+    r.add("TR-1", "a shown entry resolves to a decision and to what it cites",
+          not loose, "; ".join(loose[:3]), basis="verified",
+          since=TYPES_FROM["shown"])
+
+    # The digest is the entry. An identifier set says what was ELIGIBLE to be
+    # shown; only a hash of the rendered bytes distinguishes a summary from
+    # the full text, which is the difference between two materially different
+    # reviews that would otherwise write identical records.
+    malformed = [f"line {s['_line']}: digest {s.get('digest')!r}"
+                 for s in shown_entries
+                 if not re.fullmatch(r"sha256:[0-9a-f]{64}",
+                                     str(s.get("digest") or ""))]
+    r.add("TR-1", "a shown entry carries a digest of the rendering, not only "
+                  "a list of what it drew on", not malformed,
+          "; ".join(malformed[:3]), basis="verified",
+          since=TYPES_FROM["shown"])
+
     # A modification that does not say what it modified is not a record of a
     # modification. `approved` owes nothing, which is the point: the vocabulary
     # exists so that the two cases stop producing the same entry.
@@ -1037,6 +1110,51 @@ def validate(text: str) -> Report:
     r.add("TR-4", "an external anchor names its authority and carries its token",
           not hollow, "; ".join(hollow[:3]),
           basis="verified")
+
+    # A signature was the one scheme with no branch at all, so a record reached
+    # TR-4 by typing the word into an enum: no signer, no algorithm, no
+    # signature bytes, and both checks above pass because `digest` is there.
+    # Reported by @RemanenetSpy on machine-testimony#92.
+    #
+    # Nothing in this repository has ever emitted `scheme: "signature"`: not a
+    # conformance fixture, not an adapter, and `testimony_emit.py` carries it in
+    # the enum and never writes it. So this tightens a member no existing record
+    # uses, which is why it is a defect fix applying to every version rather
+    # than an 0.4 addition hiding behind a version gate. Same precedent as the
+    # anchor check on 8 September 2026: a check that should always have been
+    # there is not a new requirement.
+    #
+    # The payload is nested under `signature` rather than flat, so an entry's
+    # members say which scheme they belong to without a reader having to know
+    # the scheme, exactly as `anchor` does for external-anchor.
+    unsigned = []
+    signed = []
+    for g in integrity:
+        if g.get("scheme") != "signature":
+            continue
+        signed.append(g)
+        sig = g.get("signature")
+        if not isinstance(sig, dict):
+            unsigned.append(f"line {g['_line']}: no signature object")
+            continue
+        for f in ("signer", "algorithm", "value"):
+            if not sig.get(f):
+                unsigned.append(f"line {g['_line']}: signature missing {f!r}")
+    if signed:
+        # The two claims kept apart, which is the lesson the anchor check paid
+        # for. Completeness is about bytes in this file and could be called
+        # verified; whether those bytes are a signature that checks out cannot,
+        # and presenting them as one claim is the error this format exists to
+        # expose.
+        r.add("TR-4", "a signature names its signer, its algorithm and its value",
+              not unsigned, "; ".join(unsigned[:3]),
+              basis="attested")
+        r.add("TR-4", "and that signature verifies against the named key",
+              True, "not checked here: this validator has no dependencies on "
+              "purpose, and Ed25519 or ES256 verification is not in the "
+              "standard library. The entry carries what a verifier holding the "
+              "trust roots needs to check it elsewhere",
+              basis="attested")
 
     stale = []
     for g in integrity:
