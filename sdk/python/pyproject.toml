@@ -66,7 +66,7 @@ postgres = ["psycopg2-binary>=2.9"]
 # LangChain agent gets memory where a put supersedes instead of overwriting.
 # An EXTRA because the adapter is opt-in and importing it is the only thing
 # that needs langgraph: `pip install "omem-infrastructure[langgraph]"`.
-langgraph = ["langgraph>=0.2"]
+langgraph = ["langgraph>=1.2.12"]
 # OMEM_ENCRYPT_AT_REST needs real AEAD. The stdlib fallback used for OAuth
 # tokens is a hand-rolled HMAC-SHA256 keystream, which is not what an entire
 # memory store should be encrypted with, so content encryption refuses to run
