@@ -61,7 +61,7 @@ dev = ["pytest>=7", "hypothesis>=6"]
 # ModuleNotFoundError for everyone who followed DEPLOYMENT.md. It stays an
 # EXTRA, not a dependency, because the SQLite default must keep installing with
 # no compiler and no wheels: `pip install "omem-infrastructure[postgres]"`.
-postgres = ["psycopg2-binary>=2.9"]
+postgres = ["psycopg2-binary>=2.9.13"]
 # omem.integrations.langgraph_store makes OMEM a LangGraph BaseStore, so a
 # LangChain agent gets memory where a put supersedes instead of overwriting.
 # An EXTRA because the adapter is opt-in and importing it is the only thing
